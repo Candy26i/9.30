@@ -37,4 +37,6 @@ the historical SFT-only loop and disabled legacy RL entry point are unchanged.
 - [Complete experiment plan (Chinese): training stages, benchmarks, controls, budgets, and current status](agent_routing/docs/MARGENT_RSI_EXPERIMENT_PLAN.md)
 - [Subagent training plan (Chinese): role data, LoRA SFT, validation, frozen serving, and implementation gaps](agent_routing/docs/SUBAGENT_TRAINING_PLAN.md)
 
-The current math pilot uses one frozen model with three role prompts. Training and serving three specialized math adapters is a planned extension, not a completed experiment.
+The math workflow now starts with three independent Numina role SFT adapters, then freezes them for Manager training. Data isolation, resumable SFT, role serving and W&B evidence are implemented; a completed 9B GPU experiment is still required.
+
+- [Expert-first RunPod entry point and supervision limits](agent_routing/docs/EXPERT_SFT_RUNPOD.md)

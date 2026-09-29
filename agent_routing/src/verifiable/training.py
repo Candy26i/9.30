@@ -66,12 +66,17 @@ def train_sft(config, checkpoint, data_path, output):
     from transformers import DataCollatorForSeq2Seq, Trainer, TrainingArguments, set_seed
     if config.get("sft_max_steps", -1) <= 0:
         raise ValueError("Set a positive sft_max_steps shared across comparison arms")
+    from .expert_isolation import verify_manager_rows
+    rows = read_jsonl(data_path)
+    expert_isolation = verify_manager_rows(config, rows)
     finished, resume_checkpoint = _training_output(output, config, checkpoint, data_path, "sft")
     if finished:
         from .runner import validate_stage_artifacts
         validate_stage_artifacts(output, "sft")
         return
     with Monitor(output, "sft") as monitor:
+        if expert_isolation.get('checked'):
+            monitor.summary({'expert_data_isolation': expert_isolation})
         set_seed(config["seed"])
         tok, model = load_model(config["base_model"], checkpoint, trainable=True,
                                 lora_rank=config.get("lora_rank", 16), revision=config.get("base_model_revision"))
@@ -81,7 +86,6 @@ def train_sft(config, checkpoint, data_path, output):
             "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
             "total_parameters": sum(p.numel() for p in model.parameters())})
         progress(phase="preparing_sft_data")
-        rows = read_jsonl(data_path)
         if any(r.get("split") != "train" or r.get("protocol_version") != 2 for r in rows):
             raise ValueError("SFT requires protocol-v2 train-only rows exported by collect")
         if any(not any(str(m.get("content") or "").strip() or m.get("tool_calls")

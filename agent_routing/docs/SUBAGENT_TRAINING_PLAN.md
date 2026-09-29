@@ -6,9 +6,9 @@
 
 目标是训练三个独立角色 adapter：extractor、reasoner、verifier，并检验它们能否给 Manager 提供更有用、更可靠的帮助。
 
-当前数学服务 src/verifiable/serve.py 只加载一个 HFBackend 和一个可选 checkpoint；三个别名共用该模型，区别来自角色提示。它不会根据别名自动切换三个角色 LoRA。旧 src/subagents/train.py 虽有 SFT，但其模型加载、模板、截断处理、日志和恢复尚未与数学 protocol-v2 路径统一。
+2026-09-29 实现更新：已新增 expert_data.py、expert_train.py、expert_eval.py、experts.py，支持数据构建、独立角色LoRA、dev对照、重载冻结及一个base切换三套adapter。执行说明与实际标签边界见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。当前是弱监督pilot；代码和本地小模型验证不等于已完成9B GPU训练。
 
-因此，本文件规定需要实现的数学专家训练阶段；不能把现有三个别名描述为已经训练完成的三个专家，也不能直接把旧 MedQA 专家当作数学专家。
+下文保留完整研究目标。当前首版Extractor为题面词法提取、Reasoner为未经独立证明校验的Numina参考、Verifier为可执行的正确/错误局部算术步骤；uncertain=0。完整推导审核、自然错误、人工质量验证仍待补充，不据此声称三类覆盖或能力提升。
 
 ## 2. 先训练专家，再冻结训练 Manager
 
@@ -36,7 +36,7 @@
 - 三角色可使用相同题目池，但按题目分组切分。一个题目的正确候选、错误候选、多个改写必须留在同一split。
 - 全部排除 Manager train128/dev64、AIME2026、BeyondAIME；任何同题或近重复排除都记录。
 - 保留原始solution sidecar、来源ID、question hash、教师版本、模板hash、标签依据、人工审核字段。
-- 现有 prepare 不导出完整参考solution给专家训练，需要新增构建器；不修改旧数据文件。
+- 现有 prepare 不导出完整参考solution给专家训练，现由expert_data.py单独构建references.jsonl，不修改旧数据文件。
 
 扩展池1,024题不等于每角色必有1,024条合格监督。若质检后不足，报告实际数量；按预定hash顺序补充新题时保持角色/split规则，不按下游test成绩选题。
 
@@ -128,32 +128,26 @@ gold与参考解答放在独立质检字段/sidecar；构造模型prompt用显�
 
 建议一个冻结base加载三套adapter，由请求中的角色别名显式选择；GPU0串行处理请求，避免adapter切换的并发竞态。每次调用记录实际adapter，而非只记录别名。无需同时驻留三个完整9B模型。
 
-当前 serve.py 不支持此功能。开始A1之前需要完成：
+当前 serve.py 已支持此功能，实现和待GPU验证清单：
 
-- [ ] 数学专家数据构建器、solution sidecar和分组去重manifest。
-- [ ] 兼容Qwen3.5及固定revision/模板的训练入口；拒绝静默截断或零监督目标。
-- [ ] 支持按role加载/切换adapter，并在health/result中返回各role fingerprint。
-- [ ] HTTPAdvisors客户端与服务端统一校验三个fingerprint，Manager重启不能接上另一个专家版本。
-- [ ] 三角色请求交错测试，证明每次响应使用正确adapter且冻结参数没有变化。
-- [ ] checkpoint+optimizer+scheduler+RNG恢复；恢复前后step计数和训练样本顺序验证。
+- [x] 数学专家数据构建器、solution sidecar和分组去重manifest。
+- [x] 兼容Qwen3.5及固定revision/模板的训练入口；拒绝静默截断或零监督目标。
+- [x] 支持按role加载/切换adapter，并在health/result中返回各role fingerprint。
+- [x] HTTPAdvisors客户端与服务端统一校验三个fingerprint，Manager重启不能接上另一个专家版本。
+- [x] 三角色请求交错测试，证明每次响应使用正确adapter且冻结参数没有变化。
+- [x] checkpoint+optimizer+scheduler+RNG恢复；恢复前后step计数和训练样本顺序验证。
 - [ ] GPU短测覆盖训练、重载、三角色调用和Manager一次修订。
-- [ ] W&B、traceback artifact、状态和预算总控接入。
+- [x] W&B、traceback artifact、状态和预算总控接入。
 
-已有 src/pipeline/cli.py 的 train_subagent 支持显式SFT JSONL，可作为重构参考；不要把它当作已验证的数学端到端启动命令。旧训练器 report_to=[]、无统一Monitor、未显式固定模型revision、会截断样本且无显式resume流程，这些缺口要先修复。本文不提供一个看似可运行但尚缺集成的训练命令。
+数学入口为 scripts/runpod_expert_sft.sh；不要混用旧benchmark默认模板。通用旧训练器已在前次审计补齐Monitor/revision/恢复，本版进一步保证数学专家训练与运行时同模板。
 
 ## 9. 日志、产物与算力预算
 
-W&B沿用MATH_rsi，每个角色独立run，建议job_type=subagent_sft；统一group与后续Manager父实验关联。这些是拟新增字段：
+W&B沿用MATH_rsi，父expert_sft_controller与三个expert_sft子运行、expert_reload共用group，记录角色、train/dev loss、optimizer steps、输入/监督token、梯度/学习率、模型/数据/模板/adapter指纹、恢复、GPU及异常。expert_eval单独输出dev对照和人工审阅材料。完整证明质量、manager_rescue/harm_rate仍需独立质量与Manager dev配对评估。
 
-- role、source_split_hash、teacher_revision、base_revision、adapter_sha256。
-- step、train/loss、eval/loss、lr、grad_norm、supervised_tokens、截断/过滤计数。
-- 角色dev质量、manager_rescue_rate、manager_harm_rate、调用tokens。
-- controller_status、current_stage、last_heartbeat、failed_stage、error。
-- 完整训练配置、逐题评测、可审核样本表、日志尾部artifact。
+实际输出 /workspace/margent-expert-sft-01，三个角色在training/<role>，顶层experts.json、manager_config.json、expert_report.json；参考sidecar和排除表在data/。文件格式、W&B文本开关、证据artifact和启动命令以执行指南为准。
 
-输出建议 /workspace/margent-subagents-<experiment-id>/<role>/，每个角色含data_manifest、training_config、checkpoints、quality_report、eval_predictions；顶层含advisor_bundle.json，记录三个adapter及其hash。文件名是约定，尚未由当前pipeline统一生成。
-
-pilot专家阶段独立上限8小时，包含生成标签、训练和评测；正式1,024题三专家的时长必须先测吞吐。它不被隐含计入Manager原先的24小时pilot。两张GPU可用于离线教师与角色训练，但不与正在运行的Manager争抢资源。所有长进程在tmux，总控截止时保留结果；不会自动停止Pod计费。
+本轮专家总控持久化上限2小时，包含数据构建、训练和重载；角色dev对照另行显式启动、最多2小时。新正式规模需先测吞吐，再锁定预算。所有长进程在tmux，不与Manager抢占GPU；截止终止自身子进程，不自动停止Pod计费。
 
 ## 10. 后续可选：Manager 与专家共同演化
 

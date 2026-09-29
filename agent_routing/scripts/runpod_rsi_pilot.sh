@@ -8,7 +8,8 @@ export HF_HUB_DISABLE_XET=1
 export TMPDIR="${TMPDIR:-/workspace/margent-tmp}"
 mkdir -p "$TMPDIR"
 RSI_PYTHON="${RSI_PYTHON:-/workspace/margent-venv/bin/python}"
-RSI_CONFIG="${RSI_CONFIG:-configs/math_rsi_pilot.json}"
+RSI_EXPERT_ROOT="${RSI_EXPERT_ROOT:-/workspace/margent-expert-sft-01}"
+RSI_CONFIG="${RSI_CONFIG:-$RSI_EXPERT_ROOT/manager_config.json}"
 RSI_DATA="${RSI_DATA:-/workspace/margent-data-restart-20260925}"
 RSI_SUBSET="${RSI_SUBSET:-/workspace/margent-rsi-pilot-data-v1}"
 RSI_OUTPUT="${RSI_OUTPUT:-/workspace/margent-rsi-pilot-v1}"
@@ -19,9 +20,7 @@ export MARGENT_WANDB_TEXT="${MARGENT_WANDB_TEXT:-1}"
 case "${1:-}" in
   advisor)
     # Keep this terminal open; stop any previous advisor instance separately.
-    CUDA_VISIBLE_DEVICES="${RSI_ADVISOR_GPU:-0}" "$RSI_PYTHON" -m src.verifiable.serve \
-      --model Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a \
-      --max-context 32768 --port 8001
+    CUDA_VISIBLE_DEVICES="${RSI_ADVISOR_GPU:-0}" "$RSI_PYTHON" -m src.verifiable.experts serve --config "$RSI_CONFIG"
     ;;
   plan|run)
     "$RSI_PYTHON" -m src.verifiable.rsi prepare --data-dir "$RSI_DATA" --out "$RSI_SUBSET" --train-n 16 --dev-n 16

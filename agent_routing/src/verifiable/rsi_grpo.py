@@ -194,6 +194,8 @@ def train_grpo(config, checkpoint, data_path, output):
     import torch
     from transformers import set_seed
     rows = sorted(load_rows(data_path, required_split="train"), key=lambda r: identity(r.question))
+    from .expert_isolation import verify_manager_rows
+    expert_isolation = verify_manager_rows(config, rows)
     if not rows:
         raise ValueError("Empty RL training set")
     root = Path(output)
@@ -216,6 +218,8 @@ def train_grpo(config, checkpoint, data_path, output):
     # Model loading and resume errors belong to this run too, not only the
     # optimization loop. Monitor retains their traceback and terminal status.
     with Monitor(output, "rsi_grpo") as monitor:
+        if expert_isolation.get('checked'):
+            monitor.summary({'expert_data_isolation': expert_isolation})
         _train_grpo_steps(config, checkpoint, rows, root, monitor)
 
 

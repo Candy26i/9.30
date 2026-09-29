@@ -8,7 +8,7 @@ from pathlib import Path
 
 GENERATION_COLUMNS = [
     "source", "attempt", "time", "question_hash", "benchmark_name", "split", "example_id", "question", "context", "ground_truth",
-    "phase", "sequence", "role", "advisor", "operation", "prompt", "text",
+    "phase", "sequence", "role", "advisor", "actual_role", "advisor_role", "operation", "prompt", "text",
     "valid", "valid_output", "truncated", "error", "finish_reason", "max_tokens", "requested_max_tokens", "max_context", "prompt_tokens", "completion_tokens",
     "actual_completion_tokens", "seconds", "tokens_per_second", "cache_hit", "clipped_fields",
 ]

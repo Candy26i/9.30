@@ -212,7 +212,7 @@ class Monitor:
     def generation(self, role, value, messages=None, **extra):
         fields = ("text", "valid", "truncated", "prompt_tokens", "completion_tokens",
                   "actual_prompt_tokens", "actual_completion_tokens", "seconds", "cache_hit", "error", "finish_reason", "valid_output",
-                  "requested_max_tokens", "max_context")
+                  "requested_max_tokens", "max_context", "actual_role", "advisor_role")
         record = {k: value[k] for k in fields if k in value}
         record.update(self.question, source="live", attempt=self.attempt, role=role, time=now(),
                       phase=self.state["progress"].get("phase"),

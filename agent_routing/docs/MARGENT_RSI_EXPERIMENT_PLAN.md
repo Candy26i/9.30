@@ -1,6 +1,6 @@
 # MARGENT Agent RSI：完整实验计划
 
-日期：2026-09-26。设计基于 main 的代码快照 [7334792](https://github.com/Jeremyyny/7.98/commit/7334792d40c64e906ab27c73e4ddc4db20d06ad8)。
+设计日期：2026-09-26；2026-09-29更新为专家优先执行，参见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
 
 本文是执行和论文分析计划，不是已完成的实验报告。新增计划不会自动启动 RunPod。数学 subagent 的详细训练规范见 [SUBAGENT_TRAINING_PLAN.md](SUBAGENT_TRAINING_PLAN.md)；已有运行入口见 [RSI_RUNPOD.md](RSI_RUNPOD.md)。
 
@@ -24,7 +24,7 @@
 | Manager LoRA、GRPO 逐步日志、checkpoint 延续 | 有实现；GPU 小测试完成一次 SFT、一次 GRPO、再一次 SFT |
 | 当前数学 advisor | 一个冻结 Qwen3.5-9B，通过三个角色提示提供 extractor/reasoner/verifier；不是三个已训练专家 |
 | 旧 subagent SFT | src/subagents/train.py 有训练器；不能据此声称数学专家训练与服务集成已完成 |
-| 数学三角色独立 adapter、数据质检、角色评测、W&B | 待实现，详见 subagent 计划 |
+| 数学三角色独立 adapter、数据质检、角色评测、W&B | 数据/训练/服务/日志已实现，本地小模型验证；9B GPU与人工质量待验证 |
 | AIME2026 全量基线 | 已启动但失败，不能算完成 |
 | 完整两轮 benchmark 前后提升 | 尚无结果 |
 | Manager 与 subagent 同时演化 | 仅作为后续扩展设计，当前无此流水线 |
@@ -40,15 +40,15 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 ### 主实验的训练对象
 
 - Manager：训练 LoRA，包含独立解题 SFT、调用/提交决策 SFT、修订 SFT，以及决策/修订 GRPO。
-- 三个 subagent：扩展实验中先分别做角色 SFT，随后冻结；Manager 训练期间不更新它们。
+- 三个 subagent：主实验首先分别做角色 SFT，随后冻结；Manager 训练期间不更新它们。
 - 外部数学答案校验器：固定，不训练。verifier subagent 的口头 verdict 不是奖励依据。
-- 先用当前冻结的提示角色 advisor 做小 pilot，再接入训练后的专用专家。两套 advisor 条件分别报告，不能中途替换后拼接学习曲线。
+- 按用户确认顺序，先做三专家SFT和质量检查，再启动Manager；prompt-only保留为单独消融。两套 advisor 条件分别报告，不能中途替换后拼接学习曲线。
 
 ### 完整主线
 
     准备并锁定数据
         ↓
-    [专家版本实验] 分别训练 extractor / reasoner / verifier → 评估 → 冻结专家
+    [首先执行] 分别训练 extractor / reasoner / verifier → 评估 → 冻结专家
         ↓
     评估初始 Manager M0（独立 + 允许委派）
         ↓
@@ -72,7 +72,7 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 |---|---|---|---:|---|
 | [NuminaMath-1.5](https://huggingface.co/datasets/AI-MO/NuminaMath-1.5) | train | Manager train / dev | 128 / 64 | dev 不进入采集标签、SFT 或 GRPO |
 | Numina pilot 子集 | 来自上述固定划分 | 小规模机制检验 | 16 train / 16 dev | 按题目 hash 固定选择，不按答对情况挑题 |
-| Numina 专家数据池 | 同一 pinned source 的剩余合格题 | subagent train / dev | 新建目标 1,024 / 128 个唯一题目 | 与 Manager train/dev 和外部 test 全部去重；尚未建立 |
+| Numina 专家数据池 | 同一 pinned source 的剩余合格题 | subagent train / dev | pilot目标128/32，扩展目标1,024/128个唯一题目 | 与 Manager train/dev 和外部 test 做exact/词法近重复排除；实际数量以新manifest为准 |
 | [AIME2026](https://huggingface.co/datasets/MathArena/aime_2026) | 上游名为 train | 外部 test | 30 | 在本项目中始终是 test，不能因上游名字含 train 而用于训练 |
 | [BeyondAIME](https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME) | test | 外部 test | 100 | 主对照完成、配置锁定后再评测 |
 
@@ -82,9 +82,9 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 - AIME2026：d2de22f3c656b4f56cf8981212186377d1e23bc3。
 - BeyondAIME：c705198ae1043810b1e1693bd879250b51a7a523。
 
-沿用现有筛选：文本题、可校验最终答案；Numina 问题/解答有效标记均为 Yes，排除证明、选择题和需要图片的题。冻结题目 ID、原始来源、文件 sha256、筛选与排除计数。现有数据器不会保留完整参考解答用于专家监督；专家数据构建需新增按来源 ID/hash 关联的 solution sidecar。
+沿用现有筛选：文本题、可校验最终答案；Numina 问题/解答有效标记均为 Yes，排除证明、选择题和需要图片的题。冻结题目 ID、原始来源、文件 sha256、筛选与排除计数。新增expert_data构建器单独保存solution sidecar、监督依据、排除清单；运行时输入仍只包含白名单字段。
 
-去重先于划分，当前代码覆盖 NFKC、大小写和空白归一化后的完全相同题目；不等于语义去污染。正式实验增加近重复排查、保留排除清单，但不宣称消除了模型预训练污染。新数据池不能覆盖已有目录。
+去重先于划分，当前代码覆盖 NFKC、大小写和空白归一化后的完全相同题目；不等于语义去污染。专家构建器已增加词法近重复排查、保留排除清单，但不宣称消除了模型预训练污染。新数据池不能覆盖已有目录。
 
 AIME 已用于运行调试，须披露这次接触；不得按 AIME 对错选训练配置。BeyondAIME 保持最终配置锁定后的评测用途。每轮曲线使用 Numina dev，不反复用外部 test 调参。
 
@@ -138,8 +138,8 @@ Manager 标注/评测 temperature=0；独立答案和修订各最多 2,048 token
 
 执行矩阵：
 
-1. A0：当前未做角色 SFT 的冻结 advisor，运行 D/S/U，先验证 Manager 闭环。
-2. A1：三个角色 SFT 后冻结的 advisor，仍从相同 M0 重跑 D/S/U。
+1. A1（先执行）：三个角色SFT后冻结的advisor，从相同M0运行D/S/U。
+2. A0（单独消融）：未做角色SFT的冻结advisor，仍从相同M0运行D/S/U。
 3. 在 A0/A1 内比较 D−S 与 D−U；跨 A0/A1 比较必须把专家训练成本单独列出。
 4. 正式论文增加同一 warm-start 后 RL-only、动态 SFT-only、关闭独立解答蒸馏，以及匹配推理预算的 self-revision / 多次独立采样对照。这些不挤进首次 pilot。
 
@@ -151,15 +151,15 @@ Manager 标注/评测 temperature=0；独立答案和修订各最多 2,048 token
 
 | 阶段 | 规模与工作 | 预算与完成条件 |
 |---|---|---|
-| P0：恢复可靠评测 | 定位已有 AIME traceback；在 dev 复现、修复、恢复测试，再跑锁定30题 baseline | 新任务最多2小时；已有失败运行目录及原时限保留，不抹掉后复跑 |
-| P1：Manager pilot A0 | 16 train / 16 dev，D/S/U，各2轮，每轮 SFT8步 + GRPO8步，seed42 | 整体最多24小时，含采集与评测；到时保存并报告已完成范围 |
-| P2：subagent pilot | 每角色128 train题 / 32 dev题，先16步SFT，做质量与服务检查 | 独立预算最多8小时，含数据生成；未实测，不承诺能完成 |
-| P3：训练专家后的对照 A1 | 通过P2后扩大专家数据和训练；固定专家，重跑相同 Manager 三组 | 单独申请/锁定计算预算，不包含在P1的24小时内 |
+| 历史评测故障跟踪（不阻挡专家SFT） | 定位已有 AIME traceback；在 dev 复现、修复、恢复测试，再跑锁定30题 baseline | 新任务最多2小时；已有失败运行目录及原时限保留，不抹掉后复跑 |
+| 后续A0消融 | 16 train / 16 dev，D/S/U，各2轮，每轮 SFT8步 + GRPO8步，seed42 | 整体最多24小时，含采集与评测；到时保存并报告已完成范围 |
+| 第一步：subagent pilot | 每角色128 train题 / 32 dev题，先16步SFT，做质量与服务检查 | 独立持久化预算最多2小时，含数据构建/训练/重载；dev对照另行启动 |
+| 第二步：训练专家后的A1 | 通过专家质量检查后，固定专家，跑Manager三组 | 单独申请/锁定计算预算，不包含在P1的24小时内 |
 | P4：正式证据 | 128 train / 64 dev，至少3轮，训练seed 42/43/44；AIME30、BeyondAIME100 | 新配置每轮SFT32步/GRPO32步作为预注册起点，先做吞吐测量再确定时限；尚未实现自动总控 |
 
 不能承诺两小时完成“三专家训练 + 三组两轮 Manager + 两个 benchmark”。若吞吐不够，在看测试分数前缩减训练规模或增加预算；不要事后删掉失败组来凑结果。
 
-P1 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRPO；还包括初始及逐阶段dev评测、搜索树和模型加载成本。P4 的增加步数/轮数属于新实验，不覆盖 pilot。
+Manager pilot 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRPO；还包括初始及逐阶段dev评测、搜索树和模型加载成本。P4 的增加步数/轮数属于新实验，不覆盖 pilot。
 
 ## 8. 评测、统计与论文图表
 
@@ -191,9 +191,9 @@ P1 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRPO；还包�
 |---|---|---|
 | Manager SFT | step、loss、grad norm、lr、监督tokens、checkpoint | 已有 callback/Monitor；小测试只有少量点 |
 | Manager GRPO | reward mean/std、优势绝对值、零优势比例、mixed groups、合法率、loss/KL、调用数 | 已有逐步/轨迹记录；需要多步训练才有曲线 |
-| subagent SFT | 每角色train/dev loss、质量指标、step、checkpoint | 旧训练器 report_to=[]，且未接入统一Monitor；待补齐 |
-| 总控 | 当前阶段、子进程退出码、最近心跳、完成题数、预算剩余、总完成标记 | AIME父运行已有；专家/完整实验总控还需统一 |
-| 失败诊断 | traceback尾部、failed_stage、状态文件、日志artifact | AIME已有父级失败摘要，但详细异常没上传，必须补齐 |
+| subagent SFT | 每角色train/dev loss、质量指标、step、checkpoint | 新增数学expert_train已接Monitor；自动指标与待人工质量审核分开记录 |
+| 总控 | 当前阶段、子进程退出码、最近心跳、完成题数、预算剩余、总完成标记 | AIME及专家父总控已有；正式扩展矩阵仍需单独预算 |
+| 失败诊断 | traceback尾部、failed_stage、状态文件、日志artifact | 新代码会上传完整异常/日志artifact；旧缺失日志不会被追溯补造 |
 | 通知 | W&B告警与本任务定期检查 | 邮件送达未验证，不承诺自动收到邮件 |
 
 终端任务必须在 tmux 中启动，并保存独立总日志和每阶段日志。浏览器 connection closed 不应结束 tmux 内任务；Pod停止或进程退出仍会终止计算。恢复必须核对数据/配置/代码/adapter指纹，不能重复累加已完成题目；保留原始失败记录和尝试编号。
@@ -207,10 +207,10 @@ P1 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRPO；还包�
 - [ ] 找到并修复 AIME 子进程退出的真实原因，上传可定位的异常记录。
 - [ ] 冻结 config、数据manifest、代码commit、模型revision、seed、advisor fingerprint。
 - [ ] 验证当前GPU环境的一题端到端路径及中断恢复，不只跑CPU单测。
-- [ ] 对齐 finite_actions_v1 配置；现有 pilot shell 默认仍为 math_rsi_pilot.json，执行时须显式配置，不假定默认已改。
+- [ ] 对齐 finite_actions_v1 配置；pilot shell默认使用专家生成的manager_config.json，保留finite_actions_v1。
 - [ ] 生成三组执行计划，确认第二轮加载本组GRPO1权重。
 - [ ] 完成专家数据、训练与多adapter服务的实现/验证后才进入A1。
 - [ ] 在看外部测试结果前锁定评测预算、比较对象和完成标准。
 - [ ] 保存W&B链接、run manifest、逐题结果、配对统计和失败清单。
 
-代码定位：src/verifiable/rsi.py（计划）、rsi_grpo.py（RL）、training.py（Manager SFT）、experiment.py（采集/目标选择）、data.py（数据）、serve.py（当前advisor服务）。更早文献与设计背景见 [RSI_RESEARCH_DESIGN.md](RSI_RESEARCH_DESIGN.md)；本文件中的扩展规模和专家阶段均是待执行方案。
+代码定位：src/verifiable/rsi.py（计划）、rsi_grpo.py（RL）、training.py（Manager SFT）、experiment.py（采集/目标选择）、data.py（数据）、serve.py（当前advisor服务）。更早文献与设计背景见 [RSI_RESEARCH_DESIGN.md](RSI_RESEARCH_DESIGN.md)；本文件中的正式扩展规模和9B GPU训练结果仍需执行验证。

@@ -102,8 +102,8 @@ class WandbTracker:
             raise ValueError("Set WANDB_ENTITY to your W&B username or team before enabling tracking")
         # A loop owns the group; its subprocess stages discover the same manifest.
         experiment = next((p for p in (self.root, *self.root.parents)
-                           if any((p / name).exists() for name in ("rsi_run.json", "loop.json", "benchmark_run.json"))), self.root)
-        manifest = next((experiment / name for name in ("rsi_run.json", "loop.json", "benchmark_run.json", "run.json", "training_run.json")
+                           if any((p / name).exists() for name in ("expert_run.json", "rsi_run.json", "loop.json", "benchmark_run.json"))), self.root)
+        manifest = next((experiment / name for name in ("expert_run.json", "rsi_run.json", "loop.json", "benchmark_run.json", "run.json", "training_run.json")
                          if (experiment / name).exists()), None)
         metadata = _read(manifest) if manifest else {}
         stage_manifest = next((self.root / name for name in ("training_run.json", "run.json")
@@ -142,6 +142,8 @@ class WandbTracker:
                       logical_stage_id=identity["id"],
                       experiment_manifest=_config(metadata), stage_manifest=_config(stage_metadata),
                       telemetry_schema_version=2)
+        if stage_metadata.get('role'):
+            config['expert_role'] = stage_metadata['role']
         self.run = wandb.init(project=project, entity=entity, group=group["group"],
             id=run_id, name=name, job_type=self.stage, config=config, mode=self.mode,
             **({"resume": "allow"} if self.mode == "online" else {}), dir=str(self.root),
@@ -183,7 +185,9 @@ class WandbTracker:
         """
         if self.run is None:
             return
-        names = {"run.json", "training_run.json", "loop.json", "rsi_run.json", "benchmark_run.json",
+        names = {"run.json", "training_run.json", "loop.json", "rsi_run.json", "benchmark_run.json", "expert_run.json",
+                 "expert_status.json", "expert_report.json", "expert_data_report.json", "experts.json", "manager_config.json",
+                 "data_report.json", "dev_metrics.json", "expert_checkpoint.json", "expert_eval_report.json",
                  "summary.json", "run_summary.json", "status.json", "training_metrics.json",
                  "sft_data_report.json", "loop_report.json", "rsi_report.json", "report.json",
                  "pilot_report.json", "pilot_timeline.csv", "initial_gate.json", "config.json", "advisor_identity.json",
@@ -197,6 +201,15 @@ class WandbTracker:
         paths = [self.root / name for name in sorted(names) if (self.root / name).is_file()]
         paths += sorted(self.root.glob("environment_*.json"))
         paths += sorted(self.root.glob("logs/*.log"))
+        # Freeze the complete expert dataset identity; raw prompts/references are opt-in.
+        if (self.root / 'expert_run.json').exists():
+            paths += [p for p in (self.root / 'data/manifest.json',) if p.is_file()]
+            if self.text_enabled:
+                paths += sorted((self.root / 'data').glob('*.jsonl'))
+                paths += sorted((self.root / 'data').glob('*/train.jsonl'))
+                paths += sorted((self.root / 'data').glob('*/dev.jsonl'))
+        if self.text_enabled:
+            paths += [self.root / 'review.jsonl'] if (self.root / 'review.jsonl').is_file() else []
         limit = int(os.environ.get("MARGENT_WANDB_ARTIFACT_MAX_BYTES", str(100 * 1024 * 1024)))
         if limit < 1:
             raise ValueError("MARGENT_WANDB_ARTIFACT_MAX_BYTES must be positive")

@@ -122,6 +122,8 @@ def run_data(cfg, data, checkpoint, output, mode, resume=False, limit=0,
     if mode not in allowed:
         raise ValueError(f"Unknown data mode: {mode}")
     rows = load_rows(data, required_split=allowed[mode])
+    from .expert_isolation import verify_manager_rows
+    expert_isolation = verify_manager_rows(cfg, rows)
     rows = sorted(rows, key=lambda r: identity(r.question))
     if type(limit) is not int or limit < 0:
         raise ValueError("limit must be a nonnegative integer")
@@ -131,6 +133,8 @@ def run_data(cfg, data, checkpoint, output, mode, resume=False, limit=0,
     root.mkdir(parents=True, exist_ok=True)
     signature = {"config": cfg, "data_sha256": _digest(data), "checkpoint": checkpoint_identity(checkpoint),
                  "mode": mode, "limit": limit, "selection": selection, "protocol_version": PROTOCOL_VERSION, "harness": harness_identity()}
+    if expert_isolation.get('checked'):
+        signature['expert_data_isolation'] = expert_isolation
     meta = root / "run.json"
     if meta.exists():
         if not resume or json.loads(meta.read_text()) != signature:
@@ -406,6 +410,12 @@ def verify_advisor(config, root):
     actual_revision = identity.get("requested_revision") or identity.get("resolved_revision")
     if expected_revision and actual_revision and actual_revision != expected_revision:
         raise ValueError("Advisor revision differs from frozen configuration")
+    if config.get("advisor_expert_bundle"):
+        from .serve import load_expert_bundle, expert_bundle_sha256
+        bundle = load_expert_bundle(config["advisor_expert_bundle"], expected_model, expected_revision)
+        if (identity.get("expert_bundle") != bundle
+                or identity.get("expert_bundle_sha256") != expert_bundle_sha256(bundle)):
+            raise ValueError("Advisor expert bundle differs from the frozen configuration")
     path = Path(root) / "advisor_identity.json"
     if path.exists() and json.loads(path.read_text()) != identity:
         raise ValueError("Frozen advisor identity changed across stages; use the original advisor")

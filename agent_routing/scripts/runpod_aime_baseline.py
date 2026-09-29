@@ -179,8 +179,8 @@ def main():
             monitor.summary({'current_stage': current, 'controller_status': 'running'})
             progress(phase=current, total_questions=30)
             with (root / 'logs/advisor.log').open('a') as stream:
-                advisor = subprocess.Popen([sys.executable, '-m', 'src.verifiable.serve', '--model', cfg['base_model'],
-                    '--revision', cfg['base_model_revision'], '--max-context', str(cfg['max_context']), '--port', str(args.port)],
+                advisor = subprocess.Popen([sys.executable, '-m', 'src.verifiable.experts', 'serve',
+                    '--config', str(root / 'config.json')],
                     cwd=REPO, env={**env, 'CUDA_VISIBLE_DEVICES': args.advisor_gpu}, stdout=stream,
                     stderr=subprocess.STDOUT, start_new_session=True)
             ready_limit = min(deadline, time.time() + 300)

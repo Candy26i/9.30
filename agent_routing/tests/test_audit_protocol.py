@@ -15,6 +15,19 @@ from src.utils.io import write_jsonl
 from test_verifiable import Advisors, Backend, CFG, row
 
 
+def test_legacy_backend_new_constructor_keeps_manager_usage_default(tmp_path):
+    from test_rsi import tiny_checkpoint
+    from src.verifiable.backend import HFBackend, load_model
+    base, checkpoint = tiny_checkpoint(tmp_path)
+    backend = HFBackend.__new__(HFBackend)
+    backend.tokenizer, backend.model = load_model(str(base), str(checkpoint))
+    backend.max_context, backend.decision_constraint = 4096, "none"
+    assert "usage_actor" not in backend.__dict__
+    with patch("src.verifiable.backend.usage") as log:
+        backend.generate([{"role": "user", "content": "one"}], max_tokens=1)
+    assert log.call_args.args[0] == "manager"
+
+
 @pytest.mark.parametrize("value", [
     r"FINAL_ANSWER: $\boxed{42}$.",
     "Reasoning.\nFINAL_ANSWER:\n\\[\\boxed{42}\\]",

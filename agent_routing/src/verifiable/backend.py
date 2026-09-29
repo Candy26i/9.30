@@ -112,11 +112,15 @@ def strip_generation_endings(text, tokenizer):
 
 
 class HFBackend:
-    def __init__(self, base_model, checkpoint=None, max_context=16384, revision=None, decision_constraint="none"):
+    usage_actor = "manager"  # Also inherited by rollout backends with their own initializer.
+
+    def __init__(self, base_model, checkpoint=None, max_context=16384, revision=None, decision_constraint="none",
+                 usage_actor="manager"):
         if type(max_context) is not int or max_context <= 0:
             raise ValueError("max_context must be a positive integer")
         self.tokenizer, self.model = load_model(base_model, checkpoint, revision=revision)
         self.max_context = max_context
+        self.usage_actor = usage_actor
         if decision_constraint not in {"none", "finite_actions_v1"}:
             raise ValueError("Unknown decision constraint")
         self.decision_constraint = decision_constraint
@@ -159,7 +163,7 @@ class HFBackend:
                 "prompt_tokens": n, "completion_tokens": len(ids),
                 "seconds": time.monotonic() - start,
                 "truncated": truncated, "finish_reason": "length" if truncated else "stop"}
-        usage("manager", result)
+        usage(getattr(self, "usage_actor", "manager"), result)
         return result
 
 
@@ -206,6 +210,20 @@ class HTTPAdvisors:
         fingerprint = data.get("margent_advisor")
         if self.identity is not None and fingerprint != self.identity:
             raise RuntimeError("Advisor identity changed during the stage")
+        role_identity = data.get("margent_role")
+        if isinstance(fingerprint, dict) and "expert_bundle" in fingerprint:
+            from .serve import EXPERT_ADAPTERS, expert_bundle_sha256
+            bundle = fingerprint["expert_bundle"]
+            if (not isinstance(bundle, dict) or not isinstance(bundle.get("roles"), dict)
+                    or set(bundle["roles"]) != set(EXPERT_ADAPTERS)
+                    or any(not isinstance(entry, dict) for entry in bundle["roles"].values())
+                    or fingerprint.get("expert_bundle_sha256") != expert_bundle_sha256(bundle)):
+                raise RuntimeError("Advisor expert bundle fingerprint is malformed")
+            expected_role = {"role": kind, "adapter_name": EXPERT_ADAPTERS[kind],
+                             "identity": bundle["roles"][kind].get("identity")}
+            if (role_identity != expected_role or data.get("actual_role") != kind
+                    or not isinstance(expected_role["identity"], dict) or not expected_role["identity"]):
+                raise RuntimeError("Advisor returned a different or unverified expert role/adapter")
         if fingerprint is not None:
             self.identity = fingerprint
         try:
@@ -243,6 +261,8 @@ class HTTPAdvisors:
                   "seconds": time.monotonic() - start, "cache_hit": False,
                   "truncated": truncated, "finish_reason": finish_reason,
                   "valid_output": bool(text.strip()) and not truncated, "error": error}
+        if role_identity is not None:
+            result.update(advisor_role=role_identity, actual_role=data.get("actual_role"))
         if budget_error:
             result["max_context"] = data.get("margent_max_context")
         usage("advisor", result, advisor=kind, advisor_identity=fingerprint,
