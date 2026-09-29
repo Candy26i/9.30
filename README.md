@@ -1,5 +1,7 @@
 # research_0703 — Learning When to Commit
 
+**Current 9B math experiment:** [完整 RunPod 操作手册：三专家 SFT → Manager SFT/GRPO/RSI → AIME/BeyondAIME → W&B 监控](agent_routing/docs/MARGENT_END_TO_END_RUNBOOK.md). Includes the published Luna dataset, exact commands, checkpoint handoffs, completion checks, recovery, and paper evidence. The 8B/MCQ description below documents the historical system.
+
 Training an 8B orchestrator that learns the **delegate-or-commit** decision:
 at every step, either delegate a cognitive subtask to one of three frozen
 specialist advisors (extractor / reasoner / verifier) or commit to an answer.

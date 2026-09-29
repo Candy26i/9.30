@@ -1,5 +1,7 @@
 # Agent Routing — Learning When to Commit
 
+**当前 9B 数学实验入口：** [从三专家 SFT 到 Manager RSI 的完整 RunPod 操作手册](docs/MARGENT_END_TO_END_RUNBOOK.md)。包含 Luna 数据、每一步命令、权重交接、独立评测、W&B 指标与异常恢复。下文的 8B/MCQ 说明属于历史实验，不能直接代替当前数学流程。
+
 A pipeline for training a manager LLM (Qwen3-8B) that learns **when to stop
 delegating and commit to an answer**. At every step the manager faces four
 actions:
