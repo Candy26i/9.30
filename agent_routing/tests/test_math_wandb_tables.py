@@ -53,16 +53,16 @@ class TextTablesTest(unittest.TestCase):
             self.assertNotIn("PRIVATE_TEXT", json.dumps(m.tracker.run.history))
             self.assertIn("PRIVATE_TEXT", (Path(tmp) / "generations.jsonl").read_text())
 
-    def test_failed_advisor_text_is_saved_and_flushed_before_question_completion(self):
+    def test_truncated_advisor_text_is_saved_without_failing_the_stage(self):
         response = SimpleNamespace(raise_for_status=lambda: None, json=lambda: {
             "choices": [{"message": {"content": "unfinished derivation"}, "finish_reason": "length"}],
             "usage": {"prompt_tokens": 30, "completion_tokens": 2048}})
         with tempfile.TemporaryDirectory() as tmp, patch("requests.post", return_value=response) as post:
-            with self.assertRaisesRegex(RuntimeError, "Advisor output truncated"):
-                with telemetry.Monitor(tmp, "diagnose") as m:
-                    telemetry.question_context(row(answer="GOLD_ONLY_IN_LOGS"))
-                    telemetry.progress(phase="counterfactual", sequence=["reasoner", "verifier"])
-                    HTTPAdvisors("http://fake", max_tokens=2048).call("verifier", row(), "candidate")
+            with telemetry.Monitor(tmp, "diagnose") as m:
+                telemetry.question_context(row(answer="GOLD_ONLY_IN_LOGS"))
+                telemetry.progress(phase="counterfactual", sequence=["reasoner", "verifier"])
+                result = HTTPAdvisors("http://fake", max_tokens=2048).call("verifier", row(), "candidate")
+                self.assertEqual(result["error"], "advisor_output_truncated")
             record = json.loads((Path(tmp) / "generations.jsonl").read_text())
             self.assertEqual(record["text"], "unfinished derivation")
             self.assertEqual(record["error"], "advisor_output_truncated")
@@ -76,7 +76,7 @@ class TextTablesTest(unittest.TestCase):
             self.assertEqual(saved["text"], "unfinished derivation")
             self.assertEqual(table.log_mode, "INCREMENTAL")
             self.assertTrue(any(next(iter(m.tracker.tables)) in entry for entry in m.tracker.run.history))
-            self.assertEqual(m.tracker.run.exit_code, 1)
+            self.assertEqual(m.tracker.run.exit_code, 0)
             self.assertFalse((Path(tmp) / "records.jsonl").exists())
 
     def test_text_upload_failure_preserves_original_error_and_local_text(self):
@@ -86,7 +86,8 @@ class TextTablesTest(unittest.TestCase):
                     with patch.object(m.tracker.run, "log", side_effect=RuntimeError("upload failed")):
                         m.generation("advisor", {"text": "truncated text", "truncated": True})
                     raise RuntimeError("original generation failure")
-            self.assertTrue(m.wandb_failed)
+            self.assertTrue(m.had_wandb_error)
+            self.assertFalse(m.wandb_failed)
             self.assertIn("truncated text", (Path(tmp) / "generations.jsonl").read_text())
             self.assertEqual(m.tracker.run.exit_code, 1)
 

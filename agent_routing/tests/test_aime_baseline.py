@@ -61,9 +61,11 @@ def test_preflight_does_not_gate_on_accuracy_or_one_bad_sample():
     valid = dict(direct_valid=True, direct_correct=False, policy={'valid':True,'correct':False}, costs=[])
     bad = dict(direct_valid=False, direct_correct=False, policy={'valid':False,'correct':False}, costs=[])
     assert baseline.preflight_stats([valid, valid, bad])['proceed']
-    assert not baseline.preflight_stats([valid, bad, bad])['proceed']
+    assert baseline.preflight_stats([valid, bad, bad])['proceed']
+    assert not baseline.preflight_stats([valid, bad, bad], strict=True)['proceed']
     truncated = {**valid, 'costs':[dict(role='manager', truncated=True)]}
-    assert not baseline.preflight_stats([valid, truncated, truncated])['proceed']
+    assert baseline.preflight_stats([valid, truncated, truncated])['proceed']
+    assert not baseline.preflight_stats([valid, truncated, truncated], strict=True)['proceed']
 
 
 def test_benchmark_children_share_controller_wandb_group(tmp_path, monkeypatch):

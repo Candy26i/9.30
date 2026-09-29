@@ -15,7 +15,7 @@ import os
 import random
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..benchmarks.base import StandardRow, question_hash
@@ -145,6 +145,8 @@ def _split_rows(
     seed: int,
 ) -> Tuple[List[StandardRow], List[StandardRow], List[StandardRow]]:
     """Honor existing splits when present; otherwise random-split."""
+    if min(train_size, dev_size, test_size) < 0:
+        raise ValueError("Split sizes must be nonnegative")
     by_split: Dict[str, List[StandardRow]] = {"train": [], "dev": [], "test": [], "": []}
     unknown_labels: Dict[str, int] = {}
     for r in rows:
@@ -163,7 +165,7 @@ def _split_rows(
     # Any explicit train label wins: a train-only cache (e.g. the GPQA train
     # split built by scripts/build_gpqa_splits.py) must never have a phantom
     # test set carved out of its training rows by the random path below.
-    have_explicit = bool(by_split["train"])
+    have_explicit = any(by_split[name] for name in ("train", "dev", "test"))
     if train_size == 0 and not by_split["train"]:
         # Eval-only pool (e.g. GPQA-Diamond or MMLU-Pro used as zero-shot
         # probes with --train_size 0): honor the loader's split labels.
@@ -173,7 +175,9 @@ def _split_rows(
         dev = list(by_split["dev"])
         test = list(by_split["test"]) or list(by_split[""])
     elif have_explicit:
-        train = by_split["train"]
+        # An explicitly labeled test-only benchmark must never enter the
+        # random path and become training data just because train_size > 0.
+        train = list(by_split["train"])
         dev = by_split["dev"]
         # Never alias test to dev: any dev-driven decision (threshold picking,
         # early stopping, model selection) would leak straight into the test
@@ -202,11 +206,22 @@ def _split_rows(
 
     if train_size > 0 and len(train) > train_size:
         train = train[:train_size]
+    if train_size == 0:
+        train = []
     if dev_size > 0 and len(dev) > dev_size:
         dev = dev[:dev_size]
     if test_size > 0 and len(test) > test_size:
         test = test[:test_size]
-    return train, dev, test
+    partitions = [train, dev, test]
+    seen = set()
+    for part in partitions:
+        identities = {question_hash(row.question) for row in part}
+        if len(identities) != len(part) or seen & identities:
+            raise ValueError("Duplicate questions or overlap between train/dev/test splits")
+        seen.update(identities)
+    # Persist the actual assignment so downstream synthesis can enforce it.
+    return tuple([replace(row, split=split) for row in part]
+                 for split, part in zip(("train", "dev", "test"), partitions))
 
 
 # --------------------- Stage: data loading ---------------------

@@ -49,14 +49,16 @@ def test_sampled_client_rejects_old_server_ignoring_settings():
                 "reasoner", SimpleNamespace(question="q", context=""))
 
 
-def test_sampled_truncation_still_raises():
+def test_sampled_truncation_is_recorded_without_aborting_the_benchmark():
     data = {"choices": [{"message": {"content": "unfinished"}, "finish_reason": "length"}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 4096}, "margent_generation": PRESET}
     response = SimpleNamespace(raise_for_status=lambda: None, json=lambda: data)
     with patch("requests.post", return_value=response):
-        with pytest.raises(RuntimeError, match="output truncated"):
-            HTTPAdvisors("http://fake", generation_options=PRESET).call(
-                "reasoner", SimpleNamespace(question="q", context=""))
+        result = HTTPAdvisors("http://fake", max_tokens=4096, generation_options=PRESET).call(
+            "reasoner", SimpleNamespace(question="q", context=""))
+    assert result["truncated"] and not result["valid_output"]
+    assert result["error"] == "advisor_output_truncated"
+    assert result["text"] == "unfinished"
 
 
 @pytest.mark.parametrize("settings", [{"seed": -1}, {"seed": 1.5}, {"temperature": float("nan")},

@@ -29,6 +29,8 @@ def paired_stats(before, after, seed=42, samples=4000):
     import numpy as np
     if len(before) != len(after) or not before:
         raise ValueError("Paired statistics require nonempty aligned question sets")
+    if samples < 1 or not all(value in (0, 1, False, True) for value in before + after):
+        raise ValueError("Paired accuracy statistics require binary outcomes and positive bootstrap samples")
     delta = np.asarray(after, dtype=float) - np.asarray(before, dtype=float)
     rng = np.random.default_rng(seed)
     boot = []
@@ -68,6 +70,12 @@ def metrics(records):
     if all("policy" in r for r in records):
         result["mean_calls"] = statistics.mean(r["policy"]["calls"] for r in records)
         result["policy_valid_pct"] = 100 * statistics.mean(r["policy"]["valid"] for r in records)
+        successes = sum(bool(r["direct_correct"]) for r in records)
+        rescued = sum(not r["direct_correct"] and r["policy"]["correct"] for r in records)
+        harmed = sum(r["direct_correct"] and not r["policy"]["correct"] for r in records)
+        result.update(policy_rescued_questions=rescued, policy_harmed_questions=harmed,
+                      policy_rescue_rate_pct=100 * rescued / (n - successes) if n > successes else None,
+                      policy_harm_rate_pct=100 * harmed / successes if successes else None)
         # Deployment cost is logical tokens INCLUDING the initial draft. It must
         # not become artificially cheap through caches primed by diagnostic CF.
         if all(r.get("costs") and "costs" in r["policy"] for r in records):
@@ -92,6 +100,10 @@ def aligned(before, after):
     if len(a) != len(before) or len(b) != len(after) or set(a) != set(b):
         raise ValueError("Duplicate or mismatched question identities in paired comparison")
     keys = sorted(a)
+    for key in keys:
+        for field in ("ground_truth", "question", "context", "split", "benchmark_name"):
+            if field in a[key] and field in b[key] and a[key][field] != b[key][field]:
+                raise ValueError(f"Paired question metadata differs: {key}/{field}")
     return keys, [a[k] for k in keys], [b[k] for k in keys]
 
 
@@ -124,9 +136,11 @@ def stage_cost(path):
     ledger = read_optional(path / "usage.jsonl")
     starts = {e["attempt"] for e in events if e["event"] == "started"}
     ends = {e["attempt"] for e in events if e["event"] in {"completed", "failed", "interrupted"}}
-    clean = bool(starts) and starts == ends and all(e["event"] != "failed" and e["event"] != "interrupted" for e in events)
+    usage_incomplete = any(e["event"] == "usage_tail_recovered" for e in events)
+    clean = bool(starts) and starts == ends and not usage_incomplete and all(e["event"] != "failed" and e["event"] != "interrupted" for e in events)
     out = {"stage_path": str(path), "observed_wall_seconds": sum(e.get("wall_seconds", 0) for e in events),
            "attempts": len(starts), "accounting_complete": clean and bool(ledger),
+           "usage_incomplete": usage_incomplete,
            "sft_processed_tokens": sum(r.get("input_tokens", 0) for r in ledger if r["role"] == "sft_train"),
            "sft_supervised_tokens": sum(r.get("supervised_tokens", 0) for r in ledger if r["role"] == "sft_train")}
     for role, match in [("manager", {"manager", "manager_rl"}), ("advisor", {"advisor"})]:
@@ -183,6 +197,10 @@ def generate_report(run_dirs, output, demo=False):
     for run_dir in run_dirs:
         root = Path(run_dir).resolve()
         for path in root.rglob("*"):
+            # W&B evidence snapshots are copies, not experimental inputs. Their
+            # hashes change with uploads and must not alter the paper audit.
+            if {"tracking_exports", "wandb"} & set(path.relative_to(root).parts):
+                continue
             if path.is_file() and (path.name in {"loop.json", "advisor_identity.json", "training_run.json", "usage.jsonl", "events.jsonl", "training_log.jsonl", "rollouts.jsonl"} or path.name.startswith("environment_")):
                 digest = hashlib.sha256()
                 with path.open("rb") as source:

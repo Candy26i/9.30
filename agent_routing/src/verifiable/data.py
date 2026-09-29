@@ -95,6 +95,10 @@ def load_rows(path, required_split=None):
         raise ValueError(f"Empty data file: {path}")
     if any(r.choices or r.metadata.get("answer_type") != "math" for r in rows):
         raise ValueError("Expected normalized free-response math rows; run prepare first")
+    if any(not isinstance(r.question, str) or not r.question.strip() or not valid_gold(r.ground_truth) for r in rows):
+        raise ValueError("Normalized math rows require a nonempty question and a verifiable gold answer")
+    if any(r.metadata.get("content_hash", identity(r.question)) != identity(r.question) for r in rows):
+        raise ValueError("Normalized content hash disagrees with question text")
     if required_split and any(r.split != required_split for r in rows):
         raise ValueError(f"This operation only accepts split={required_split}")
     if len({identity(r.question) for r in rows}) != len(rows):
@@ -163,6 +167,9 @@ def prepare(out_dir, train_size=1024, dev_size=256, seed=42, scan_limit=30000,
     train, dev, dedup = partition(normalized["numina"], excluded, train_size, dev_size, seed)
     splits = {"train": train, "dev": dev, "aime2026": normalized["aime2026"],
               "beyondaime": normalized["beyondaime"]}
+    test_overlap = {identity(r.question) for r in normalized["aime2026"]} & {identity(r.question) for r in normalized["beyondaime"]}
+    if test_overlap:
+        raise ValueError("Question overlap between official evaluation sets; preserve source records and resolve before reporting")
     checksums = {}
     for name, rows in splits.items():
         path = out / f"{name}.jsonl"

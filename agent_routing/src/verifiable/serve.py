@@ -7,7 +7,7 @@ import json
 import hashlib
 from pathlib import Path
 
-from .backend import HFBackend
+from .backend import HFBackend, ContextBudgetExceeded
 from .protocol import KINDS
 from .sampling import normalize_generation
 
@@ -18,7 +18,12 @@ def generate_advisor_request(backend, request):
     budget = request["max_tokens"]
     if type(budget) is not int or budget <= 0:
         raise ValueError("max_tokens must be a positive integer")
-    result = backend.generate(request["messages"], max_tokens=budget, generation_options=settings)
+    try:
+        result = backend.generate(request["messages"], max_tokens=budget, generation_options=settings)
+    except ContextBudgetExceeded as exc:
+        result = {"text": "", "prompt_tokens": exc.prompt_tokens, "completion_tokens": 0,
+                  "actual_prompt_tokens": 0, "actual_completion_tokens": 0,
+                  "truncated": False, "error": "context_budget_exceeded", "max_context": exc.max_context}
     return result, settings
 
 
@@ -65,7 +70,8 @@ def main():
                 self.send_json(200, {"choices": [{"message": {"role": "assistant", "content": result["text"]},
                     "finish_reason": "length" if result["truncated"] else "stop"}], "usage": {
                     "prompt_tokens": result["prompt_tokens"], "completion_tokens": result["completion_tokens"]},
-                    "margent_advisor": fingerprint, "margent_generation": settings})
+                    "margent_advisor": fingerprint, "margent_generation": settings,
+                    "margent_generation_error": result.get("error"), "margent_max_context": result.get("max_context")})
             except Exception as exc:
                 self.send_json(500, {"error": str(exc)})
 

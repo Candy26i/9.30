@@ -66,17 +66,20 @@ class FrozenSubagent:
     device: str = "cuda"
     max_new_tokens: int = 1024
     dtype_str: str = "bfloat16"
+    base_model_revision: Optional[str] = None
 
     _tok: Any = field(init=False, default=None)
     _model: Any = field(init=False, default=None)
 
     def __post_init__(self):
+        from .train import load_text_causal_model
         if self.adapter_path:
             p = self.adapter_path
-            if os.sep in p or p.count("/") > 1 or p.startswith("."):
-                self.adapter_path = os.path.abspath(p)
+            if os.path.exists(p) or p.startswith((".", "~", "/")):
+                self.adapter_path = os.path.abspath(os.path.expanduser(p))
+        revision = {"revision": self.base_model_revision} if self.base_model_revision else {}
         self._tok = AutoTokenizer.from_pretrained(
-            self.adapter_path or self.base_model, trust_remote_code=True
+            self.adapter_path or self.base_model, trust_remote_code=True, **({} if self.adapter_path else revision)
         )
         if self._tok.pad_token_id is None and self._tok.eos_token_id is not None:
             self._tok.pad_token_id = self._tok.eos_token_id
@@ -92,12 +95,12 @@ class FrozenSubagent:
         )
 
         if is_full_save:
-            model = AutoModelForCausalLM.from_pretrained(
+            model = load_text_causal_model(
                 self.adapter_path, torch_dtype=dtype, trust_remote_code=True
             ).to(self.device)
         else:
-            model = AutoModelForCausalLM.from_pretrained(
-                self.base_model, torch_dtype=dtype, trust_remote_code=True
+            model = load_text_causal_model(
+                self.base_model, torch_dtype=dtype, trust_remote_code=True, **revision
             ).to(self.device)
             if self.adapter_path:
                 if not PEFT_AVAILABLE:

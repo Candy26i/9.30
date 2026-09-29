@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections import Counter
 import hashlib
 import random
 
@@ -18,15 +19,26 @@ def candidate(text):
 
 
 def _draw(backend, history, cfg, seed, tools=None, budget=None):
-    result = dict(backend.generate(history, tools=tools,
-        max_tokens=budget or cfg["max_new_tokens"],
-        temperature=cfg.get("temperature", 0), seed=seed))
+    from .backend import ContextBudgetExceeded
+    try:
+        result = dict(backend.generate(history, tools=tools,
+            max_tokens=budget or cfg["max_new_tokens"],
+            temperature=cfg.get("temperature", 0), seed=seed))
+    except ContextBudgetExceeded as exc:
+        # A per-example resource budget failure remains in the denominator.
+        # No prompt truncation, increased budget, or hidden retry is performed.
+        result = {"text": "", "truncated": False, "error": "context_budget_exceeded",
+                  "prompt_tokens": exc.prompt_tokens, "completion_tokens": 0,
+                  "actual_prompt_tokens": 0, "actual_completion_tokens": 0,
+                  "requested_max_tokens": exc.max_tokens, "max_context": exc.max_context,
+                  "seconds": 0.0}
     result["valid"] = (not result.get("truncated", False)
                        and extract_final(result["text"]) is not None
                        and not any(token in result["text"] for token in ("<tool_call", "<|im_start|>", "<|im_end|>")))
     # Decisions are validated by parse_calls, not by the final-answer rule.
     generation("manager", {**result, "valid": None} if tools else result,
                messages=history, max_tokens=budget or cfg["max_new_tokens"],
+               error=result.get("error"),
                operation="decision" if tools else "answer")
     return result
 
@@ -56,8 +68,14 @@ def delegate(row, backend, advisors, cfg, seed, sequence, history, draft):
     kind = sequence[-1]
     msg = call_message(kind, draft, "call_" + "_".join(sequence))
     advice = advisors.call(kind, row, draft if kind == "verifier" else "")
+    # A budget-limited advisor response is an observation, not an infrastructure
+    # failure. Preserve it in costs and let the Manager use any partial advice.
+    empty_message = ("[Advisor input exceeded the configured context budget; no advice was generated.]"
+                     if advice.get("error") == "advisor_context_budget_exceeded"
+                     else "[Advisor returned no text within the generation budget.]")
+    advice_text = advice["text"] if advice["text"].strip() else empty_message
     call_history = history + [msg, {"role": "tool", "tool_call_id": msg["tool_calls"][0]["id"],
-                                    "name": kind + "_tool", "content": advice["text"]}]
+                                    "name": kind + "_tool", "content": advice_text}]
     revision_prompt = call_history + [{"role": "user", "content": REVISE}]
     revision = _draw(backend, revision_prompt, cfg, branch_seed(seed, sequence))
     next_history = decision_history(revision_prompt, revision["text"])
@@ -71,8 +89,10 @@ def policy_rollout(row, backend, advisors, cfg, seed, root=None, history=None):
         root, history = root_state(row, backend, cfg, seed)
     history, current = deepcopy(history), dict(root)
     used, costs, decisions = [], [], []
-    error = None
+    error = current.get("error")
     for turn in range(cfg.get("max_depth", 2) + 1):
+        if error:
+            break
         progress(phase="policy", policy_turn=turn, sequence=used)
         # At the hard limit COMMIT is forced in collection and deployment alike.
         if turn == cfg.get("max_depth", 2):
@@ -81,6 +101,9 @@ def policy_rollout(row, backend, advisors, cfg, seed, root=None, history=None):
         generated = _draw(backend, history, cfg, branch_seed(seed, ["decision", *used]),
                           tools=tool_schemas(), budget=cfg.get("decision_max_tokens", 128))
         costs.append({"role": "manager", **generated})
+        if generated.get("error"):
+            error = generated["error"]
+            break
         if generated.get("truncated"):
             error = "truncated_decision"
             break
@@ -106,6 +129,9 @@ def policy_rollout(row, backend, advisors, cfg, seed, root=None, history=None):
         decisions.append({"action": kind, "forced": False})
         current, history, _, extra = delegate(row, backend, advisors, cfg, seed, used, history, current["text"])
         costs.extend(extra)
+        error = current.get("error")
+    if error is None and not current["valid"]:
+        error = "answer_truncated" if current.get("truncated") else "answer_format"
     valid = error is None and current["valid"]
     return {"correct": bool(valid and _grade(current, row)), "valid": valid,
             "text": current["text"], "calls": len(used), "sequence": used,
@@ -207,18 +233,41 @@ def summary(records):
         raise ValueError("Cannot summarize empty evaluation")
     n = len(records)
     solved = lambda r: r["direct_correct"] or any(b["correct"] for b in r.get("branches", []))
-    out = {"n": n, "independent_accuracy": sum(r["direct_correct"] for r in records) / n}
+    out = {"n": n, "independent_accuracy": sum(r["direct_correct"] for r in records) / n,
+           "independent_correct_n": sum(bool(r["direct_correct"]) for r in records),
+           "metric_scope": "question_level_terminal_answer; invalid outputs remain in the denominator"}
+    if all("direct_valid" in r for r in records):
+        out["direct_valid_rate"] = sum(bool(r["direct_valid"]) for r in records) / n
+    if all("direct_truncated" in r for r in records):
+        out["direct_truncated_rate"] = sum(bool(r["direct_truncated"]) for r in records) / n
     if all("branches" in r for r in records):
         out["delegation_search_coverage"] = sum(solved(r) for r in records) / n
     if all("policy" in r for r in records):
         out.update(policy_accuracy=sum(r["policy"]["correct"] for r in records) / n,
+                   policy_correct_n=sum(bool(r["policy"]["correct"]) for r in records),
                    mean_calls=sum(r["policy"]["calls"] for r in records) / n,
                    policy_valid_rate=sum(r["policy"]["valid"] for r in records) / n)
+        out["policy_error_counts"] = dict(Counter(r["policy"].get("error") or "unspecified_invalid_output"
+            for r in records if not r["policy"]["valid"]))
+        independent_n = out["independent_correct_n"]
+        rescued = sum(not r["direct_correct"] and r["policy"]["correct"] for r in records)
+        harmed = sum(r["direct_correct"] and not r["policy"]["correct"] for r in records)
+        out.update(policy_rescued_n=rescued, policy_harmed_n=harmed,
+                   policy_rescue_rate=rescued / (n - independent_n) if n > independent_n else None,
+                   policy_harm_rate=harmed / independent_n if independent_n else None,
+                   independently_solved_call_n=sum(r["direct_correct"] and r["policy"]["calls"] > 0 for r in records))
         if all("branches" in r for r in records):
             out["measured_union_coverage"] = sum(solved(r) or r["policy"]["correct"] for r in records) / n
     if all("self_continue_correct" in r for r in records):
         out["self_continue_accuracy"] = sum(r["self_continue_correct"] for r in records) / n
     costs = [c for r in records for c in r.get("costs", [])]
+    out["generation_diagnostics"] = {}
+    for role in ("manager", "advisor"):
+        selected = [c for c in costs if c.get("role") == role]
+        out["generation_diagnostics"][role] = {
+            "n": len(selected), "truncated_n": sum(bool(c.get("truncated")) for c in selected),
+            "empty_output_n": sum(not bool(c.get("text", "").strip()) for c in selected if "text" in c),
+            "error_counts": dict(Counter(c["error"] for c in selected if c.get("error")))}
     out["usage"] = {"logical_prompt_tokens": sum(c["prompt_tokens"] for c in costs),
                     "logical_completion_tokens": sum(c["completion_tokens"] for c in costs),
                     "actual_prompt_tokens": sum(c.get("actual_prompt_tokens", c["prompt_tokens"]) for c in costs),

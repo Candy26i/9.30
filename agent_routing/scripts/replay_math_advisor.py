@@ -134,7 +134,9 @@ def main():
         })
         print("Fixed/native prompt rendering and ending IDs identical:", identical, flush=True)
         monitor.set_question(SimpleNamespace(question=record.get("question", ""),
-                             context=record.get("context", ""), ground_truth=record.get("ground_truth")))
+                             context=record.get("context", ""), ground_truth=record.get("ground_truth"),
+                             benchmark_name=record.get("benchmark_name"), split=record.get("split"),
+                             example_id=record.get("example_id")))
         results = []
         for name, template, sampled in variants():
             if name not in args.variants or name in skipped:

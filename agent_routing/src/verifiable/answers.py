@@ -1,4 +1,9 @@
-"""Strict answer extraction; never reward a number found inside a derivation."""
+"""Explicit final-answer extraction without incidental derivation-number fallback.
+
+Mathematical correctness and typographical conventions are separate: surrounding
+math delimiters, Markdown emphasis, whitespace and sentence punctuation do not
+change the submitted answer. Conflicting declarations and prose after it do.
+"""
 from __future__ import annotations
 
 import re
@@ -8,27 +13,62 @@ from functools import lru_cache
 
 def unbox(text: str) -> str | None:
     text = text.strip()
-    if not text.startswith(r"\boxed{"):
+    opening = re.match(r"^\\boxed\s*\{", text)
+    if not opening:
         return None
     depth = 1
-    for i in range(7, len(text)):
-        if text[i] == "{" and (i == 0 or text[i - 1] != "\\"):
+    for i in range(opening.end(), len(text)):
+        escaped = (len(text[:i]) - len(text[:i].rstrip("\\"))) % 2
+        if text[i] == "{" and not escaped:
             depth += 1
-        elif text[i] == "}" and (i == 0 or text[i - 1] != "\\"):
+        elif text[i] == "}" and not escaped:
             depth -= 1
             if depth == 0:
-                return text[7:i].strip() if not text[i + 1:].strip() else None
+                return text[opening.end():i].strip() if not text[i + 1:].strip() else None
     return None
 
 
+def _unwrap_presentation(text: str) -> str:
+    """Remove only balanced, whole-value presentation wrappers."""
+    wrappers = (("$$", "$$"), ("$", "$"), (r"\[", r"\]"),
+                (r"\(", r"\)"), ("**", "**"), ("__", "__"), ("`", "`"))
+    text = text.strip()
+    while text:
+        if text.endswith((".", "。")):
+            text = text[:-1].rstrip()
+            continue
+        for left, right in wrappers:
+            if len(text) > len(left) + len(right) and text.startswith(left) and text.endswith(right):
+                text = text[len(left):-len(right)].strip()
+                break
+        else:
+            return text
+    return text
+
+
 def extract_final(text: str) -> str | None:
-    """Require one explicit final declaration on the final nonblank line."""
-    lines = [s.strip() for s in (text or "").splitlines() if s.strip()]
-    if not lines or sum(s.startswith("FINAL_ANSWER:") for s in lines) != 1:
+    """Require one explicit terminal declaration; tolerate harmless formatting.
+
+    No free-form number or earlier boxed equation is selected as a fallback.
+    Generation truncation is checked separately by the rollout validator.
+    """
+    text = text or ""
+    if len(re.findall(r"FINAL_ANSWER\s*:", text, flags=re.I)) != 1:
         return None
-    if not lines[-1].startswith("FINAL_ANSWER:"):
+    declaration = re.search(r"(?im)^[ \t]*(?:\*\*|__)?FINAL_ANSWER\s*:[ \t]*", text)
+    if declaration is None:
         return None
-    answer = unbox(lines[-1].removeprefix("FINAL_ANSWER:").strip())
+    payload = text[declaration.end():].strip()
+    # An emphasis wrapper may enclose the entire declaration instead of just
+    # its label/value. Only remove its matching terminal close.
+    start = text[declaration.start():declaration.end()].lstrip()
+    if start.startswith(("**", "__")):
+        marker = start[:2]
+        if payload.startswith(marker):
+            payload = payload[2:]
+        elif payload.endswith(marker):
+            payload = payload[:-2]
+    answer = unbox(_unwrap_presentation(payload))
     return answer if answer and len(answer) <= 1024 else None
 
 

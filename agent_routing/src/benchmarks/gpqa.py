@@ -103,13 +103,14 @@ def _collect_subset_questions(
         try:
             ds = load_dataset(dataset_name, subset, cache_dir=hf_cache_dir)
         except Exception as e:
-            print(f"[LOAD_GPQA] WARNING: could not load exclusion subset '{subset}': {e}")
-            continue
+            raise RuntimeError(f"Could not load required GPQA exclusion subset '{subset}'; refusing to risk train/test overlap") from e
         for split_name in ds.keys():
             for rec in ds[split_name]:
                 q = str(dict(rec).get("Question") or "").strip()
                 if q:
                     questions.add(_normalize_question(q))
+        if not any(str(dict(rec).get("Question") or "").strip() for name in ds.keys() for rec in ds[name]):
+            raise ValueError(f"GPQA exclusion subset '{subset}' has no question identities")
     return questions
 
 
@@ -160,21 +161,19 @@ def load_gpqa(
 
     rows: List[StandardRow] = []
     n_excluded = 0
+    seen_questions = set()
     for subset in subset_list:
         try:
             ds = load_dataset(dataset_name, subset, cache_dir=hf_cache_dir)
         except Exception as e:
-            print(
-                f"[LOAD_GPQA] WARNING: could not load subset '{subset}' from "
-                f"'{dataset_name}'. "
-                f"Make sure you accepted the dataset terms on HuggingFace and "
-                f"are logged in (`huggingface-cli login`). Error: {e}"
-            )
-            continue
+            raise RuntimeError(f"Could not load GPQA subset '{subset}' from '{dataset_name}'; refusing a partial benchmark") from e
 
         for split_name in ds.keys():
             for rec in ds[split_name]:
                 rec_d = dict(rec)
+                q_norm = _normalize_question(str(rec_d.get("Question") or ""))
+                if q_norm in seen_questions:
+                    continue
                 if excluded_questions:
                     q_norm = _normalize_question(str(rec_d.get("Question") or ""))
                     if q_norm in excluded_questions:
@@ -183,6 +182,7 @@ def load_gpqa(
                 sr = _from_record(rec_d, len(rows), subset, answer_seed)
                 if sr is not None:
                     rows.append(sr)
+                    seen_questions.add(q_norm)
                 if max_examples > 0 and len(rows) >= max_examples:
                     break
             if max_examples > 0 and len(rows) >= max_examples:

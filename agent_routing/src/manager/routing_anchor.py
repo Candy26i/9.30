@@ -118,100 +118,74 @@ def _boundary_after_text_with_offsets(
     return len(offsets)
 
 
-def tokenize_anchor_row(
-    row: Dict[str, Any],
-    tokenizer: Any,
-    max_seq_len: int,
-    mode: str,
-    tools=None,
-) -> Tuple[Optional[Dict[str, List[int]]], Dict[str, int]]:
-    """Tokenize one marginal-SFT row and build the requested label mask.
+def response_text_from_render(prompt_text: str, full_text: str) -> str:
+    """Keep the exact inference prefix instead of guessing a BPE boundary.
 
-    Returns ``(features, stats)``.  ``features`` is ``None`` when truncation
-    removes every supervised token, allowing callers to drop the row rather
-    than silently train on an all--100 label tensor.
+    Native Qwen3 non-thinking generation appends an empty thinking block to
+    the assistant prefix, whereas its completed-turn render can omit it. That
+    documented template difference is reconciled explicitly; arbitrary prompt
+    rewrites are rejected because a common token prefix would label context.
+    """
+    if full_text.startswith(prompt_text):
+        return full_text[len(prompt_text):]
+    for suffix in ("<think>\n\n</think>\n\n", "<think>\n</think>\n\n"):
+        if prompt_text.endswith(suffix) and full_text.startswith(prompt_text[:-len(suffix)]):
+            return full_text[len(prompt_text) - len(suffix):]
+    raise ValueError("Chat template rewrites the prompt; response-only masking cannot be verified")
+
+
+def tokenize_anchor_row(
+    row: Dict[str, Any], tokenizer: Any, max_seq_len: int, mode: str, tools=None,
+) -> Tuple[Optional[Dict[str, List[int]]], Dict[str, int]]:
+    """Encode inference prompt and assistant target separately, without truncation.
+
+    Returning None for overlength/empty targets lets callers report exclusions;
+    no partial solution or all--100 example is allowed into the loss.
     """
     if mode not in ANCHOR_MODES:
         raise ValueError(f"Unknown SFT anchor mode {mode!r}; expected one of {ANCHOR_MODES}")
     if max_seq_len <= 0:
         raise ValueError("max_seq_len must be positive")
-
     prompt_messages = list(row["prompt"])
     response_messages = _normalize_response(row["response"])
-    full_text = _render_chat(
-        tokenizer,
-        prompt_messages + response_messages,
-        add_generation_prompt=False,
-        tools=tools,
-    )
+    if len(response_messages) != 1 or response_messages[0].get("role") != "assistant":
+        raise ValueError("SFT requires exactly one assistant response; context must stay in prompt")
+    prompt_text = _render_chat(tokenizer, prompt_messages, True, tools)
+    full_text = _render_chat(tokenizer, prompt_messages + response_messages, False, tools)
+    target_text = response_text_from_render(prompt_text, full_text)
     eos = tokenizer.eos_token or ""
-    if eos and not full_text.rstrip().endswith(eos):
-        full_text += eos
-
-    full = tokenizer(full_text, add_special_tokens=False)
-    full_ids = list(full["input_ids"])
-    input_ids = full_ids[:max_seq_len]
-    attention_mask = list(full["attention_mask"][:max_seq_len])
-
-    prompt_text = _render_chat(
-        tokenizer,
-        prompt_messages,
-        add_generation_prompt=True,
-        tools=tools,
-    )
-    prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
-    prompt_boundary = _common_prefix_len(prompt_ids, full_ids)
-
-    if mode == "full":
-        label_boundary = prompt_boundary
-    else:
+    if eos and not target_text.rstrip().endswith(eos):
+        target_text += eos
+    prompt_ids = list(tokenizer(prompt_text, add_special_tokens=False)["input_ids"])
+    target_ids = list(tokenizer(target_text, add_special_tokens=False)["input_ids"])
+    input_ids = prompt_ids + target_ids
+    label_boundary = len(prompt_ids)
+    if mode == "route_only":
         decision_type = str(row.get("decision_type") or "")
         if decision_type not in {"call", "commit", "commit_after_call"}:
-            raise ValueError(
-                "route_only anchor requires decision_type in "
-                "{call, commit, commit_after_call}; "
-                f"got {decision_type!r}"
-            )
-        draft_message = _draft_prefix_message(response_messages)
-        draft_prefix_text = _render_chat(
-            tokenizer,
-            prompt_messages + [draft_message],
-            add_generation_prompt=False,
-            tools=tools,
-        )
-        draft_prefix_ids = tokenizer(draft_prefix_text, add_special_tokens=False)["input_ids"]
-        label_boundary = _common_prefix_len(draft_prefix_ids, full_ids)
-        offset_boundary = _boundary_after_text_with_offsets(
-            tokenizer,
-            full_text,
-            str(draft_message["content"]),
-        )
-        if offset_boundary is not None:
-            label_boundary = max(label_boundary, offset_boundary)
-        if label_boundary <= prompt_boundary:
-            raise ValueError(
-                "The active chat template does not preserve the assistant draft before the "
-                "routing suffix, so route_only masking would be invalid. Use mode=full or "
-                "a prefix-preserving tool template."
-            )
-
-    label_boundary = min(label_boundary, max_seq_len)
-    labels = ([-100] * label_boundary) + input_ids[label_boundary:]
-    labels = labels[: len(input_ids)]
-    supervised_tokens = sum(int(x != -100) for x in labels)
-    stats = {
-        "total_tokens": len(input_ids),
-        "prompt_boundary": min(prompt_boundary, max_seq_len),
-        "label_boundary": label_boundary,
-        "supervised_tokens": supervised_tokens,
-    }
-    if supervised_tokens == 0:
+            raise ValueError("route_only anchor requires decision_type in {call, commit, commit_after_call}")
+        draft = str(_draft_prefix_message(response_messages)["content"])
+        end = target_text.rfind(draft) + len(draft)
+        if end < len(draft):
+            raise ValueError("Chat template did not preserve the assistant draft")
+        boundary = _boundary_after_text_with_offsets(tokenizer, target_text, draft)
+        if boundary is None:
+            # When offsets are unavailable, mask the boundary token too if it
+            # merges draft text with the following routing suffix.
+            prefix_ids = tokenizer(target_text[:end], add_special_tokens=False)["input_ids"]
+            common = _common_prefix_len(prefix_ids, target_ids)
+            boundary = common + int(common < len(prefix_ids))
+        label_boundary += boundary
+    labels = [-100] * label_boundary + input_ids[label_boundary:]
+    meaningful = bool(str(response_messages[0].get("content") or "").strip()
+                      or response_messages[0].get("tool_calls"))
+    supervised = sum(y != -100 for y in labels) if meaningful else 0
+    stats = {"total_tokens": len(input_ids), "prompt_boundary": len(prompt_ids),
+             "label_boundary": label_boundary, "supervised_tokens": supervised,
+             "truncated": int(len(input_ids) > max_seq_len)}
+    if stats["truncated"] or not supervised or not prompt_ids:
         return None, stats
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "labels": labels,
-    }, stats
+    return {"input_ids": input_ids, "attention_mask": [1] * len(input_ids), "labels": labels}, stats
 
 
 def build_anchor_features(
@@ -226,6 +200,7 @@ def build_anchor_features(
     total_supervised = 0
     total_tokens = 0
     dropped = 0
+    truncated = 0
     for row in rows:
         feature, stats = tokenize_anchor_row(
             row=row,
@@ -235,17 +210,19 @@ def build_anchor_features(
             tools=tools,
         )
         total_tokens += stats["total_tokens"]
-        total_supervised += stats["supervised_tokens"]
+        truncated += stats["truncated"]
         if feature is None:
             dropped += 1
         else:
             features.append(feature)
+            total_supervised += stats["supervised_tokens"]
 
     n_kept = len(features)
     return features, {
         "n_rows": float(len(rows)),
         "n_kept": float(n_kept),
-        "n_dropped_no_target": float(dropped),
+        "n_dropped_no_target": float(dropped - truncated),
+        "n_dropped_truncated": float(truncated),
         "mean_tokens": total_tokens / max(1, len(rows)),
         "mean_supervised_tokens": total_supervised / max(1, n_kept),
     }

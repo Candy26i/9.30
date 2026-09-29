@@ -30,6 +30,7 @@ the historical SFT-only loop and disabled legacy RL entry point are unchanged.
 - [RunPod setup and commands](agent_routing/docs/RSI_RUNPOD.md)
 - [Literature review and experiment design](agent_routing/docs/RSI_RESEARCH_DESIGN.md)
 - [Validation and GPU limitations](agent_routing/docs/RSI_VALIDATION.md)
+- [Main audit fixes and paper logging contract](agent_routing/docs/AUDIT_AND_PAPER_LOGGING.md)
 
 ## MARGENT RSI full experiment plan
 

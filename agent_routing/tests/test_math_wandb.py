@@ -17,6 +17,10 @@ class FakeRun:
         self.summary, self.history, self.axes = {}, [], []
         self.url = "https://wandb.ai/test/project/runs/fake"
         self.exit_code = None
+        self.artifacts = []
+
+    def log_artifact(self, artifact):
+        self.artifacts.append(artifact)
 
     def log(self, value):
         self.history.append(value)
@@ -34,6 +38,13 @@ class FakeWandb:
 
     def Settings(self, **kwargs):
         return kwargs
+
+    class Artifact:
+        def __init__(self, name, type, metadata):
+            self.name, self.type, self.metadata, self.files = name, type, metadata, {}
+
+        def add_file(self, path, name):
+            self.files[name] = Path(path).read_text()
 
     def init(self, **kwargs):
         self.calls.append(kwargs)
@@ -142,7 +153,8 @@ class WandbTest(unittest.TestCase):
             self.assertIn('"train/reward": 0.5', (Path(tmp) / "metrics.jsonl").read_text())
             state = json.loads((Path(tmp) / "status.json").read_text())
             self.assertEqual(state["status"], "failed")
-            self.assertEqual(state["wandb_status"], "upload_error_local_logs_retained")
+            self.assertEqual(state["wandb_status"], "recovered_with_local_evidence")
+            self.assertTrue(m.had_wandb_error)
 
     def test_cached_tokens_and_retries_preserve_observed_costs(self):
         with tempfile.TemporaryDirectory() as tmp, patch("src.verifiable.telemetry.subprocess.run", side_effect=FileNotFoundError):

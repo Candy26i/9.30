@@ -31,6 +31,12 @@ def test_failure_report_distinguishes_action_from_answer():
     assert rollout_record(1, 0, root, sample, -1.)['failure_type'] == 'decision_protocol'
     sample['outcome']['error'] = 'truncated_decision'
     assert rollout_record(1, 0, root, sample, -1.)['failure_type'] == 'decision_truncated'
+    sample['outcome']['error'] = 'answer_truncated'
+    assert rollout_record(1, 0, root, sample, -1.)['failure_type'] == 'revision_truncated'
+    sample['outcome']['error'] = 'answer_format'
+    assert rollout_record(1, 0, root, sample, -1.)['failure_type'] == 'revision_answer_format'
+    sample['outcome']['error'] = 'context_budget_exceeded'
+    assert rollout_record(1, 0, root, sample, -1.)['failure_type'] == 'context_budget_exceeded'
 
 
 def test_review_uploads_real_offline_tables_without_changing_source(tmp_path, monkeypatch):

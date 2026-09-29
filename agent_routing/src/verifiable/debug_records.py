@@ -7,13 +7,13 @@ from pathlib import Path
 
 
 GENERATION_COLUMNS = [
-    "source", "attempt", "question_hash", "question", "context", "ground_truth",
+    "source", "attempt", "time", "question_hash", "benchmark_name", "split", "example_id", "question", "context", "ground_truth",
     "phase", "sequence", "role", "advisor", "operation", "prompt", "text",
-    "valid", "truncated", "error", "max_tokens", "prompt_tokens", "completion_tokens",
+    "valid", "valid_output", "truncated", "error", "finish_reason", "max_tokens", "requested_max_tokens", "max_context", "prompt_tokens", "completion_tokens",
     "actual_completion_tokens", "seconds", "tokens_per_second", "cache_hit", "clipped_fields",
 ]
 QUESTION_COLUMNS = [
-    "source", "question_hash", "question", "context", "ground_truth", "direct_text",
+    "source", "question_hash", "benchmark_name", "split", "example_id", "question", "context", "ground_truth", "direct_text",
     "direct_correct", "direct_valid", "direct_truncated", "branch_count", "successful_branches",
     "preferred_sequence", "policy_text", "policy_correct", "policy_valid", "policy_error",
     "policy_calls", "self_continue_text", "self_continue_correct", "actual_completion_tokens",

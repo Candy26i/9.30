@@ -28,7 +28,12 @@ def rollout_record(step, sample, root, trajectory, advantage, question=None):
     error = outcome.get("error")
     failure = "none"
     if not outcome["valid"]:
-        if error:
+        if error == "context_budget_exceeded":
+            failure = "context_budget_exceeded"
+        elif error in {"answer_truncated", "answer_format"}:
+            revisions = [o for o in outputs if o["kind"] == "revision"]
+            failure = ("revision" if revisions else "root") + ("_truncated" if error == "answer_truncated" else "_answer_format")
+        elif error:
             failure = "decision_truncated" if error == "truncated_decision" else "decision_protocol"
         else:
             revisions = [o for o in outputs if o["kind"] == "revision"]

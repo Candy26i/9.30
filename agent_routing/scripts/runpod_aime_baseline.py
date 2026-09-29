@@ -12,6 +12,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 from urllib.request import urlopen
 
 REPO = Path(__file__).resolve().parents[1]
@@ -29,11 +30,19 @@ def shards(stage):
 
 
 def verify_complete(stage, expected):
+    if not expected or len(set(expected)) != len(expected):
+        raise ValueError('Expected question identities must be nonempty and unique')
     records = [json.loads(line) for line in (stage / 'records.jsonl').read_text().splitlines() if line.strip()]
     if len(records) != len(expected) or {r['question_hash'] for r in records} != set(expected):
         raise ValueError('Evaluation did not finish every expected question exactly once')
     if read(stage / 'summary.json')['n'] != len(expected):
         raise ValueError('Summary count does not match the complete benchmark')
+    # When question checkpoints exist they are authoritative for resume. Do not
+    # certify a stale aggregate file that a later restart would overwrite.
+    if (stage / 'questions').exists():
+        saved = {p.stem: read(p) for p in (stage / 'questions').glob('*.json')}
+        if set(saved) != set(expected) or any(saved.get(r['question_hash']) != r for r in records):
+            raise ValueError('Question checkpoints disagree with completed aggregate records')
     return records
 
 
@@ -66,12 +75,17 @@ def run_child(command, stage, log, env, deadline, advisor=None, interrupt_after_
             raise
 
 
-def preflight_stats(records):
+def preflight_stats(records, strict=False):
     invalid = sum(not r['direct_valid'] or not r['policy']['valid'] for r in records)
     truncated = sum(any(c.get('truncated', False) for c in r.get('costs', []) if c.get('role') == 'manager') for r in records)
+    warnings = []
+    if invalid >= 2:
+        warnings.append('Most dev questions had invalid output; these count as incorrect in evaluation')
+    if truncated >= 2:
+        warnings.append('Most dev questions reached a Manager token budget')
     return {'n': len(records), 'invalid_questions': invalid, 'truncated_questions': truncated,
-            'proceed': invalid < 2 and truncated < 2,
-            'note': 'Operational dev check only; accuracy is not a gate. AIME settings remain frozen.'}
+            'strict': strict, 'warnings': warnings, 'proceed': not strict or not warnings,
+            'note': 'Output quality is descriptive by default, not an infrastructure failure. Strict quality gate is opt-in. Accuracy is never a gate; AIME settings remain frozen.'}
 
 
 def initialize(args):
@@ -94,6 +108,7 @@ def initialize(args):
     signature = {'purpose': 'locked_initial_aime_baseline_no_training', 'config': cfg,
                  'source_manifest': manifest, 'harness': harness_identity(), 'data_dir': str(source),
                  'dev_ids': dev_ids, 'test_ids': test_ids, 'minutes': args.minutes,
+                 'strict_preflight': getattr(args, 'strict_preflight', False),
                  'manager_gpu': args.manager_gpu, 'advisor_gpu': args.advisor_gpu}
     file = root / 'benchmark_run.json'
     if file.exists():
@@ -121,6 +136,8 @@ def main():
     p.add_argument('--manager-gpu', default='1')
     p.add_argument('--advisor-gpu', default='0')
     p.add_argument('--port', type=int, default=8003)
+    p.add_argument('--strict-preflight', action='store_true',
+                   help='Stop when at least two dev outputs are invalid/truncated; default records warnings and evaluates all questions')
     args = p.parse_args()
     if not 0 < args.minutes <= 120:
         p.error('--minutes must be in (0, 120]')
@@ -139,19 +156,27 @@ def main():
         raise RuntimeError('This baseline already has a running controller')
     root, source, cfg, dev_ids, test_ids, deadline = initialize(args)
     if (root / 'baseline_report.json').exists():
-        print(json.dumps(read(root / 'baseline_report.json'), indent=2)); return
+        completed = read(root / 'baseline_report.json')
+        verify_complete(root / 'aime2026', test_ids)
+        if completed.get('status') != 'completed' or completed.get('n') != len(test_ids):
+            raise ValueError('Existing baseline report is not a complete benchmark result')
+        print(json.dumps(completed, indent=2)); return
     env = {**os.environ, 'CUDA_VISIBLE_DEVICES': args.manager_gpu, 'PYTHONUNBUFFERED': '1'}
     advisor = None
     current = 'preflight'
     with Monitor(root, 'aime_baseline') as monitor:
         try:
+            monitor.summary({'baseline_complete': False, 'controller_status': 'running',
+                             'current_stage': current, 'failed_stage': None, 'error': None,
+                             'planned_dev_interruption': False, 'expected_questions': len(test_ids),
+                             'deadline_unix': deadline})
             if time.time() >= deadline:
                 raise TimeoutError('Original budget expired; no automatic budget extension or GPU restart')
             atomic_json(root / 'gpu_preflight.json', gpu_check(args.manager_gpu, args.advisor_gpu))
             with socket.socket() as sock:
                 sock.bind(('127.0.0.1', args.port))
             current = 'advisor_start'
-            monitor.tracker.run.summary.update({'current_stage': current, 'controller_status': 'running'})
+            monitor.summary({'current_stage': current, 'controller_status': 'running'})
             progress(phase=current, total_questions=30)
             with (root / 'logs/advisor.log').open('a') as stream:
                 advisor = subprocess.Popen([sys.executable, '-m', 'src.verifiable.serve', '--model', cfg['base_model'],
@@ -176,7 +201,7 @@ def main():
                         '--data', str(data), '--out', str(stage)]
 
             current = 'dev_preflight_and_resume_check'
-            monitor.tracker.run.summary.update({'current_stage': current, 'planned_dev_interruption': True})
+            monitor.summary({'current_stage': current, 'planned_dev_interruption': True})
             progress(phase=current, total_questions=3, completed_questions=0)
             dev = root / 'dev_preflight'
             cmd = command(dev, root / 'dev.jsonl', 'dev')
@@ -195,8 +220,8 @@ def main():
             records = verify_complete(dev, dev_ids)
             saved['verified'] = True
             atomic_json(drill, saved)
-            monitor.tracker.run.summary.update({'planned_dev_interruption': False, 'resume_check': saved})
-            check = preflight_stats(records)
+            monitor.summary({'planned_dev_interruption': False, 'resume_check': saved})
+            check = preflight_stats(records, strict=args.strict_preflight)
             # A rough dev-based estimate is not a promise for harder AIME items.
             seconds = [sum(c.get('seconds', 0) for c in r.get('costs', [])) for r in records]
             check.update(estimated_aime_minutes_from_dev=sum(seconds) / 3 * 30 / 60,
@@ -209,11 +234,9 @@ def main():
                 raise RuntimeError('At least two of three dev questions had invalid or truncated output; inspect preflight before spending on AIME')
             if check['estimated_aime_minutes_from_dev'] * 1.25 > check['remaining_minutes'] and not shards(root / 'aime2026'):
                 raise RuntimeError('Dev timing estimate plus 25% margin exceeds remaining budget; AIME has not started. Review preflight_report.json')
-            if monitor.wandb_failed:
-                raise RuntimeError('W&B tracking failed during preflight; local records retained')
             current = 'aime2026_all_30'
-            monitor.tracker.run.summary.update({'current_stage': current})
-            progress(phase=current, total_questions=30, completed_questions=0)
+            monitor.summary({'current_stage': current})
+            progress(phase=current, total_questions=30, completed_questions=len(shards(root / 'aime2026')))
             stage = root / 'aime2026'
             run_child(command(stage, source / 'aime2026.jsonl', 'test'), stage, root / 'logs/aime2026.log', env, deadline, advisor)
             records = verify_complete(stage, test_ids)
@@ -223,22 +246,30 @@ def main():
                 'resume_check': saved, 'config': cfg}
             atomic_json(root / 'baseline_report.json', report)
             metrics(report, 'benchmark')
-            monitor.tracker.run.summary.update({'baseline_complete': True, 'baseline_report': report,
-                                               'current_stage': 'complete', 'controller_status': 'completed'})
+            atomic_json(root / 'baseline_status.json', {'status': 'completed', 'stage': 'complete',
+                        'completed_aime_questions': len(records), 'wandb_upload_error': monitor.wandb_failed})
+            monitor.summary({'baseline_complete': True, 'baseline_report': report, 'n': len(records),
+                             'current_stage': 'complete', 'controller_status': 'completed',
+                             'failed_stage': None, 'error': None})
             print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
         except BaseException as exc:
             state = 'budget_exhausted' if isinstance(exc, TimeoutError) else 'interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed'
             atomic_json(root / 'baseline_status.json', {'status': state, 'stage': current, 'error': str(exc),
                 'completed_aime_questions': len(shards(root / 'aime2026')), 'pod_billing_stopped': False})
+            (root / 'controller_traceback.txt').write_text(traceback.format_exc(), encoding='utf-8')
+            monitor.summary({'baseline_complete': False, 'controller_status': state, 'failed_stage': current,
+                             'error': str(exc), 'planned_dev_interruption': False,
+                             'completed_aime_questions': len(shards(root / 'aime2026'))})
             try:
-                monitor.tracker.run.summary.update({'controller_status': state, 'failed_stage': current, 'error': str(exc)})
-                monitor.tracker.run.alert(title='MARGENT AIME baseline stopped', text=f'{state}: {current}: {exc}. Saved outputs: {root}')
+                if monitor.tracker.run is not None:
+                    monitor.tracker.run.alert(title='MARGENT AIME baseline stopped', text=f'{state}: {current}: {exc}. Saved outputs: {root}')
             except Exception as alert_error:
                 atomic_json(root / 'alert_error.json', {'error': str(alert_error)})
             raise
         finally:
             stop_owned(advisor)
-    atomic_json(root / 'baseline_status.json', {'status': 'completed', 'stage': 'complete', 'wandb_upload_error': monitor.wandb_failed})
+    atomic_json(root / 'baseline_status.json', {**read(root / 'baseline_status.json'),
+                'wandb_upload_error': monitor.wandb_failed})
 
 
 if __name__ == '__main__':

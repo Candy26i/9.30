@@ -65,27 +65,17 @@ JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 def _extract_first_json(text: str) -> Optional[Dict[str, Any]]:
     if not text:
         return None
-    s = text.find("{")
-    if s == -1:
-        return None
-    # Greedy outermost brace match — fine for our schemas which are flat.
-    e = text.rfind("}")
-    if e <= s:
-        return None
-    chunk = text[s : e + 1]
-    try:
-        obj = json.loads(chunk)
-        return obj if isinstance(obj, dict) else None
-    except Exception:
-        # Try a regex fallback for nested-prose responses.
-        m = JSON_BLOCK_RE.search(text)
-        if not m:
-            return None
+    decoder = json.JSONDecoder()
+    # raw_decode respects nested objects and quoted braces, and does not merge
+    # a valid object with a second object or trailing explanatory prose.
+    for match in re.finditer(r"\{", text):
         try:
-            obj = json.loads(m.group(0))
-            return obj if isinstance(obj, dict) else None
-        except Exception:
-            return None
+            obj, _ = decoder.raw_decode(text, match.start())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return None
 
 
 def _build_teacher_prompt(
@@ -219,6 +209,10 @@ def synthesize_subagent_data(
     """
     if auditor is None:
         auditor = LeakageAuditor()
+    if n_samples < 1 or max_workers < 1 or max_retries_per_sample < 0:
+        raise ValueError("n_samples/max_workers must be positive and retries nonnegative")
+    if any(row.split in {"dev", "validation", "test"} for row in rows):
+        raise ValueError("Subagent synthesis for training cannot consume development/test questions")
 
     rng = random.Random(seed)
     pool = list(rows)
@@ -372,6 +366,7 @@ def synthesize_subagent_data(
             return {
                 "example_id": int(row.example_id),
                 "question_hash": _question_hash(row.question),
+                "split": row.split or "train",
                 "benchmark_name": row.benchmark_name,
                 "agent_kind": agent_kind.value,
                 "teacher_provider": teacher.provider,

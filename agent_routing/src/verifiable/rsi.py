@@ -19,7 +19,7 @@ from .data import identity, load_rows, verify_manifest
 from .experiment import sft_rows
 from .provenance import harness_identity
 from .runner import load_config, run_data, validate_stage_artifacts, verify_advisor, checkpoint_identity
-from .telemetry import atomic_json
+from .telemetry import Monitor, atomic_json
 from ..utils.io import read_jsonl, write_jsonl
 
 ARMS = ("dynamic", "static", "success")
@@ -184,8 +184,28 @@ def run(config_path, data_dir, output, rounds=2, hours=24., arms=ARMS, dry_run=F
     if not budgetfile.exists():
         atomic_json(budgetfile, {"deadline_unix": time.time() + hours * 3600})
     deadline = json.loads(budgetfile.read_text())["deadline_unix"]
+    if all((Path(step["output"]) / ".rsi_complete.json").exists() for step in plan):
+        for step in plan:
+            validate_step(step)
+        return report(root)
+    with Monitor(root, "rsi_controller") as monitor:
+        try:
+            return _run_plan(cfg, root, plan, deadline, monitor)
+        except BaseException as exc:
+            state = monitor.state.get("progress", {})
+            monitor.summary({"controller_status": "interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
+                             "failed_stage": state.get("current_stage", "advisor_preflight"),
+                             "pilot_complete": False, "error_type": type(exc).__name__, "error": str(exc)})
+            raise
+
+
+def _run_plan(cfg, root, plan, deadline, monitor):
     verify_advisor(cfg, root)
-    for step in plan:
+    for index, step in enumerate(plan):
+        current_stage = str(Path(step["output"]).relative_to(root))
+        monitor.summary({"controller_status": "running", "current_stage": current_stage,
+                         "completed_stages": index, "planned_stages": len(plan)})
+        monitor.update(stage_index=index + 1, total_stages=len(plan), current_stage=current_stage)
         if time.time() >= deadline:
             report(root)
             raise TimeoutError("Pilot deadline reached; do not treat an incomplete arm as a final result")
@@ -202,11 +222,17 @@ def run(config_path, data_dir, output, rounds=2, hours=24., arms=ARMS, dry_run=F
             if not gate["pass"]:
                 raise RuntimeError("Insufficient rescue/commit examples for an informative pilot; inspect initial_gate.json")
         if step["stage"] == "grpo":
-            reports = [json.loads(p.read_text()) for p in Path(step["output"]).glob("step-*/step.json")]
+            from .rsi_grpo import committed_step_directories
+            reports = [json.loads((p / "step.json").read_text())
+                       for p in committed_step_directories(step["output"])]
             mixed = sum(r["mixed_reward_group"] for r in reports)
             if mixed < cfg.get("pilot_min_mixed_groups", 0):
                 raise RuntimeError("No informative outcome learning in this GRPO stage; inspect rewards before spending more pilot budget")
-    return report(root)
+    result = report(root)
+    monitor.summary({"controller_status": "completed", "current_stage": "completed",
+                     "pilot_complete": result["complete"], "completed_stages": result["completed_stages"],
+                     "planned_stages": result["planned_stages"]})
+    return result
 
 
 def report(output):
@@ -232,8 +258,11 @@ def report(output):
             independent_regressed=sum(initial[r["question_hash"]]["direct_correct"] and not r["direct_correct"] for r in rows))
         timeline.append(summary)
     rl_steps = []
-    for p in root.glob("*/round_*/grpo/step-*/step.json"):
-        rl_steps.append({"path": str(p.relative_to(root)), **json.loads(p.read_text())})
+    from .rsi_grpo import committed_step_directories
+    for stage_root in root.glob("*/round_*/grpo"):
+        for directory in committed_step_directories(stage_root):
+            p = directory / "step.json"
+            rl_steps.append({"path": str(p.relative_to(root)), **json.loads(p.read_text())})
     collections = []
     first_path = root / "initial_collection/records.jsonl"
     first = {r["question_hash"]: r for r in read_jsonl(str(first_path))} if first_path.exists() else {}
@@ -260,9 +289,52 @@ def report(output):
               "rl_groups": len(rl_steps), "mixed_reward_groups": sum(s["mixed_reward_group"] for s in rl_steps),
               "invalid_rl_rollouts": sum(sum(not v for v in s["protocol_valid"]) for s in rl_steps),
               "test_sets_used": False}
-    result["stage_costs"] = [{"stage": str(Path(p["output"]).relative_to(root)),
-        "wall_seconds": json.loads((Path(p["output"]) / ".rsi_complete.json").read_text())["wall_seconds"]}
-        for p in run_info["plan"] if (Path(p["output"]) / ".rsi_complete.json").exists()]
+    from .reporting import read_optional, stage_cost
+    result["stage_costs"] = []
+    for step in run_info["plan"]:
+        path = Path(step["output"])
+        marker = path / ".rsi_complete.json"
+        completed = json.loads(marker.read_text()) if marker.exists() else None
+        try:
+            events = read_optional(path / "events.jsonl")
+            ledger = read_optional(path / "usage.jsonl")
+            cost = stage_cost(path)
+        except ValueError as exc:
+            parsing_error = exc.__cause__ if isinstance(exc.__cause__, json.JSONDecodeError) else exc
+            if not isinstance(parsing_error, (json.JSONDecodeError, UnicodeDecodeError)):
+                raise
+            # A killed writer can leave a torn ledger. Report the uncertainty
+            # without modifying its evidence or claiming free computation.
+            events, ledger = [], []
+            cost = {"stage_path": str(path), "observed_wall_seconds": None,
+                    "attempts": None, "accounting_complete": False, "usage_incomplete": True,
+                    "accounting_error": type(parsing_error).__name__,
+                    "actual_generation_tokens": None, "sft_processed_tokens": None,
+                    "sft_supervised_tokens": None,
+                    **{f"{role}_actual_{kind}_tokens": None for role in ("manager", "advisor")
+                       for kind in ("prompt", "completion")}}
+        # Include failed/interrupted attempts and unfinished stages. A missing
+        # ledger or closing event means unknown consumption, not precise zero.
+        if not any(e.get("event") in {"completed", "failed", "interrupted"}
+                   and "wall_seconds" in e for e in events):
+            cost["observed_wall_seconds"] = None
+        if not ledger:
+            for key in cost:
+                if key.endswith("_tokens"):
+                    cost[key] = None
+        last_successful = completed.get("wall_seconds") if completed is not None else None
+        cost.update(stage=str(path.relative_to(root)), stage_complete=completed is not None,
+                    accounting_complete=cost["accounting_complete"] and completed is not None,
+                    observed_activity=bool(events or ledger or completed or
+                        any((path / name).exists() and (path / name).stat().st_size
+                            for name in ("events.jsonl", "usage.jsonl"))),
+                    last_successful_attempt_wall_seconds=last_successful,
+                    # Compatibility alias; never sum this with observed time.
+                    wall_seconds=last_successful,
+                    wall_seconds_scope="compatibility alias for last_successful_attempt_wall_seconds; not cumulative stage cost",
+                    observed_wall_seconds_scope="sum of closed Monitor attempts, including failed/interrupted attempts; excludes open attempts and subprocess startup outside Monitor",
+                    cost_scope="all observed attempt logs; incomplete accounting is a lower bound, missing evidence is null; time fields are alternative views, not additive")
+        result["stage_costs"].append(cost)
     result["paired_final_differences"] = []
     import random
     for control in ("static", "success"):

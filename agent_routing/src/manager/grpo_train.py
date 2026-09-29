@@ -47,6 +47,7 @@ from ..benchmarks.base import StandardRow, question_hash as _question_hash
 from ..subagents.runtime import FrozenSubagent, RemoteSubagentPool, SubagentPool
 from ..utils.io import read_jsonl, write_json
 from ..utils.seed import set_seed
+from ..subagents.train import load_text_causal_model, training_device
 from .prompt import build_manager_system_prompt, build_manager_user_message
 from .reward import build_reward_funcs
 from .routing_anchor import ANCHOR_MODES, build_anchor_features
@@ -227,6 +228,7 @@ class ManagerGRPOConfig:
     max_completion_length: int = 2048
     temperature: float = 0.9
     num_generations: int = 6
+    gradient_accumulation_steps: Optional[int] = None
     grpo_beta: float = 0.01
     max_steps: int = -1
     routing_efficiency_bonus: float = 0.0
@@ -384,7 +386,12 @@ class SFTAnchoredGRPOTrainer(_GRPOTrainerBase):
             logged_loss = logged_loss.mean()
         self._sft_anchor_loss_sum += float(logged_loss.item())
         self._sft_anchor_loss_count += 1
-        return grpo_loss + (self.sft_anchor_coef * anchor_loss)
+        # TRL 0.29 returns an already accumulation-normalized GRPO loss;
+        # without matching this factor the anchor is amplified by the number
+        # of microbatches and changes its meaning across GPU/batch settings.
+        accumulation = getattr(self, "current_gradient_accumulation_steps",
+                               self.args.gradient_accumulation_steps)
+        return grpo_loss + (self.sft_anchor_coef * anchor_loss / accumulation)
 
     def log(self, logs, *args, **kwargs):
         if self._sft_anchor_loss_count:
@@ -400,12 +407,47 @@ class SFTAnchoredGRPOTrainer(_GRPOTrainerBase):
         return super().log(logs, *args, **kwargs)
 
 
+def _validate_generation_batch(cfg):
+    import math
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    if cfg.num_generations < 2 or cfg.per_device_train_batch_size < 1 or world_size < 1:
+        raise ValueError("Positive batch/world size and num_generations >= 2 required")
+    per_microbatch = cfg.per_device_train_batch_size * world_size
+    accumulation = cfg.gradient_accumulation_steps
+    if accumulation is None:
+        # Preserve the historical 2 whenever it already forms complete groups.
+        # For invalid defaults (single GPU, batch=2, G=6), choose the smallest
+        # valid value instead of launching an impossible generation batch.
+        accumulation = 2 if (per_microbatch * 2) % cfg.num_generations == 0 else (
+            cfg.num_generations // math.gcd(cfg.num_generations, per_microbatch))
+    if isinstance(accumulation, bool) or not isinstance(accumulation, int) or accumulation < 1:
+        raise ValueError("gradient_accumulation_steps must be a positive integer")
+    batch = per_microbatch * accumulation
+    if batch % cfg.num_generations:
+        raise ValueError(f"Global generation batch {batch} must be divisible by num_generations={cfg.num_generations}")
+    return accumulation
+
+
+def _resolve_checkpoint_source(source):
+    # owner/repo is a valid Hub ID, including on POSIX where '/' == os.sep.
+    # Only resolve actual local paths or an explicitly relative/absolute path.
+    if source and (os.path.exists(source) or source.startswith((".", "~", "/"))):
+        return os.path.abspath(os.path.expanduser(source))
+    return source
+
+
 def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
     if not TRL_AVAILABLE:
         raise RuntimeError("trl is required for manager GRPO training.")
 
+    device = training_device()
     set_seed(cfg.seed)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    if not cfg.rows:
+        raise ValueError("Manager GRPO requires nonempty training rows")
+    if len({int(r.example_id) for r in cfg.rows}) != len(cfg.rows):
+        raise ValueError("Manager GRPO example IDs must be unique for tool binding")
+    accumulation = _validate_generation_batch(cfg)
 
     # ---- Resolve binding mode ----
     binding_mode = cfg.binding_mode
@@ -468,6 +510,7 @@ def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
             os.environ["WANDB_PROJECT"] = cfg.wandb_project
         if cfg.wandb_entity:
             os.environ["WANDB_ENTITY"] = cfg.wandb_entity
+        os.environ.pop("WANDB_DISABLED", None)
         os.environ["WANDB_MODE"] = cfg.wandb_mode
         run_name = cfg.wandb_run_name or f"grpo_{os.path.basename(cfg.out_dir.rstrip('/'))}_{int(time.time())}"
         os.environ["WANDB_NAME"] = run_name
@@ -506,15 +549,7 @@ def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
     train_dataset = Dataset.from_list(train_records)
 
     # ---- Manager model + tokenizer ----
-    # Resolve relative local paths to absolute so transformers doesn't mistake
-    # them for HuggingFace repo IDs (e.g. "outputs/manager/..." → OSError).
-    # Detection: a HF repo ID has exactly one "/" and no OS path separators;
-    # a local path has multiple "/" or contains os.sep (backslash on Windows).
-    if cfg.manager_adapter:
-        p = cfg.manager_adapter
-        looks_local = os.sep in p or p.count("/") > 1 or p.startswith(".")
-        if looks_local:
-            cfg.manager_adapter = os.path.abspath(p)
+    cfg.manager_adapter = _resolve_checkpoint_source(cfg.manager_adapter)
 
     manager_tok = AutoTokenizer.from_pretrained(
         cfg.manager_adapter or cfg.base_model, trust_remote_code=True
@@ -536,12 +571,12 @@ def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
         and not os.path.exists(os.path.join(cfg.manager_adapter, "adapter_config.json"))
     )
     if cfg.full_parameter_rl and is_full_init:
-        manager_model = AutoModelForCausalLM.from_pretrained(
+        manager_model = load_text_causal_model(
             cfg.manager_adapter, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
         print(f"[MANAGER_GRPO] full-parameter init model -> {cfg.manager_adapter}")
     else:
-        manager_model = AutoModelForCausalLM.from_pretrained(
+        manager_model = load_text_causal_model(
             cfg.base_model, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
         if cfg.manager_adapter:
@@ -645,7 +680,10 @@ def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
         per_device_train_batch_size=int(cfg.per_device_train_batch_size),
         max_tool_calling_iterations=3,           # we allow up to 3 tools
         chat_template_kwargs={"enable_thinking": False},
-        gradient_accumulation_steps=2,
+        gradient_accumulation_steps=accumulation,
+        seed=cfg.seed,
+        data_seed=cfg.seed,
+        use_cpu=(device == "cpu"),
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         logging_steps=1,
@@ -743,6 +781,13 @@ def train_manager_grpo(cfg: ManagerGRPOConfig) -> None:
     )
     write_json(os.path.join(cfg.out_dir, "manager_run_config.json"), {
         "base_model": cfg.base_model,
+        "seed": cfg.seed,
+        "num_generations": cfg.num_generations,
+        "gradient_accumulation_steps": accumulation,
+        "requested_gradient_accumulation_steps": cfg.gradient_accumulation_steps,
+        "per_device_train_batch_size": cfg.per_device_train_batch_size,
+        "temperature": cfg.temperature,
+        "grpo_beta": cfg.grpo_beta,
         "binding_mode": binding_mode,
         "n_train_rows": len(cfg.rows),
         "subagents": subagent_keys,

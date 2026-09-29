@@ -11,6 +11,13 @@ from .telemetry import generation, usage, progress
 from .sampling import normalize_generation, generation_kwargs
 
 
+class ContextBudgetExceeded(ValueError):
+    """This prompt cannot be generated under the declared per-sample budget."""
+    def __init__(self, prompt_tokens, max_tokens, max_context):
+        self.prompt_tokens, self.max_tokens, self.max_context = prompt_tokens, max_tokens, max_context
+        super().__init__(f"Context budget exceeded: {prompt_tokens} + {max_tokens} > {max_context}; no silent truncation")
+
+
 def configure_tokenizer(tok):
     """Use one explicit Qwen ChatML/JSON-tool protocol in every experiment phase.
 
@@ -106,6 +113,8 @@ def strip_generation_endings(text, tokenizer):
 
 class HFBackend:
     def __init__(self, base_model, checkpoint=None, max_context=16384, revision=None, decision_constraint="none"):
+        if type(max_context) is not int or max_context <= 0:
+            raise ValueError("max_context must be a positive integer")
         self.tokenizer, self.model = load_model(base_model, checkpoint, revision=revision)
         self.max_context = max_context
         if decision_constraint not in {"none", "finite_actions_v1"}:
@@ -115,13 +124,15 @@ class HFBackend:
     def generate(self, messages, tools=None, max_tokens=2048, temperature=0.0, seed=42,
                  generation_options=None):
         import torch
+        if type(max_tokens) is not int or max_tokens <= 0:
+            raise ValueError("max_tokens must be a positive integer")
         settings = normalize_generation({"temperature": temperature, "seed": seed,
                                          **(generation_options or {})})
         prompt = render(self.tokenizer, messages, tools)
         inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(self.model.device)
         n = inputs["input_ids"].shape[1]
         if n + max_tokens > self.max_context:
-            raise ValueError(f"Context budget exceeded: {n} + {max_tokens} > {self.max_context}; no silent truncation")
+            raise ContextBudgetExceeded(n, max_tokens, self.max_context)
         devices = [self.model.device.index or 0] if self.model.device.type == "cuda" else []
         start = time.monotonic()
         grammar = {}
@@ -143,21 +154,26 @@ class HFBackend:
         # than a potentially different model-level generation default.
         text = strip_generation_endings(
             self.tokenizer.decode(ids, skip_special_tokens=False), self.tokenizer)
+        truncated = bool(len(ids) >= max_tokens and int(ids[-1]) != self.tokenizer.eos_token_id)
         result = {"text": text,
                 "prompt_tokens": n, "completion_tokens": len(ids),
                 "seconds": time.monotonic() - start,
-                "truncated": bool(len(ids) >= max_tokens and int(ids[-1]) != self.tokenizer.eos_token_id)}
+                "truncated": truncated, "finish_reason": "length" if truncated else "stop"}
         usage("manager", result)
         return result
 
 
 class HTTPAdvisors:
-    """Frozen endpoint. The complete candidate is included in cache identities.
+    """Frozen endpoint with an explicit, finite generation budget.
 
-    HTTP/network/format errors raise instead of becoming incorrect math labels.
-    Endpoint model aliases can point to one frozen model or separate adapters.
+    Transport/schema/identity failures raise. Budget exhaustion and empty model
+    completions are observed outcomes, retained with diagnostics rather than
+    crashing an entire benchmark. A partial hint is never itself a math label.
+    The complete candidate is included in cache identities.
     """
     def __init__(self, url, max_tokens=1024, models=None, timeout=600, generation_options=None):
+        if type(max_tokens) is not int or max_tokens <= 0:
+            raise ValueError("advisor max_tokens must be a positive integer")
         self.url = url.rstrip("/")
         self.max_tokens = max_tokens
         self.models = models or {k: k for k in ("extractor", "reasoner", "verifier")}
@@ -178,7 +194,7 @@ class HTTPAdvisors:
             value.update(cache_hit=True, actual_completion_tokens=0, actual_prompt_tokens=0, seconds=0.)
             usage("advisor", value, advisor=kind)
             generation("advisor", value, messages=msgs, advisor=kind, max_tokens=self.max_tokens,
-                       operation="advice")
+                       operation="advice", error=value.get("error"))
             return value
         start = time.monotonic()
         response = requests.post(self.url + "/v1/chat/completions", json=body, timeout=self.timeout)
@@ -192,21 +208,46 @@ class HTTPAdvisors:
             raise RuntimeError("Advisor identity changed during the stage")
         if fingerprint is not None:
             self.identity = fingerprint
-        text = data["choices"][0]["message"]["content"]
-        counts = data.get("usage", {})
-        if not isinstance(text, str) or not text.strip() or not counts:
-            raise RuntimeError("Advisor must return nonempty text and token usage")
-        result = {"text": text, "prompt_tokens": int(counts["prompt_tokens"]),
-                  "completion_tokens": int(counts["completion_tokens"]),
-                  "actual_prompt_tokens": int(counts["prompt_tokens"]),
-                  "actual_completion_tokens": int(counts["completion_tokens"]),
+        try:
+            choices, counts = data["choices"], data["usage"]
+            if not isinstance(choices, list) or len(choices) != 1:
+                raise ValueError("exactly one choice required")
+            choice = choices[0]
+            text = choice["message"]["content"]
+            finish_reason = choice.get("finish_reason")
+            if not isinstance(text, str):
+                raise ValueError("content must be a string")
+            # Missing finish reasons are accepted for legacy OpenAI-compatible
+            # servers, with conservative length detection from token usage.
+            if finish_reason not in {None, "stop", "length"}:
+                raise ValueError(f"unexpected finish_reason: {finish_reason}")
+            for name in ("prompt_tokens", "completion_tokens"):
+                if type(counts[name]) is not int or counts[name] < 0:
+                    raise ValueError(f"{name} must be a nonnegative integer")
+            if counts["completion_tokens"] > self.max_tokens:
+                raise ValueError("completion exceeds requested token budget")
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise RuntimeError(f"Malformed advisor response: {exc}") from exc
+        budget_error = data.get("margent_generation_error")
+        if budget_error not in {None, "context_budget_exceeded"}:
+            raise RuntimeError(f"Unknown advisor generation error: {budget_error}")
+        if budget_error and (text or counts["completion_tokens"]):
+            raise RuntimeError("Malformed advisor context-budget failure")
+        truncated = finish_reason == "length" or (finish_reason is None and counts["completion_tokens"] >= self.max_tokens)
+        error = ("advisor_context_budget_exceeded" if budget_error else
+                 "advisor_output_truncated" if truncated else "advisor_empty_output" if not text.strip() else None)
+        result = {"text": text, "prompt_tokens": counts["prompt_tokens"],
+                  "completion_tokens": counts["completion_tokens"],
+                  "actual_prompt_tokens": 0 if budget_error else counts["prompt_tokens"],
+                  "actual_completion_tokens": counts["completion_tokens"],
                   "seconds": time.monotonic() - start, "cache_hit": False,
-                  "truncated": data["choices"][0].get("finish_reason") == "length"}
+                  "truncated": truncated, "finish_reason": finish_reason,
+                  "valid_output": bool(text.strip()) and not truncated, "error": error}
+        if budget_error:
+            result["max_context"] = data.get("margent_max_context")
         usage("advisor", result, advisor=kind, advisor_identity=fingerprint,
               advisor_generation=self.generation_options)
         generation("advisor", result, messages=msgs, advisor=kind, max_tokens=self.max_tokens,
-                   operation="advice", error="advisor_output_truncated" if result["truncated"] else None)
-        if result["truncated"]:
-            raise RuntimeError("Advisor output truncated; increase advisor_max_tokens before collecting labels")
+                   operation="advice", error=error)
         self.cache[key] = result
         return result

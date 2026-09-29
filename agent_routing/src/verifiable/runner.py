@@ -29,25 +29,30 @@ def _digest(path):
 
 def load_config(path):
     cfg = json.loads(Path(path).read_text())
+    if not isinstance(cfg, dict):
+        raise ValueError("Config must be a JSON object")
     if cfg.get("decision_constraint", "none") not in {"none", "finite_actions_v1"}:
         raise ValueError("Unknown decision constraint")
     for key in ("base_model", "advisor_url", "max_new_tokens", "advisor_max_tokens", "max_context",
                 "max_seq_len", "max_depth", "seed"):
         if key not in cfg:
             raise ValueError(f"Missing config field: {key}")
-    if cfg["max_depth"] not in (1, 2, 3):
+    if type(cfg["max_depth"]) is not int or cfg["max_depth"] not in (1, 2, 3):
         raise ValueError("max_depth must be 1, 2 or 3")
     if cfg.get("protocol_version", PROTOCOL_VERSION) != PROTOCOL_VERSION:
         raise ValueError("This runner requires protocol_version=2 and fresh run directories")
     for key in ("max_new_tokens", "advisor_max_tokens", "max_context", "max_seq_len"):
-        if cfg[key] <= 0:
-            raise ValueError(f"{key} must be positive")
+        if type(cfg[key]) is not int or cfg[key] <= 0:
+            raise ValueError(f"{key} must be a positive integer")
     if cfg.get("temperature", 0) != 0:
         raise ValueError("Manager generation requires temperature=0")
     from .sampling import normalize_generation
     normalize_generation(cfg.get("advisor_generation"))
-    if cfg.get("decision_max_tokens", 128) <= 0:
-        raise ValueError("decision_max_tokens must be positive")
+    if type(cfg.get("decision_max_tokens", 128)) is not int or cfg.get("decision_max_tokens", 128) <= 0:
+        raise ValueError("decision_max_tokens must be a positive integer")
+    for key in ("seed", "generation_seed"):
+        if key in cfg and (type(cfg[key]) is not int or not 0 <= cfg[key] <= 2**32 - 1):
+            raise ValueError(f"{key} must be an integer in [0, 2**32 - 1]")
     return cfg
 
 
@@ -61,13 +66,65 @@ def checkpoint_identity(checkpoint):
             for p in sorted(path.iterdir()) if p.is_file() and p.suffix in {".json", ".safetensors", ".bin"}}
 
 
+def validate_resume_records(records, rows, mode):
+    """Validate completion records before trusting their hashes or replacing JSONL.
+
+    Atomic writes protect against torn bytes, not a valid JSON object with missing
+    fields. A hash-only shard must never make a question count as completed.
+    """
+    cohort = {identity(row.question): row for row in rows}
+    seen = set()
+    for record in records:
+        key = record.get("question_hash") if isinstance(record, dict) else None
+        if not isinstance(key, str) or key not in cohort or key in seen:
+            raise ValueError("Invalid resume record identities")
+        seen.add(key)
+        row = cohort[key]
+        expected = {"example_id": row.example_id, "benchmark_name": row.benchmark_name,
+                    "split": row.split, "ground_truth": row.ground_truth, "protocol_version": PROTOCOL_VERSION}
+        if any(record.get(name) != value for name, value in expected.items()):
+            raise ValueError(f"Resume record metadata differs from frozen data: {key}")
+        for name, value in (("question", row.question), ("context", row.context)):
+            if name in record and record[name] != value:
+                raise ValueError(f"Resume record {name} differs from frozen data: {key}")
+        if (type(record.get("direct_correct")) is not bool or type(record.get("direct_valid")) is not bool
+                or not isinstance(record.get("direct_text"), str)
+                or (record["direct_correct"] and not record["direct_valid"])):
+            raise ValueError(f"Incomplete or inconsistent resume direct result: {key}")
+        if not isinstance(record.get("costs"), list) or not record["costs"]:
+            raise ValueError(f"Missing resume token accounting: {key}")
+        for cost in record["costs"]:
+            if not isinstance(cost, dict) or any(type(cost.get(name)) is not int or cost[name] < 0
+                                                for name in ("prompt_tokens", "completion_tokens")):
+                raise ValueError(f"Invalid resume token accounting: {key}")
+        outcomes = []
+        if mode in {"collect", "diagnose"}:
+            if not isinstance(record.get("branches"), list) or not record["branches"] or "preferred_sequence" not in record:
+                raise ValueError(f"Incomplete resume collection: {key}")
+            outcomes.extend(record["branches"])
+        if mode in {"evaluate", "assess", "diagnose"}:
+            outcomes.append(record.get("policy"))
+        for outcome in outcomes:
+            if (not isinstance(outcome, dict) or type(outcome.get("correct")) is not bool
+                    or type(outcome.get("valid")) is not bool or not isinstance(outcome.get("text"), str)
+                    or (outcome["correct"] and not outcome["valid"])):
+                raise ValueError(f"Incomplete or inconsistent resume outcome: {key}")
+        if mode in {"evaluate", "assess", "diagnose"}:
+            policy = record["policy"]
+            if type(policy.get("calls")) is not int or policy["calls"] < 0:
+                raise ValueError(f"Invalid resume policy call count: {key}")
+    return seen
+
+
 def run_data(cfg, data, checkpoint, output, mode, resume=False, limit=0,
              selection="counterfactual", backend=None, advisors=None):
     allowed = {"collect": "train", "diagnose": "dev", "assess": "dev", "evaluate": "test"}
+    if mode not in allowed:
+        raise ValueError(f"Unknown data mode: {mode}")
     rows = load_rows(data, required_split=allowed[mode])
     rows = sorted(rows, key=lambda r: identity(r.question))
-    if limit < 0:
-        raise ValueError("limit must be nonnegative")
+    if type(limit) is not int or limit < 0:
+        raise ValueError("limit must be a nonnegative integer")
     if limit > 0:
         rows = rows[:limit]
     root = Path(output)
@@ -85,15 +142,17 @@ def run_data(cfg, data, checkpoint, output, mode, resume=False, limit=0,
     path = root / "records.jsonl"
     shards = root / "questions"
     if shards.exists():
-        records = [json.loads(p.read_text()) for p in sorted(shards.glob("*.json"))]
+        files = sorted(shards.glob("*.json"))
+        records = [json.loads(p.read_text()) for p in files]
+        seen = validate_resume_records(records, rows, mode)
+        if any(p.stem != record["question_hash"] for p, record in zip(files, records)):
+            raise ValueError("Resume shard filename does not match its question hash")
         write_jsonl(str(path), records)  # Recover a torn append from atomic question shards.
     else:
         records = read_jsonl(str(path)) if path.exists() else []
+        seen = validate_resume_records(records, rows, mode)
         for record in records:
             atomic_json(shards / (record["question_hash"] + ".json"), record)
-    seen = {r["question_hash"] for r in records}
-    if len(seen) != len(records) or seen - {identity(r.question) for r in rows}:
-        raise ValueError("Invalid resume record identities")
     pending = [r for r in rows if identity(r.question) not in seen]
     with Monitor(output, mode):
         if pending:
@@ -276,6 +335,7 @@ def execute_stage(step, log_dir):
 
 
 def validate_stage_artifacts(output, stage):
+    output = Path(output)
     names = ["training_metrics.json", "adapter_config.json"] if stage in {"sft", "rl"} else ["summary.json", "records.jsonl"]
     if stage == "collect":
         names.append("sft.jsonl")

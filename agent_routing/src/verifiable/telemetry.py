@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import importlib.metadata
 import os
+import platform
 from pathlib import Path
 import socket
 import shutil
@@ -15,7 +16,7 @@ import traceback
 import uuid
 
 from ..utils.io import append_jsonl
-from .wandb_tracking import WandbTracker, scalar_metrics
+from .wandb_tracking import WandbTracker, scalar_metrics, _config
 
 ACTIVE = None
 
@@ -41,7 +42,12 @@ class Monitor:
         self.lock = threading.RLock()
         self.tracker = WandbTracker(self.root, stage, self.attempt)
         self.wandb_failed = False
+        self.had_wandb_error = False
+        self.retry_after = 0.0
         self.totals = {}
+        self.generation_count = 0
+        self.last_artifact_flush = time.monotonic()
+        self.artifact_interval = max(30, int(os.environ.get("MARGENT_WANDB_ARTIFACT_INTERVAL", "300")))
         self.question = {}
         self.state = {"schema_version": 1, "stage": stage, "attempt": self.attempt,
                       "status": "running", "started_at": now(), "pid": os.getpid(),
@@ -50,11 +56,41 @@ class Monitor:
     def __enter__(self):
         global ACTIVE
         self.root.mkdir(parents=True, exist_ok=True)
+        events = self.root / "events.jsonl"
+        if events.exists():
+            for line in events.read_text().splitlines():
+                try:
+                    if json.loads(line).get("event") == "usage_tail_recovered":
+                        self.state["usage_incomplete"] = True
+                except json.JSONDecodeError:
+                    self.state["usage_incomplete"] = True
+        journal = self.root / "generations.jsonl"
+        if journal.exists():
+            with journal.open() as records:
+                self.generation_count = sum(bool(line.strip()) for line in records)
         ledger = self.root / "usage.jsonl"
         if ledger.exists():
-            with ledger.open() as records:
-                for line in records:
-                    self._count_usage(json.loads(line))
+            lines = ledger.read_bytes().splitlines(keepends=True)
+            offset = 0
+            for index, line in enumerate(lines):
+                try:
+                    if line.strip():
+                        self._count_usage(json.loads(line))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    if index != len(lines) - 1 or line.endswith(b"\n"):
+                        raise  # Interior corruption is not a safe tail recovery.
+                    (self.root / f"usage_torn_tail_{self.attempt}.txt").write_bytes(line)
+                    with ledger.open("r+b") as out:
+                        out.truncate(offset)
+                    self.event("usage_tail_recovered", discarded_bytes=len(line),
+                               note="Incomplete usage cannot be reconstructed; token totals are lower bounds")
+                    self.state["usage_incomplete"] = True
+                    break
+                offset += len(line)
+            else:
+                if lines and not lines[-1].endswith(b"\n"):
+                    with ledger.open("ab") as out:
+                        out.write(b"\n")
         try:
             self.tracker.start()
         except Exception:
@@ -76,9 +112,12 @@ class Monitor:
             commit = git.stdout.strip() if git.returncode == 0 else None
         except (OSError, subprocess.SubprocessError):
             commit = None
-        atomic_json(self.root / f"environment_{self.attempt}.json", {"packages": packages, "git_commit": commit,
+        environment = {"packages": packages, "git_commit": commit,
+                    "python": platform.python_version(), "platform": platform.platform(),
                     "hostname": socket.gethostname(), "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
-                    "note": "GPU samples are device-level and can include other processes"})
+                    "note": "GPU samples are device-level and can include other processes"}
+        atomic_json(self.root / f"environment_{self.attempt}.json", environment)
+        self.summary({"environment": environment})
         self.event("started")
         self.update()
         self.thread = threading.Thread(target=self._heartbeat, daemon=True)
@@ -101,7 +140,7 @@ class Monitor:
 
     def usage(self, role, value, **extra):
         fields = ("prompt_tokens", "completion_tokens", "actual_prompt_tokens", "actual_completion_tokens",
-                  "seconds", "cache_hit", "truncated")
+                  "seconds", "cache_hit", "truncated", "finish_reason", "valid_output", "error")
         item = {k: value[k] for k in fields if k in value}
         item.update(time=now(), attempt=self.attempt, role=role, context=dict(self.state["progress"]), **extra)
         with self.lock:
@@ -119,27 +158,61 @@ class Monitor:
             self.totals[prefix + key] = self.totals.get(prefix + key, 0) + value
 
     def log_wandb(self, values):
-        if self.wandb_failed:
+        if time.monotonic() < self.retry_after:
             return
         try:
             self.tracker.log(values)
+            if self.wandb_failed:
+                self.retry_after = 0.0
+                self.state["wandb_status"] = "recovered_after_upload_error"
+                self.event("wandb_recovered")
+                self.wandb_failed = False
         except Exception as exc:
             self.wandb_warning(exc)
 
     def wandb_warning(self, exc):
         self.wandb_failed = True
+        self.had_wandb_error = True
+        self.retry_after = time.monotonic() + 30
         self.state["wandb_status"] = "upload_error_local_logs_retained"
         self.event("wandb_warning", error_type=type(exc).__name__)
         print("[wandb] Upload failed; computation continues with local logs. Check events.jsonl.", flush=True)
 
+    def summary(self, values):
+        """Persist descriptive metadata locally and remotely without losing strings."""
+        with self.lock:
+            path = self.root / "run_summary.json"
+            current = json.loads(path.read_text()) if path.exists() else {}
+            current.update(_config(values))
+            atomic_json(path, current)
+            if time.monotonic() < self.retry_after:
+                return
+            try:
+                self.tracker.summary(current)
+            except Exception as exc:
+                self.wandb_warning(exc)
+
+    def snapshot_artifacts(self):
+        if time.monotonic() < self.retry_after:
+            return
+        with self.lock:
+            try:
+                self.tracker.snapshot_artifacts()
+                self.last_artifact_flush = time.monotonic()
+            except Exception as exc:
+                self.wandb_warning(exc)
+
     def set_question(self, row):
         from .data import identity
         self.question = {"question_hash": identity(row.question), "question": row.question,
-                         "context": row.context, "ground_truth": row.ground_truth}
+                         "context": row.context, "ground_truth": row.ground_truth,
+                         "benchmark_name": row.benchmark_name, "split": row.split,
+                         "example_id": row.example_id}
 
     def generation(self, role, value, messages=None, **extra):
         fields = ("text", "valid", "truncated", "prompt_tokens", "completion_tokens",
-                  "actual_prompt_tokens", "actual_completion_tokens", "seconds", "cache_hit")
+                  "actual_prompt_tokens", "actual_completion_tokens", "seconds", "cache_hit", "error", "finish_reason", "valid_output",
+                  "requested_max_tokens", "max_context")
         record = {k: value[k] for k in fields if k in value}
         record.update(self.question, source="live", attempt=self.attempt, role=role, time=now(),
                       phase=self.state["progress"].get("phase"),
@@ -149,9 +222,15 @@ class Monitor:
             # Save before the caller can raise for truncation or fail the question.
             append_jsonl(str(self.root / "generations.jsonl"), [record])
             self.log_text("generation", record)
+            self.generation_count += 1
+            prefix = role + ("/" + extra["advisor"] if extra.get("advisor") else "")
+            self.metrics({prefix + "/truncated": int(bool(record.get("truncated"))),
+                          prefix + "/seconds": record.get("seconds", 0),
+                          prefix + "/completion_tokens": record.get("actual_completion_tokens", record.get("completion_tokens", 0))},
+                         "generation", generation_step=self.generation_count)
 
     def log_text(self, kind, record):
-        if self.wandb_failed:
+        if time.monotonic() < self.retry_after:
             return
         with self.lock:
             try:
@@ -164,7 +243,7 @@ class Monitor:
         self.flush_tables(force=True)
 
     def flush_tables(self, force=False):
-        if self.wandb_failed:
+        if time.monotonic() < self.retry_after:
             return
         with self.lock:
             try:
@@ -183,10 +262,15 @@ class Monitor:
             try:
                 self.update()
                 with self.lock:
+                    self.summary({"heartbeat_at": self.state["updated_at"],
+                                  "last_progress_at": self.state.get("last_progress_at"),
+                                  "progress": self.state["progress"], "attempt": self.attempt})
                     self.log_wandb({"system/elapsed_seconds": self.state["elapsed_seconds"],
                                     "system/disk_free_gib": self.state["disk_free_bytes"] / 2 ** 30,
                                     **scalar_metrics(self.state["progress"], "progress"), **self.totals})
                     self.flush_tables()
+                    if time.monotonic() - self.last_artifact_flush >= self.artifact_interval:
+                        self.snapshot_artifacts()
                 result = subprocess.run(["nvidia-smi", "--query-gpu=index,uuid,memory.used,memory.total,utilization.gpu,power.draw",
                                          "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
@@ -226,9 +310,19 @@ class Monitor:
         self.event(status, wall_seconds=elapsed, error=str(value) if typ else None)
         self.update()
         try:
+            # A transient table/network error must not suppress final evidence.
+            self.retry_after = 0.0
+            self.summary({"status": status, "finished_at": self.state["finished_at"],
+                          "progress": self.state["progress"], "error": str(value) if typ else None,
+                          "error_type": typ.__name__ if typ else None,
+                          "had_tracking_error": self.had_wandb_error,
+                          "usage_incomplete": self.state.get("usage_incomplete", False)})
             self.log_wandb({**self.totals, "system/elapsed_seconds": elapsed})
             self.flush_tables(force=True)
             self.tracker.finish(status)
+            self.wandb_failed = False
+            if self.had_wandb_error:
+                self.state["wandb_status"] = "recovered_with_local_evidence"
         except Exception as exc:
             self.wandb_warning(exc)
         finally:
@@ -273,10 +367,17 @@ def metrics(values, namespace="", **axes):
         ACTIVE.metrics(values, namespace, **axes)
 
 
+def summary(values):
+    if ACTIVE:
+        ACTIVE.summary(values)
+
+
 def status_snapshot(run_dir):
     root = Path(run_dir)
     entries = []
     for path in sorted(root.rglob("status.json")):
+        if {"tracking_exports", "wandb"} & set(path.relative_to(root).parts):
+            continue
         state = json.loads(path.read_text())
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(state["updated_at"])).total_seconds()
         state["heartbeat_age_seconds"] = round(age, 1)

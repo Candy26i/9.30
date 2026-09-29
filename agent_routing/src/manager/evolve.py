@@ -17,7 +17,7 @@ import os
 import random
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -29,6 +29,7 @@ from ..subagents.runtime import FrozenSubagent, SubagentPool
 from ..teachers.base import TeacherClient
 from ..utils.io import read_jsonl, write_jsonl, write_json
 from ..utils.seed import set_seed
+from ..subagents.train import load_text_causal_model, validate_sft_splits, training_device
 
 try:
     from peft import LoraConfig, PeftModel, get_peft_model
@@ -739,40 +740,52 @@ def _mask_prefix_len(prompt_ids: List[int], full_ids: List[int]) -> int:
 
 
 def _tokenize_manager_sft(rows: List[Dict[str, Any]], tok, max_seq_len: int, tools=None) -> Dataset:
-    eos = tok.eos_token or ""
-
-    def _map(ex: Dict[str, Any]) -> Dict[str, Any]:
-        prompt_msgs = ex["prompt"]
-        response_msgs = ex["response"]
-        if isinstance(response_msgs, dict):
-            response_msgs = [response_msgs]
-        elif isinstance(response_msgs, str):
-            response_msgs = [{"role": "assistant", "content": response_msgs}]
-
-        prompt_text = _render_chat(tok, prompt_msgs, add_generation_prompt=True, tools=tools)
-        full_text = _render_chat(tok, prompt_msgs + response_msgs, add_generation_prompt=False, tools=tools)
-        if eos and not full_text.rstrip().endswith(eos):
-            full_text = full_text + eos
-
-        prompt_ids = tok(prompt_text, add_special_tokens=False)["input_ids"]
-        full = tok(full_text, add_special_tokens=False)
-        input_ids = full["input_ids"][:max_seq_len]
-        attention_mask = full["attention_mask"][:max_seq_len]
-        plen = min(_mask_prefix_len(prompt_ids, full["input_ids"]), max_seq_len)
-        labels = ([-100] * plen) + input_ids[plen:]
-        labels = labels[:max_seq_len]
-        if len(labels) < len(input_ids):
-            labels += [-100] * (len(input_ids) - len(labels))
-
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
-
-    ds = Dataset.from_list(rows)
-    return ds.map(_map, remove_columns=ds.column_names)
+    from .routing_anchor import build_anchor_features
+    features, stats = build_anchor_features(rows, tok, max_seq_len, "full", tools)
+    if len(features) != len(rows):
+        raise ValueError(f"Manager SFT contains empty or overlength targets; no silent truncation: {stats}")
+    return Dataset.from_list(features)
 
 
 def train_manager_sft(cfg: ManagerSFTConfig) -> None:
+    from contextlib import nullcontext
+    from pathlib import Path
+    from transformers.trainer_utils import get_last_checkpoint
+    from ..verifiable.telemetry import Monitor, atomic_json
+    from ..verifiable.provenance import harness_identity
+    from ..verifiable.runner import checkpoint_identity
+    import hashlib
+    root = Path(cfg.out_dir)
+    is_main = int(os.environ.get("RANK", os.environ.get("LOCAL_RANK", "0"))) == 0
+    signature = {"stage": "manager_sft_legacy", "config": asdict(cfg), "harness": harness_identity(),
+        "training_source_sha256": hashlib.sha256(Path(__file__).read_bytes() +
+            Path(__file__).with_name("routing_anchor.py").read_bytes()).hexdigest(),
+        "checkpoint": checkpoint_identity(cfg.init_model_or_adapter or cfg.base_model),
+        "data_sha256": hashlib.sha256(Path(cfg.train_jsonl).read_bytes()).hexdigest()}
+    if is_main:
+        root.mkdir(parents=True, exist_ok=True)
+        manifest = root / "training_run.json"
+        if manifest.exists():
+            if json.loads(manifest.read_text()) != signature:
+                raise ValueError("Manager SFT inputs changed; use a new output directory")
+        elif any(root.iterdir()):
+            raise ValueError("Manager SFT output has no matching training manifest")
+        else:
+            atomic_json(manifest, signature)
+    if (root / "training_metrics.json").exists():
+        return
+    resume = get_last_checkpoint(str(root)) if root.exists() else None
+    # Trainer still owns distributed training/saving. Only rank zero owns one
+    # Monitor/W&B run; worker callbacks never write the same telemetry files.
+    with Monitor(cfg.out_dir, "manager_sft_legacy") if is_main else nullcontext(None) as monitor:
+        _train_manager_sft(cfg, monitor, resume)
+
+
+def _train_manager_sft(cfg: ManagerSFTConfig, monitor, resume) -> None:
+    from pathlib import Path
+    from ..verifiable.telemetry import atomic_json, metrics, training_callback, usage
+    device = training_device()
     set_seed(cfg.seed)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     if cfg.use_lora and not PEFT_AVAILABLE:
         raise RuntimeError("peft is required when manager SFT is configured with LoRA.")
 
@@ -797,7 +810,7 @@ def train_manager_sft(cfg: ManagerSFTConfig) -> None:
     if is_adapter_init:
         if not PEFT_AVAILABLE:
             raise RuntimeError("peft is required to continue SFT from a manager adapter.")
-        base = AutoModelForCausalLM.from_pretrained(
+        base = load_text_causal_model(
             cfg.base_model, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
         model = PeftModel.from_pretrained(
@@ -807,12 +820,12 @@ def train_manager_sft(cfg: ManagerSFTConfig) -> None:
             model = model.merge_and_unload().to(device)
         print(f"[MANAGER_SFT] continuing from adapter -> {cfg.init_model_or_adapter}")
     elif is_full_init:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = load_text_causal_model(
             cfg.init_model_or_adapter, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
         print(f"[MANAGER_SFT] continuing from full checkpoint -> {cfg.init_model_or_adapter}")
     else:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = load_text_causal_model(
             cfg.base_model, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
     model.config.use_cache = False
@@ -834,14 +847,16 @@ def train_manager_sft(cfg: ManagerSFTConfig) -> None:
     rows = read_jsonl(cfg.train_jsonl)
     if not rows:
         raise ValueError(f"No rows in {cfg.train_jsonl}")
+    validate_sft_splits(rows)
     print(f"[MANAGER_SFT] tokenizing {len(rows)} rows ...")
     from src.manager.marginal_value import _tool_schemas
     manager_tools = _tool_schemas("environment")
     print(f"[MANAGER_SFT] rendering with {len(manager_tools)} tool schemas")
     train_ds = _tokenize_manager_sft(rows, tok, cfg.max_seq_len, tools=manager_tools)
-    total_steps = (len(train_ds) // (cfg.per_device_batch_size * cfg.gradient_accumulation_steps)) * cfg.num_train_epochs
+    import math
+    total_steps = math.ceil(len(train_ds) / (cfg.per_device_batch_size * cfg.gradient_accumulation_steps)) * cfg.num_train_epochs
     if cfg.max_steps > 0:
-        total_steps = min(total_steps, cfg.max_steps)
+        total_steps = cfg.max_steps
     print(f"[MANAGER_SFT] {len(train_ds)} train examples | ~{total_steps} steps | lr={cfg.learning_rate} | epochs={cfg.num_train_epochs}")
     collator = DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100, return_tensors="pt")
 
@@ -857,15 +872,41 @@ def train_manager_sft(cfg: ManagerSFTConfig) -> None:
         logging_steps=1,
         save_strategy="epoch",
         bf16=(cfg.bf16 and device == "cuda"),
+        use_cpu=(device == "cpu"),
         fp16=False,
         report_to=[],
         seed=cfg.seed,
         remove_unused_columns=False,
         max_steps=(cfg.max_steps if cfg.max_steps > 0 else -1),
     )
-    trainer = Trainer(model=model, args=args, train_dataset=train_ds, data_collator=collator)
-    trainer.train()
-    os.makedirs(cfg.out_dir, exist_ok=True)
-    trainer.model.save_pretrained(cfg.out_dir)
-    tok.save_pretrained(cfg.out_dir)
+    class LoggedTrainer(Trainer):
+        def training_step(self, model, inputs, num_items_in_batch=None):
+            loss = super().training_step(model, inputs, num_items_in_batch)
+            if monitor is not None:
+                usage("manager_sft_legacy_train", {}, input_tokens=int(inputs["attention_mask"].sum().item()),
+                      supervised_tokens=int((inputs["labels"] != -100).sum().item()), step=self.state.global_step)
+            return loss
+    trainer = LoggedTrainer(model=model, args=args, train_dataset=train_ds, data_collator=collator,
+        callbacks=[training_callback(cfg.out_dir)] if monitor is not None else [])
+    if monitor is not None:
+        monitor.summary({"training_algorithm": "manager_legacy_response_only_sft", "base_model": cfg.base_model,
+            "source_checkpoint": cfg.init_model_or_adapter or cfg.base_model, "resumed_checkpoint": resume,
+            "train_examples": len(train_ds), "seed": cfg.seed,
+            "usage_scope": "rank_zero_only" if int(os.environ.get("WORLD_SIZE", "1")) > 1 else "single_process",
+            "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad)})
+        data_report = {"input_turns": len(train_ds), "kept_turns": len(train_ds), "dropped_turns": 0,
+            "input_tokens_per_epoch": sum(len(r["input_ids"]) for r in train_ds),
+            "supervised_tokens_per_epoch": sum(sum(x != -100 for x in r["labels"]) for r in train_ds)}
+        atomic_json(Path(cfg.out_dir) / "sft_data_report.json", data_report)
+        metrics(data_report, "sft_data")
+    started = time.monotonic()
+    result = trainer.train(resume_from_checkpoint=resume)
+    trainer.save_model(cfg.out_dir)
+    if trainer.is_world_process_zero():
+        tok.save_pretrained(cfg.out_dir)
+        atomic_json(Path(cfg.out_dir) / "training_metrics.json", {**result.metrics,
+            "optimizer_steps": trainer.state.global_step, "wall_seconds_this_attempt": time.monotonic() - started,
+            "config": asdict(cfg)})
+        metrics(result.metrics, "train", trainer_step=trainer.state.global_step)
+        monitor.summary({"optimizer_steps": trainer.state.global_step, "training_complete": True})
     print(f"[MANAGER_SFT] saved -> {cfg.out_dir}")

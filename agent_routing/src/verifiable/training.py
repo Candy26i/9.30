@@ -31,7 +31,7 @@ def tokenize_turn(row, tok, max_seq_len):
     ids = pids + target_ids
     if len(ids) > max_seq_len:
         return None  # drop and report; do not train on truncated solutions
-    if not target_ids:
+    if not pids or not target_ids:
         return None
     return {"input_ids": ids, "attention_mask": [1] * len(ids),
             "labels": [-100] * len(pids) + target_ids}
@@ -68,15 +68,25 @@ def train_sft(config, checkpoint, data_path, output):
         raise ValueError("Set a positive sft_max_steps shared across comparison arms")
     finished, resume_checkpoint = _training_output(output, config, checkpoint, data_path, "sft")
     if finished:
+        from .runner import validate_stage_artifacts
+        validate_stage_artifacts(output, "sft")
         return
-    with Monitor(output, "sft"):
+    with Monitor(output, "sft") as monitor:
         set_seed(config["seed"])
         tok, model = load_model(config["base_model"], checkpoint, trainable=True,
                                 lora_rank=config.get("lora_rank", 16), revision=config.get("base_model_revision"))
+        monitor.summary({"training_algorithm": "manager_response_only_sft", "source_checkpoint": checkpoint,
+            "resumed_checkpoint": resume_checkpoint, "base_model": config["base_model"],
+            "base_model_revision": config.get("base_model_revision"),
+            "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+            "total_parameters": sum(p.numel() for p in model.parameters())})
         progress(phase="preparing_sft_data")
         rows = read_jsonl(data_path)
         if any(r.get("split") != "train" or r.get("protocol_version") != 2 for r in rows):
             raise ValueError("SFT requires protocol-v2 train-only rows exported by collect")
+        if any(not any(str(m.get("content") or "").strip() or m.get("tool_calls")
+                       for m in row.get("response", [])) for row in rows):
+            raise ValueError("SFT rows must contain a nonempty assistant target")
         features = [tokenize_turn(row, tok, config["max_seq_len"]) for row in rows]
         kept = [f for f in features if f is not None]
         if len(kept) != len(features):
