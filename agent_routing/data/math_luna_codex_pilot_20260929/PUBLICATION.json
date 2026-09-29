@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "scope": "Training-ready file layout for an unreviewed three-expert pilot; not a mathematical correctness certification.",
+  "canonical_training_subdir": "sft",
+  "plain_json_subdir": "json",
+  "source_question_count": 160,
+  "original_sft_rows": 640,
+  "retained_questions": 136,
+  "retained_sft_rows": 544,
+  "generation_surface": "codex_subagent",
+  "selected_model": "gpt-6-luna",
+  "actual_model": null,
+  "retained_training_manifest_sha256": "e7846bd5a9e062202fe09a7ff2da4cd0592d98500009918c4dedbf11d0bd89fa",
+  "full_local_archive_name": "margent-luna-codex-pilot.zip",
+  "full_local_archive_sha256": "bca5f3353c789a53508ef9a40eb3afc37ffcc93410e5e94f81097d9c35bc955d",
+  "full_local_archive_included_in_this_upload": false,
+  "included_evidence": "All manifest-bound training provenance and full original teacher request/response ledger, including excluded questions. Manager/test exclusion pool, source notices and reports are included.",
+  "omitted_evidence": "The 30000-question raw Numina prefix and per-batch Codex orchestration/quarantine files remain in the complete local ZIP. Their complete archive is not claimed to be uploaded here.",
+  "report_scope": "reports/verification_report.json and original tokenization report describe the full original local archive; text-clean report describes the retained subset. Historical source paths are preserved."
+}

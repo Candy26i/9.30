@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "scope": "Selected observed concerns; not an exhaustive mathematical audit and not used to filter the fixed question pool. Raw text and teacher labels are unchanged.",
+  "notes": [
+    {
+      "batch_id": "reasoner_v0_train_59a44977ddc5_copyids",
+      "index_zero_based": 1,
+      "request_id": "483127d5c0335a65e95f067ce72cc4019ba5adcecb0748ef0d186c01ab01fe8c",
+      "question_hash": "93734cb925425ef53a96b080a583899185526c0be336a2c96c1b003f2aa50ab8",
+      "source": "teacher_self_report_and_root_text_inspection",
+      "note": "Teacher explicitly reports an incomplete solution; requires mathematical review before treating it as a positive demonstration.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "reasoner_v0_train_59a44977ddc5_copyids",
+      "index_zero_based": 7,
+      "request_id": "f1b5e768c358e06375992abbbe2f883f812ac174e3576c51b817587552485ba0",
+      "question_hash": "22df69b24f27389ef66fbc9e37312e65f4cb8e6934ddef83ab1507654043df0e",
+      "source": "teacher_self_report_and_root_text_inspection",
+      "note": "Teacher explicitly reports an incomplete solution; requires mathematical review before treating it as a positive demonstration.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "reasoner_v0_train_faf12b995635_copyids",
+      "index_zero_based": 0,
+      "request_id": "c57f8e2e2d69af0e1ef24e5d4422adc4ea31d44f96a13941a903de770eda1089",
+      "question_hash": "2314d210ce83a1252546b2f91a8dd52185f6fc52d8b1fded564b854446a41f15",
+      "source": "teacher_self_report_and_root_text_inspection",
+      "note": "Teacher follow-up identified an unestablished lower-bound argument, incomplete 60-degree derivation, or convention ambiguity. This is a review flag, not a human verdict.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "reasoner_v0_train_faf12b995635_copyids",
+      "index_zero_based": 3,
+      "request_id": "37a0c7854982905937dc84766915719d54e25f6577465817dfcf124a2c8cebd5",
+      "question_hash": "5a087bda03b06fd113ebd5ea79c0225b953ca1f4972a06ed0bcc2c499b1c6289",
+      "source": "teacher_self_report_and_root_text_inspection",
+      "note": "Teacher follow-up identified an unestablished lower-bound argument, incomplete 60-degree derivation, or convention ambiguity. This is a review flag, not a human verdict.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "reasoner_v0_train_faf12b995635_copyids",
+      "index_zero_based": 6,
+      "request_id": "46b17225424ea61ce7b8e826fbfd6f6d2fc4054df4a6f491008c89d764bafbe6",
+      "question_hash": "b24fa73cba3689167a7e3a215bc20dc71f299886123d6a24d18ec18bbfd68670",
+      "source": "teacher_self_report_and_root_text_inspection",
+      "note": "Teacher follow-up identified an unestablished lower-bound argument, incomplete 60-degree derivation, or convention ambiguity. This is a review flag, not a human verdict.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "candidate_v0_train_7664e014f8d4_b8_0_copyids_lf",
+      "index_zero_based": 4,
+      "request_id": "ce65c8bc87cdf9486d0072fd32b53fa388bc928fe085097727503758d0d74cc5",
+      "question_hash": "62ab161d9d9ffb9bfa95dc485b7250390b7f2d83a7d86db5e57b4f659b8caac5",
+      "source": "teacher_self_report",
+      "note": "Teacher reported the parallelepiped table or tangent-circle triangle solution was not established. Batch was also rejected for decoded control characters; inspect eventual accepted retry separately.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "candidate_v0_train_7664e014f8d4_b8_0_copyids_lf",
+      "index_zero_based": 7,
+      "request_id": "732c0a16f903c0e06ec807a063a15eb213ee7f3d05b18f4e8230b1a7ddceec12",
+      "question_hash": "d0ef6b2eb3aad08964e7266c2ef0270891f6ddba076202648fe798d79f381e53",
+      "source": "teacher_self_report",
+      "note": "Teacher reported the parallelepiped table or tangent-circle triangle solution was not established. Batch was also rejected for decoded control characters; inspect eventual accepted retry separately.",
+      "human_reviewed": false
+    },
+    {
+      "batch_id": "candidate_v0_train_c4a5925ac5cb_b8_0_copyids_lf_fmt2_brief_resplit0_brief",
+      "source": "teacher_diagnostic_and_artifact_binding_audit",
+      "note": "The teacher read an older eight-row input instead of the assigned four-row input and wrote the older output path. All eight responses are quarantined, unmodified and unimported; four were outside the assignment. Missing assigned requests require fresh isolated generation. This is a provenance exclusion, not selection by mathematical correctness.",
+      "quarantine_sidecar_relative": "codex_quarantine/candidate_v0_train_c4a5925ac5cb_b8_0_copyids_lf_fmt2_brief_resplit0_brief.relocation.json",
+      "quarantine_sidecar_sha256": "8d18f471abbfde4bdce13ae3fa22d4cd639e1c0381a1c93c9ddac5e61c22b4f8",
+      "authored_raw_records": 8,
+      "additional_unassigned_raw_records": 4,
+      "human_reviewed": false
+    }
+  ]
+}

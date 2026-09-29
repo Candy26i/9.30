@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "protocol": "codex-budget-continuation-v1",
+  "original_run_sha256": "4cd58bf26e551cef8bb925e098167b7bec0944e6193f4e2d00f65e93087be48b",
+  "original_config_sha256": "7df1582b59586456f57b5e158ce1498d17a38e067d8dbdc93a7a847721348ad6",
+  "adapter_sha256": "1f6941e329c6c7cf6e53be896effe5912a88d04f0adb590c6e7810a8e8233ff4",
+  "original_max_retries": 1,
+  "effective_budget": {
+    "max_calls": 1920,
+    "default_max_retries": 1,
+    "request_max_retries": {
+      "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486": 2
+    }
+  },
+  "amendment_sha256": [
+    "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792"
+  ],
+  "standard_import_attempts": 978,
+  "continuation_import_attempts": 1,
+  "total_import_attempts": 979,
+  "total_dispatched_request_assignments": 1029,
+  "accepted_tasks": 960,
+  "expected_tasks": 960,
+  "continuation_attempts": [
+    {
+      "request_id": "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486",
+      "attempt": 2,
+      "record_sha256": "eb009e070ba5a0da11be31a2dcbe3df38297a0eff7e4b797f4c44af82af783b8",
+      "amendment_sha256": "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792",
+      "accepted": true
+    }
+  ],
+  "teacher_text_modified": false,
+  "validator_modified": false,
+  "request_namespace": "unchanged_original_frozen_run",
+  "scope": "artifact/policy consistency; not independent model attestation or mathematical review"
+}

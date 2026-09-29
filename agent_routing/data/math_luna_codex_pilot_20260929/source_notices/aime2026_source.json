@@ -1,0 +1,26 @@
+{
+  "all_upstream_split_parquet_files": [
+    "data/train-00000-of-00001.parquet"
+  ],
+  "anonymous_access": true,
+  "dataset": "MathArena/aime_2026",
+  "dataset_card_sha256": "3bdcc94f6e4f3820e17d87829bac6fe32f6f67546a2cdf43685732e3f9e6eaa2",
+  "dataset_card_url": "https://huggingface.co/datasets/MathArena/aime_2026/blob/d2de22f3c656b4f56cf8981212186377d1e23bc3/README.md",
+  "license": "cc-by-nc-sa-4.0",
+  "raw_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/aime2026_raw.jsonl",
+  "raw_rows": 30,
+  "raw_sha256": "c931b7fff5803c03158a832b0831d01dc41ba26e145ef58873ac88a59318d50f",
+  "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+  "retrieved_at_utc": "2026-09-29T05:24:10.585663+00:00",
+  "revision": "d2de22f3c656b4f56cf8981212186377d1e23bc3",
+  "selection": "complete upstream split without filtering",
+  "source_split": "train",
+  "upstream_revision_verified": true,
+  "visited_files": [
+    {
+      "anonymous_url": "https://huggingface.co/datasets/MathArena/aime_2026/resolve/d2de22f3c656b4f56cf8981212186377d1e23bc3/data/train-00000-of-00001.parquet",
+      "filename": "data/train-00000-of-00001.parquet",
+      "rows_exported": 30
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "complete": true,
+  "accepted_tasks": 960,
+  "attempts_with_raw_responses": 979,
+  "sealed_batches": 93,
+  "request_id_metadata_repairs": 2,
+  "preimport_unbound_output_rejections": 2,
+  "raw_records_from_sealed_batches": 981,
+  "quarantined_authored_raw_records": 8,
+  "total_authored_raw_records": 989,
+  "additional_unassigned_raw_records": 4,
+  "dispatches_without_output": [
+    {
+      "batch_id": "c0t_recover4",
+      "task_path": "/root/luna_c0_recover4",
+      "assigned_requests": 4,
+      "evidence_sha256": "d5d2b1a5cac76c15f422e1b8d2eaf38622388f7f409cc6cb7421b2316946df90",
+      "failure_category": "teacher_serialization_validator_failure"
+    },
+    {
+      "batch_id": "c1d_f29b0f40_s",
+      "task_path": "/root/luna_c1_dev3",
+      "assigned_requests": 8,
+      "evidence_sha256": "1732def417692ca5538e8e37fed3c8f63a62af1e1f37a31a832e54316e89dc41",
+      "failure_category": "teacher_serialization_failure_no_output"
+    },
+    {
+      "batch_id": "c1t_de4120b0_s",
+      "task_path": "/root/luna_c1_07a",
+      "assigned_requests": 8,
+      "evidence_sha256": "1ab0c92543d9bcd5ebcf8a06d16dbb372275c60eebcc2590a6e66941960df164",
+      "failure_category": "teacher_serialization_failure_no_output"
+    },
+    {
+      "batch_id": "candidate_v0_train_3225138c3722_copyids",
+      "task_path": "/root/luna_c0_02",
+      "assigned_requests": 16,
+      "evidence_sha256": "616f3642a0a8da2443794e5544ab183473c93a2b5f7340f926c44a6245980162",
+      "failure_category": "unable_to_complete_full_batch"
+    },
+    {
+      "batch_id": "candidate_v0_train_c4a5925ac5cb_b8_0_copyids_lf_fmt2_brief",
+      "task_path": "/root/luna_c0_07a",
+      "assigned_requests": 8,
+      "evidence_sha256": "60d5012056b8feb7d178482a294c4413681ab3ce028562a811ae1a64af5c1724",
+      "failure_category": "uncertainty_mistakenly_treated_as_batch_blocker"
+    }
+  ],
+  "assigned_requests_without_output": 44,
+  "dispatches_with_misdirected_output": [
+    {
+      "batch_id": "candidate_v0_train_c4a5925ac5cb_b8_0_copyids_lf_fmt2_brief_resplit0_brief",
+      "task_path": "/root/luna_c0_07a1",
+      "assigned_requests": 4,
+      "evidence_sha256": "32c0fd4ff30fae085d4c8bd690a75e9bde036b19523e537ae7c029de15972785",
+      "failure_category": "misdirected_teacher_input_and_output",
+      "quarantine_sidecar_sha256": "8d18f471abbfde4bdce13ae3fa22d4cd639e1c0381a1c93c9ddac5e61c22b4f8",
+      "raw_output_sha256": "4aeb87df5ee76fd70bc6c3621c91bdca0a1f70c3aa62540d835e22f89132ba97",
+      "authored_raw_records": 8,
+      "additional_unassigned_raw_records": 4,
+      "imported_records": 0
+    }
+  ],
+  "assigned_requests_with_misdirected_output": 4,
+  "unusable_assigned_requests": 48,
+  "total_dispatched_request_assignments": 1029,
+  "conservative_request_attempt_count": 1033,
+  "continuation": {
+    "schema_version": 1,
+    "protocol": "codex-budget-continuation-v1",
+    "original_run_sha256": "4cd58bf26e551cef8bb925e098167b7bec0944e6193f4e2d00f65e93087be48b",
+    "original_config_sha256": "7df1582b59586456f57b5e158ce1498d17a38e067d8dbdc93a7a847721348ad6",
+    "adapter_sha256": "1f6941e329c6c7cf6e53be896effe5912a88d04f0adb590c6e7810a8e8233ff4",
+    "original_max_retries": 1,
+    "effective_budget": {
+      "max_calls": 1920,
+      "default_max_retries": 1,
+      "request_max_retries": {
+        "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486": 2
+      }
+    },
+    "amendment_sha256": [
+      "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792"
+    ],
+    "standard_import_attempts": 978,
+    "continuation_import_attempts": 1,
+    "total_import_attempts": 979,
+    "total_dispatched_request_assignments": 1029,
+    "accepted_tasks": 960,
+    "expected_tasks": 960,
+    "continuation_attempts": [
+      {
+        "request_id": "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486",
+        "attempt": 2,
+        "record_sha256": "eb009e070ba5a0da11be31a2dcbe3df38297a0eff7e4b797f4c44af82af783b8",
+        "amendment_sha256": "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792",
+        "accepted": true
+      }
+    ],
+    "teacher_text_modified": false,
+    "validator_modified": false,
+    "request_namespace": "unchanged_original_frozen_run",
+    "scope": "artifact/policy consistency; not independent model attestation or mathematical review"
+  },
+  "no_output_attempt_scope": "Assignments were rescheduled in fresh smaller contexts; actual completed mathematical attempts and token usage are unknown. Import retry counters exclude these no-output assignments.",
+  "misdirected_output_scope": "All wrong-path responses are quarantined and unimported. Assigned rows count as dispatched assignments; additional unassigned authored rows are counted separately in the conservative budget. Earlier no-output actors are not credited with later wrong-path output.",
+  "question_counts": {
+    "dev": 32,
+    "train": 128
+  },
+  "sft_row_counts": {
+    "extractor": {
+      "train": 128,
+      "dev": 32
+    },
+    "reasoner": {
+      "train": 128,
+      "dev": 32
+    },
+    "verifier": {
+      "train": 256,
+      "dev": 64
+    }
+  },
+  "manifest_sha256": "410225f751b7ecde6aaa4ad8eea8eccaf87b093a4f7bc63094cd5ef0087c847e",
+  "manager_manifest_sha256": "b7bd1fae03f5acef69246e6da55582fd075dc44e4a118f9a5566b793accccf7f",
+  "teacher": {
+    "model": "gpt-6-luna",
+    "provider": "openai",
+    "revision": null
+  },
+  "generation_surface": "codex_subagent",
+  "rejections": {
+    "candidate_requires_derivation_and_terminal_answer": 15,
+    "verifier_requires_verdict_evidence_correction": 4
+  },
+  "verifier_verdict_counts": {
+    "correct": 224,
+    "incorrect": 69,
+    "uncertain": 27
+  },
+  "teacher_actual_model": null,
+  "teacher_usage": null,
+  "actual_sampling_known": false,
+  "reviewed": false,
+  "mathematical_correctness_certified": false,
+  "benchmark_run": false,
+  "isolation_audit": {
+    "checked": true,
+    "expert_data_manifest_sha256": "410225f751b7ecde6aaa4ad8eea8eccaf87b093a4f7bc63094cd5ef0087c847e",
+    "expert_question_groups": 160,
+    "checked_rows": 322,
+    "text_rows_with_near_check": 322,
+    "exact_only_rows": 0,
+    "near_jaccard_threshold": 0.85,
+    "scope": "expert train and dev; normalized exact identity and builder lexical shingle matching; not semantic decontamination"
+  },
+  "evidence_scope": "local artifact consistency and recorded dispatch declarations; not independent backend attestation"
+}

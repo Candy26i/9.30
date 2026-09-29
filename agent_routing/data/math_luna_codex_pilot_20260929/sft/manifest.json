@@ -1,0 +1,573 @@
+{
+  "schema_version": 1,
+  "supervision": "teacher_synthetic",
+  "teacher": {
+    "model": "gpt-6-luna",
+    "provider": "openai",
+    "revision": null
+  },
+  "generation_surface": "codex_subagent",
+  "synthesis": {
+    "config": {
+      "base_url": null,
+      "candidate_temperature": 0.7,
+      "candidates_per_question": 2,
+      "dev_size": 32,
+      "generation_surface": "codex_subagent",
+      "max_calls": 1920,
+      "max_retries": 1,
+      "max_tokens": {
+        "candidate": 4096,
+        "extractor": 1024,
+        "reasoner": 2048,
+        "verifier": 1536
+      },
+      "model": "gpt-6-luna",
+      "provider": "openai",
+      "scan_limit": 30000,
+      "seed": 42,
+      "source_revision": "1b05109f9e5c1ad06c0663519502416c30b300f8",
+      "teacher_revision": null,
+      "temperature": 0.2,
+      "timeout": 120,
+      "train_size": 128
+    },
+    "config_sha256": "7df1582b59586456f57b5e158ce1498d17a38e067d8dbdc93a7a847721348ad6",
+    "run_sha256": "4cd58bf26e551cef8bb925e098167b7bec0944e6193f4e2d00f65e93087be48b",
+    "expected_tasks": 960,
+    "available_requests": 960,
+    "accepted": 960,
+    "rejected": {
+      "candidate_requires_derivation_and_terminal_answer": 15,
+      "verifier_requires_verdict_evidence_correction": 4
+    },
+    "complete": true,
+    "budget": {
+      "max_calls": 1920,
+      "attempts_consumed": 979,
+      "api_attempt_records": 0,
+      "import_attempt_records": 978,
+      "unknown_outcome_attempts": 0,
+      "observed_usage": {},
+      "unknown_usage_attempts": 979,
+      "observed_provider_request_attempts": 0,
+      "unknown_provider_request_attempt_records": 979,
+      "accounting_complete": false,
+      "usage_scope": "recorded teacher response usage, including imported evidence; not a billing statement for this process",
+      "meaning": "bounded teacher task attempts including failures/retries; unknown provider charges are not zero; imports do not call an API"
+    }
+  },
+  "sampling_reproducibility": "seed fixes question selection and task identities; Codex subagent batches share context within each batch; actual temperature, top_p and max_tokens are unknown; requested budgets are guidance only; candidate tasks are not claimed to be independent stochastic API samples; exact responses are frozen for reuse",
+  "source": {
+    "dataset": "AI-MO/NuminaMath-1.5",
+    "local_sha256": "6848d5dd8d43a321c3f5c597d0921f457dfb4dbc85adc8d3f635252240776cd3",
+    "mode": "local_raw_jsonl",
+    "revision": "1b05109f9e5c1ad06c0663519502416c30b300f8",
+    "split": "train",
+    "upstream_revision_verified": false
+  },
+  "manager_exclusion": {
+    "counts": {
+      "aime2026.jsonl": 30,
+      "beyondaime.jsonl": 100,
+      "dev.jsonl": 64,
+      "train.jsonl": 128
+    },
+    "manifest_sha256": "b7bd1fae03f5acef69246e6da55582fd075dc44e4a118f9a5566b793accccf7f",
+    "sha256": {
+      "aime2026.jsonl": "b196f8791803136365ef75d60f4ba170e5ce420a2667779ee769705f9483e1e5",
+      "beyondaime.jsonl": "85262810f75d34178b2c99a6b3ae20e7a5fe679a49df50e26af11a720d2e2a51",
+      "dev.jsonl": "64396367a78f9c75ac61a69070e40078b97476ca383810745a4d95fc57d61db5",
+      "train.jsonl": "2152967daf728306e8101d63abea89e10845111b6992a8e578d2d2cba8825412"
+    }
+  },
+  "counts": {
+    "extractor": {
+      "train": 104,
+      "dev": 32
+    },
+    "reasoner": {
+      "train": 104,
+      "dev": 32
+    },
+    "verifier": {
+      "train": 208,
+      "dev": 64
+    }
+  },
+  "question_counts": {
+    "train": 104,
+    "dev": 32
+  },
+  "template_sha256": "72c09c3af884b1e10e2ba701f7a1177fa931ab431e7d0d1bd8d228347a1863a3",
+  "protocol_sha256": "91f76deb6aa16b6787b2ebd911f5be6e7bc8ec98364ce11758f3aaa7331d781f",
+  "split_rule": "fixed question-hash 20% dev bucket, seed-hash order; all role/candidate variants stay in the same split",
+  "pool_rule": "Numina quality + text-only question + Manager/test exclusion + exact/near dedup; no arithmetic/reference/extractor-rule gate",
+  "quality_audit": {
+    "teacher_used": true,
+    "reviewed": false,
+    "reviewed_examples": 0,
+    "gt_visible_to_teacher": null,
+    "verifier_labels": "unverified_teacher_judgments_on_complete_candidate_derivations",
+    "candidate_terminal_diagnostic_is_verdict_label": false,
+    "verifier_verdict_counts": {
+      "correct": 184,
+      "incorrect": 64,
+      "uncertain": 24
+    },
+    "verifier_candidate_audit": {
+      "unique_counts": {
+        "train": 208,
+        "dev": 64,
+        "all": 272
+      },
+      "cross_split_overlap_count": 0
+    },
+    "independent_benchmark": false,
+    "semantic_decontamination_proven": false,
+    "task_messages_use_runtime_protocol": true,
+    "effective_prompt_identical_to_runtime": false,
+    "no_gold_disclosed_scope": "orchestrator_inputs_only",
+    "evidence_scope": "recorded orchestrator declarations; platform context and actual API model/sampling are not attested",
+    "candidate_sampling": "separate requested tasks with shared context within each batch; independent stochastic API sampling is not established"
+  },
+  "execution_context": {
+    "task_messages_use_runtime_protocol": true,
+    "effective_prompt_identical_to_runtime": false,
+    "gt_visible_to_teacher": null,
+    "no_gold_disclosed_scope": "orchestrator_inputs_only",
+    "evidence_scope": "recorded orchestrator declarations; platform context and actual API model/sampling are not attested",
+    "candidate_sampling": "separate requested tasks with shared context within each batch; independent stochastic API sampling is not established"
+  },
+  "sha256": {
+    "extractor/train.jsonl": "24e874185561eb78d9f53f68108bed36b07ff56af6a4204d15c913beccd473ad",
+    "extractor/dev.jsonl": "20948a91cd92ab672fa26bbf9dff431bd4c8aed488aa5b64de30d6a0ceacf71f",
+    "reasoner/train.jsonl": "d2b61611671bcf6ab91e4fcb69c8bcae6fa9242b70878ce72c51cb159774855a",
+    "reasoner/dev.jsonl": "732490c1d6864a50bb673a2a51cc8036f57adadd5d07f2d0e8531978ab9de410",
+    "verifier/train.jsonl": "6573cf45190f304b392dbb1c3d0eaac12760049baa718f237221584012bea007",
+    "verifier/dev.jsonl": "39c7d57bbf8aa9047733e4ab544660ce262369bf9bf181373acfda33922c9027",
+    "references.jsonl": "e780518b1daa510929fc01f91b54ed9615abd9a9862aee595a02e288dd090ca8",
+    "exclusions.jsonl": "87537a421ebcbe238b9c5483d9216a67a911c95aaa31e0f76646596d86552651",
+    "teacher_requests.jsonl": "1f916e0a900f81770ef147b330ea45943f70dcaf84614c1899e5ff5bd179609e",
+    "teacher_responses.jsonl": "8d3836f94a04847b05575d063b75f00ae88903f60b87db069df5019cf1db9443",
+    "provenance/candidate-format-01.json": "81f37c30528cb86e9616e8d564747f39b1a7b7e13db2c3cc2578d6f8a853aa28",
+    "provenance/base_manifest.json": "3c723f187b9dbca831d0a95eb37ea52bf2ffae54ba22f2b997ee07a84f4f3db6",
+    "provenance/continuation.py": "1f6941e329c6c7cf6e53be896effe5912a88d04f0adb590c6e7810a8e8233ff4",
+    "provenance/continuation_report.json": "1575850898bd3e174af671f3406594531328e75a76c7d262da642f0bcb2b9641",
+    "provenance/unfiltered_manifest.json": "410225f751b7ecde6aaa4ad8eea8eccaf87b093a4f7bc63094cd5ef0087c847e",
+    "provenance/text_quality_selection.json": "d5954453f91ba025648507df23e556fa94551e9e4972223d825215f8cbf3f52d"
+  },
+  "publication_protocol": "codex_synthesis_text_clean_subset_v1",
+  "continuation": {
+    "schema_version": 1,
+    "protocol": "codex-budget-continuation-v1",
+    "original_run_sha256": "4cd58bf26e551cef8bb925e098167b7bec0944e6193f4e2d00f65e93087be48b",
+    "original_config_sha256": "7df1582b59586456f57b5e158ce1498d17a38e067d8dbdc93a7a847721348ad6",
+    "adapter_sha256": "1f6941e329c6c7cf6e53be896effe5912a88d04f0adb590c6e7810a8e8233ff4",
+    "original_max_retries": 1,
+    "effective_budget": {
+      "max_calls": 1920,
+      "default_max_retries": 1,
+      "request_max_retries": {
+        "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486": 2
+      }
+    },
+    "amendment_sha256": [
+      "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792"
+    ],
+    "standard_import_attempts": 978,
+    "continuation_import_attempts": 1,
+    "total_import_attempts": 979,
+    "total_dispatched_request_assignments": 1029,
+    "accepted_tasks": 960,
+    "expected_tasks": 960,
+    "continuation_attempts": [
+      {
+        "request_id": "890fa6642aab6b02271558839b9381ddb49fba0f7ea3feaaa8d9195fb4b02486",
+        "attempt": 2,
+        "record_sha256": "eb009e070ba5a0da11be31a2dcbe3df38297a0eff7e4b797f4c44af82af783b8",
+        "amendment_sha256": "71b1bea52ac6020774629708a77c446283c74cd942d4e8e830af27906ddb5792",
+        "accepted": true
+      }
+    ],
+    "teacher_text_modified": false,
+    "validator_modified": false,
+    "request_namespace": "unchanged_original_frozen_run",
+    "scope": "artifact/policy consistency; not independent model attestation or mathematical review",
+    "original_publication_manifest_sha256": "3c723f187b9dbca831d0a95eb37ea52bf2ffae54ba22f2b997ee07a84f4f3db6",
+    "original_budget_status": {
+      "max_calls": 1920,
+      "attempts_consumed": 979,
+      "api_attempt_records": 0,
+      "import_attempt_records": 978,
+      "unknown_outcome_attempts": 0,
+      "observed_usage": {},
+      "unknown_usage_attempts": 979,
+      "observed_provider_request_attempts": 0,
+      "unknown_provider_request_attempt_records": 979,
+      "accounting_complete": false,
+      "usage_scope": "recorded teacher response usage, including imported evidence; not a billing statement for this process",
+      "meaning": "bounded teacher task attempts including failures/retries; unknown provider charges are not zero; imports do not call an API"
+    },
+    "original_config_preserved": true,
+    "explanation": "Original request/run namespace and validator are unchanged; named requests received one disclosed extra format retry. Original import_attempt_records excludes continuation origins; use the separate combined totals."
+  },
+  "text_quality_selection": {
+    "schema_version": 1,
+    "policy": "exclude_question_if_any_sft_prompt_candidate_or_response_has_U0000_to_U001F_except_LF",
+    "timing": "Post-generation mechanical quality selection; not preregistered before synthesis.",
+    "scope": "Encoding/text hygiene only. No ground truth, correctness score, verdict or mathematical content used for selection. Retained teacher text and labels are byte-for-byte unchanged.",
+    "reviewed": false,
+    "source_manifest_sha256": "410225f751b7ecde6aaa4ad8eea8eccaf87b093a4f7bc63094cd5ef0087c847e",
+    "filter_code_sha256": "abcc4b14eca5873bfae31ce0a21348766bd9d8e8ef17e89f3fc22ff5cfaa30f1",
+    "original_question_counts": {
+      "dev": 32,
+      "train": 128
+    },
+    "original_counts": {
+      "extractor": {
+        "train": 128,
+        "dev": 32
+      },
+      "reasoner": {
+        "train": 128,
+        "dev": 32
+      },
+      "verifier": {
+        "train": 256,
+        "dev": 64
+      }
+    },
+    "question_counts": {
+      "train": 104,
+      "dev": 32
+    },
+    "counts": {
+      "extractor": {
+        "train": 104,
+        "dev": 32
+      },
+      "reasoner": {
+        "train": 104,
+        "dev": 32
+      },
+      "verifier": {
+        "train": 208,
+        "dev": 64
+      }
+    },
+    "excluded_question_hashes": {
+      "train": [
+        "0688ec6331181e7596ab3a9f9101888fff9eac5578685fe9e917b71ae1d1e700",
+        "15bdd937e6a251e55dafa08cefc702452fda109b74a5c0019477a121552bdea5",
+        "2935ec2af45e5fa5fdce58f5958e7266118c50f8c38c7a5c6b303e4736ba15d1",
+        "299048e67ba3e57f41ff207924532f3755bfe468acd07d15c2a8bca35aeb8690",
+        "2a8021d91e9b7ef879f5cca99531ee7aafa8ae447d39664cbc2f62dfd0a88ee8",
+        "326e42a502bed688e30d417780b574805b6bf61d4feb44bea484c0560e733712",
+        "34067ce2c906a219c2fec8c827de865f28795ca1e5fa9cb38a65b7a9c71ff212",
+        "375d265c09574fb240cc2188c1126758923030b40849440dbdd86ecc01a228fc",
+        "4a75b01ae717da2f86f982cfd518ef510284f6dcbff74da434d7171de69ce594",
+        "510fe6bbfc69c462d6ee4054d133c3eb0939633975dd1be7497a61c513cac26c",
+        "5d3293c47ab4417f49025ff5720829b661833abdf22bd10ea78db784fb5511b2",
+        "854250313d6be02fd806d32c2f49c54894d48a538a0f64f59003953c96e06a08",
+        "8af1096fddf933da4415fb27955395c09352d84865400aef2d818c5ab5efaee8",
+        "8ef36eaee65b4881d31b130349d7553d368c6d6cadccc92a4e339bcf062f0e0e",
+        "92979003b7697efa65e8fa5a889d48ee5b5777d9964bfc6ae9865995c476919f",
+        "95c7e6353ec1d212ba620ca8b48a61d3125e2bfdcaa91aa8abc08c9ac74abe92",
+        "974841fabd1684575d983bae44672984c149ab4eb8fccad6ecb7b370890cf02a",
+        "a663725af76f29f26a9f91914ca678b6f2965a302f7dd15346aadbf02520966e",
+        "b17cfdc1a188b2f5847d9a672a5a609ec20046a4315567b01e41141371fac91b",
+        "b54270c8c159d8801a947eedefd95962628b94d7430eb822974427fdc4f9a6f0",
+        "cd7ce0bfc791673c60c6bb66abed158297c003c671c141b81183b4261991ab18",
+        "e96dc4bb2130c5ccc066bd90511fa4f17a3c6fd1fc70073037e08846f3a3ff6f",
+        "f282a66594ca1b3abacb62879130ef04b2b78c8908ca3f923e14ba73feb35df9",
+        "fdd91abbc13d5c4981e349aaab84e0a5411d1c6c50c762ae95236afcf87a994f"
+      ],
+      "dev": []
+    },
+    "triggering_rows": [
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "a663725af76f29f26a9f91914ca678b6f2965a302f7dd15346aadbf02520966e",
+        "teacher_request_id": "526e6453c298f82de3e6069bc7118598e94082ecdfadb05c6383e82111165821",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "974841fabd1684575d983bae44672984c149ab4eb8fccad6ecb7b370890cf02a",
+        "teacher_request_id": "17ec608b639be86dccfa71a6e991e358e6bed711706fd16af6b38f5dc143cd39",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "92979003b7697efa65e8fa5a889d48ee5b5777d9964bfc6ae9865995c476919f",
+        "teacher_request_id": "46fb479e065f39697e569f9794921a54a43ab22ef7f10cf8faf43b028e011262",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "f282a66594ca1b3abacb62879130ef04b2b78c8908ca3f923e14ba73feb35df9",
+        "teacher_request_id": "2b9947dbb3fd35b08e589ed19031e9d9186466ff90c016cb75e5344f4fb4f2c4",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "8af1096fddf933da4415fb27955395c09352d84865400aef2d818c5ab5efaee8",
+        "teacher_request_id": "c81815410191bd11b9bed36d7fa5ed9039b3452e424e2d731e913af29f8425d8",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "326e42a502bed688e30d417780b574805b6bf61d4feb44bea484c0560e733712",
+        "teacher_request_id": "4e6df5306c6737eb32dac1442104872e701201d64c0543f0d9bfb85c9f913801",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "b54270c8c159d8801a947eedefd95962628b94d7430eb822974427fdc4f9a6f0",
+        "teacher_request_id": "7af425dd62aca0d652098884355af7c668a2fcb99d0a3904d939a3126f2eec08",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "5d3293c47ab4417f49025ff5720829b661833abdf22bd10ea78db784fb5511b2",
+        "teacher_request_id": "cb1be2136788bfc7d4c97a82b7a96867ed9013e016b5127d6597ddf5bca8135e",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "15bdd937e6a251e55dafa08cefc702452fda109b74a5c0019477a121552bdea5",
+        "teacher_request_id": "b8411aeea198495d3a98dbb8dbb3702f39fe1ffb62d1bd7532173b3e4726da84",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "510fe6bbfc69c462d6ee4054d133c3eb0939633975dd1be7497a61c513cac26c",
+        "teacher_request_id": "d4b0dbc2864315bccabaa57b25ce617cf070f1e2a0365f96541e3a618eeb7ddc",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "4a75b01ae717da2f86f982cfd518ef510284f6dcbff74da434d7171de69ce594",
+        "teacher_request_id": "328246634e56b9a19d59cb7f0b4362c577532adc49924cca3ec247c28303d057",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "2a8021d91e9b7ef879f5cca99531ee7aafa8ae447d39664cbc2f62dfd0a88ee8",
+        "teacher_request_id": "b56c691248732d1fbcc6ad7d720d9aade60d2077294c8e011a23b1b6c248edfe",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "95c7e6353ec1d212ba620ca8b48a61d3125e2bfdcaa91aa8abc08c9ac74abe92",
+        "teacher_request_id": "bccccc68c7c5543261f01fd56a93a442f1fae4a2c7e2d873df8a9be45c1c7082",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "375d265c09574fb240cc2188c1126758923030b40849440dbdd86ecc01a228fc",
+        "teacher_request_id": "d01b913b0653aab3179190e064e7372fd4d36ad4c91a4660811147fe90bb68b0",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "0688ec6331181e7596ab3a9f9101888fff9eac5578685fe9e917b71ae1d1e700",
+        "teacher_request_id": "66c85347bc4636d9ead7d2ac142772a4305ca40f7d054c8d8af6436b545c9f1b",
+        "fields": {
+          "response": [
+            "U+0008",
+            "U+0009"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "fdd91abbc13d5c4981e349aaab84e0a5411d1c6c50c762ae95236afcf87a994f",
+        "teacher_request_id": "444f1c21167a8bf04078556ca7393c02bb1f1cf3a8ebd9827343589458f21548",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "34067ce2c906a219c2fec8c827de865f28795ca1e5fa9cb38a65b7a9c71ff212",
+        "teacher_request_id": "fb035b87327b0fc2819e3b547cfc61390ab69469f910835cf7c5a2ace04d1144",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "e96dc4bb2130c5ccc066bd90511fa4f17a3c6fd1fc70073037e08846f3a3ff6f",
+        "teacher_request_id": "2f8d368e1d7a0d4f425e9dbaf185e09564f3662955ae03ebcd77a0672d23b917",
+        "fields": {
+          "response": [
+            "U+0008"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "2935ec2af45e5fa5fdce58f5958e7266118c50f8c38c7a5c6b303e4736ba15d1",
+        "teacher_request_id": "99e8a96117924bc67527e5e3ad229e53738b867425ba2e71f60b4e1caea73265",
+        "fields": {
+          "response": [
+            "U+0004"
+          ]
+        }
+      },
+      {
+        "role": "reasoner",
+        "split": "train",
+        "question_hash": "854250313d6be02fd806d32c2f49c54894d48a538a0f64f59003953c96e06a08",
+        "teacher_request_id": "ef79c29301b2feb8f9b6b7f39c026e9e99d86dffcea33f8dab01f76aa38a9f5d",
+        "fields": {
+          "response": [
+            "U+0009"
+          ]
+        }
+      },
+      {
+        "role": "verifier",
+        "split": "train",
+        "question_hash": "299048e67ba3e57f41ff207924532f3755bfe468acd07d15c2a8bca35aeb8690",
+        "teacher_request_id": "596181833d88f5612bd9a4bb15b19d111f14bcaa1625da40270c33835b41bb26",
+        "fields": {
+          "candidate": [
+            "U+0009"
+          ],
+          "prompt/1": [
+            "U+0009"
+          ]
+        }
+      },
+      {
+        "role": "verifier",
+        "split": "train",
+        "question_hash": "8ef36eaee65b4881d31b130349d7553d368c6d6cadccc92a4e339bcf062f0e0e",
+        "teacher_request_id": "6c682932095d1ca88764b4e878e502a3cde83a12b767395bd75383708df93098",
+        "fields": {
+          "candidate": [
+            "U+0009"
+          ],
+          "prompt/1": [
+            "U+0009"
+          ]
+        }
+      },
+      {
+        "role": "verifier",
+        "split": "train",
+        "question_hash": "cd7ce0bfc791673c60c6bb66abed158297c003c671c141b81183b4261991ab18",
+        "teacher_request_id": "0fbc8deb71e76fd56a47bc506900e73c0c6db22f1a7603241a0730eae9f4f8ce",
+        "fields": {
+          "candidate": [
+            "U+0009"
+          ],
+          "prompt/1": [
+            "U+0009"
+          ]
+        }
+      },
+      {
+        "role": "verifier",
+        "split": "train",
+        "question_hash": "b17cfdc1a188b2f5847d9a672a5a609ec20046a4315567b01e41141371fac91b",
+        "teacher_request_id": "32ad944689a223de0f9d790d5a978309583efeeb9042092c17c34de5996ccec3",
+        "fields": {
+          "candidate": [
+            "U+0008"
+          ],
+          "prompt/1": [
+            "U+0008"
+          ]
+        }
+      }
+    ],
+    "excluded_rows": 96,
+    "retained_rows": 544,
+    "candidate_terminal_diagnostics_recomputed": false,
+    "generation_evidence_scope": "Full original generation requests/responses remain archived, including excluded questions."
+  },
+  "manifest_content_sha256": "780a1e804955b79551aed5701ec34712a9de62ac198f73deeca020f6c3d1a974"
+}

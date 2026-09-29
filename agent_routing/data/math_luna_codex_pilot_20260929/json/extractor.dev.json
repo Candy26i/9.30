@@ -1,0 +1,802 @@
+[
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. Find all integers that belong to the domain of the function $\\arcsin \\ln \\frac{|x|+2}{2}+\\log _{\\cos x} 2$. List the answers in any order, separated by a semicolon.\n\nExamples of answer notation:\n\n1\n\n$0 ; 1$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For integer x, the logarithm base cos x requires cos x>0 and cos x≠1. The arcsine argument ln((|x|+2)/2) must lie in [-1,1]; its logarithm input is positive automatically. Apply both restrictions to the integers."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "45d79c9e49987450b05d4dc4b058b28292d9bdbf0f5a75bc1f50c9627add176f",
+      "teacher_request_id": "021316caaf9117ba17a6ee7eb4a8599ffd93c3b55cd3a5b2334adc19aaba08ea",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. It is known that $4 \\operatorname{tg}^{2} Y+4 \\operatorname{ctg}^{2} Y-\\frac{1}{\\sin ^{2} \\gamma}-\\frac{1}{\\cos ^{2} \\gamma}=17$. Find the value of the expression $\\cos ^{2} Y-\\cos ^{4} \\gamma$.\n\nAnswer. $\\frac{3}{25}$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Set u=cos²Y and v=cos²γ; the given expression is defined only when the relevant sines and cosines are nonzero. Rewrite the condition in u,v and check whether it determines u−v² uniquely. The printed 3/25 is a claimed answer, not an extra condition."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "71b411c2d65c32c2ae8ac5972516e87dba1b1c9fecb750507e55927c747e39ff",
+      "teacher_request_id": "f97b719f699546f291e57716843a68e98a6af7ba10eb635c22d6670d2dc9dfe3",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "XXIV OM - I - Problem 12\n\nIn a class of n students, a Secret Santa event was organized. Each student draws the name of the person for whom they are to buy a gift, so student $ A_1 $ buys a gift for student $ A_2 $, $ A_2 $ buys a gift for $ A_3 $, ..., $ A_k $ buys a gift for $ A_1 $, where $ 1 \\leq k \\leq n $. Assuming that all drawing outcomes are equally probable, calculate the probability that $ k = n $.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Under the usual Secret Santa convention, outcomes are permutations with no self-draw. The described chain is a cycle of the permutation, and k=n means the whole permutation is one n-cycle. Clarify whether self-draws are permitted if that convention is not intended."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "c56d3509645b89585c104fee8f67a61bd80ec7a1aa1d7bd1ba040b9542788da1",
+      "teacher_request_id": "23cdcd4d366c102a91c53e5f6cf6ad083690e9f2a49708e050bd190b8ab56182",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 2. On a plane, 100 points are marked. It turns out that on two different lines a and b, there are 40 marked points each. What is the maximum number of marked points that can lie on a line that does not coincide with a and b?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The two distinct lines each contain 40 of 100 marked points; their intersection may be marked, so their union contains 79 or 80 points. A third line meets each specified line in at most one point; consider whether it passes through their intersection and whether the specified lines are parallel."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "1a8601ed1445f3e1e5244d1435b9d1bc52638bbec7e8385968adf347c2766189",
+      "teacher_request_id": "93f316836e90c5de50f2b162a345599af7a9132dea7103ee4dcfe4ef3a54c18a",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11.1. Angles $\\alpha$ and $\\beta$ are such that $\\operatorname{tg} \\alpha+\\operatorname{tg} \\beta=2$, and $\\operatorname{ctg} \\alpha+\\operatorname{ctg} \\beta=5$. Find the value of $\\operatorname{tg}(\\alpha+\\beta)$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let p=tg α and q=tg β. Then p+q=2 and 1/p+1/q=5, so pq is constrained. Use tg(α+β)=(p+q)/(1−pq), checking that the denominator is nonzero."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "3fae12b0e40a9b6bc4aed1615d0c1bf9e6b85212770099ed48120d66c517ca14",
+      "teacher_request_id": "348f5c7d253e215731888ef41019186c50297e3b25fd3c423db0077d35424982",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. On the edge $C C_{1}$ of a regular triangular prism $A B C A_{1} B_{1} C_{1}$, a point $T$ is taken such that $C T: C_{1} T=1: 3$. The point $T$ is the vertex of a right circular cone such that three vertices of the prism lie on the circumference of its base.\n\na) Find the ratio of the height of the prism to the edge of its base.\n\nb) Suppose it is additionally known that $B B_{1}=8$. Find the volume of the cone.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the base side be s and prism height h. T lies on CC₁ with CT=h/4. The three prism vertices on the cone's base circumference are not identified in the wording: enumerate possible triples, requiring them to lie in a plane perpendicular to the cone axis and be equidistant from its center. In part (b), h=8."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "bc842b2fb739333af7cd21247aebae3af9722ced706fe85022797ef1119b6a0f",
+      "teacher_request_id": "f6408f14baf1ed6f8d37aac4f2bcb861c6d84642bc7bbc96b10f2897fa85e163",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5.2. Ivan and Irina Ivanov, Mikhail and Maria Mishin, and Petr and Polina Petrov want to cross a river. There is a two-person boat. Ivan, Mikhail, and Polina can row. A man cannot be left alone with another man's wife on the shore or in the boat. If a family is completely on the other side, they immediately leave. How can they all cross to the other side?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Track each named person on each bank and in the two-person boat. Only Ivan, Mikhail, and Polina can row, and at least one rower must be aboard each crossing. A man cannot be left with another man's wife unless her husband is also present. Once both members of a family have crossed, they leave and cannot return."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "07bdcab9f651a0a436b71c49aa7ad85e9fa9df55793ec40e2625017fab971ffc",
+      "teacher_request_id": "27744630f7ac3f16cb9007f0344a23c7863adf0920e0457dfe72bed451f43805",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. An infinite geometric progression consists of natural numbers. It turned out that the product of the first four terms equals param1. Find the number of such progressions.\n\nThe infinite geometric progression consists of positive integers. It turned out that the product of the first four terms equals param1. Find the number of such progressions.\n\n| param1 | Answer |\n| :---: | :---: |\n| $2^{200} 3^{300}$ | 442 |\n| $2^{200} 5^{400}$ | 578 |\n| $3^{200} 5^{600}$ | 867 |\n| $2^{300} 7^{600}$ | 1326 |\n| $3^{300} 7^{500}$ | 1092 |\n\n## Condition\n\nAn infinite geometric progression consists of natural numbers. It turned out that the product of the first four terms equals $2^{200} 3^{300}$. Find the number of such progressions.\n\n## Answer.\n\n442",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Write the progression as a, ar, ar²,… with positive integer terms. The product condition is a⁴r⁶=2²⁰⁰3³⁰⁰. Count ordered choices of first term and common ratio that keep every term integral; the prompt supplies 442 as a claimed answer."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "9f1ec6fbcd1bbe5240baa6e67a95c83241f35b00760bf3073027f32106f31068",
+      "teacher_request_id": "25e6cceee8f352171141170dc12aba009127d75a72e351212c6e7bafa6448bc2",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Task 1. (2 points)\n\nFind the smallest three-digit number ABC that is divisible by the numbers AB and BC (the digit A cannot be 0, and the digit B can be; different letters do not necessarily represent different digits)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Interpret AB and BC as 10A+B and 10B+C. Here 1≤A≤9 and B,C are digits, possibly zero; divisors AB and BC must be nonzero. Minimize 100A+10B+C subject to divisibility by both."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "a40a30a660b09aca46c6a31414d2dbe79950f166bfcce51af24997ba9a025bd6",
+      "teacher_request_id": "718ea85906576d88089625a2ebed8de6d0e282e9cf7c95bb992ca39c88c9c8c2",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# 1. Option 1.\n\nVasya strikes the strings of a 6-string guitar from 1 to 6 and back. Each subsequent strike hits the adjacent string. On which string number will the 2000th strike fall? (The order of striking the strings: $1-2-3-4-5-6-5-4-3-2-1-2-\\ldots$)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The sequence of struck strings has period 10: 1,2,3,4,5,6,5,4,3,2, then repeats. Reduce the 1-indexed strike number modulo 10 to identify the string."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "3680d4a37ed463f4d1361c752f7296dd3a15e837e7ac0f5e3b509260313c38d7",
+      "teacher_request_id": "33ed7f129e0be6daa90331cac69baed30b0618b303158142f387db826045b4f3",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. Find the area of triangle $ABC$, the vertices of which have coordinates $A(0,0), B(1424233,2848467), C(1424234,2848469)$. Round your answer to the hundredths.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Use area=|x_B y_C−y_B x_C|/2. Keep the large-coordinate products exact, or simplify with coordinate differences before arithmetic, then round only the final area to hundredths."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "a33de9aee1af95469f103e5f778266dcaca036829355f65a9fafc1b2a1197477",
+      "teacher_request_id": "49b78b6529b380a9ffd4400a895a03e34c6040d885738061722b3ada991659bd",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. A snowdrift 468 cm high decreased in height by 6 cm in the first hour, by 12 cm in the second hour, ..., by $6 k$ cm in the -th hour. After some time $T$, the snowdrift melted completely. What fraction of the snowdrift's height melted in the time $\\frac{T}{2}$?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The hourly losses are 6,12,18,…,6k cm, so after k complete hours the total is 6(1+…+k); set this equal to 468. The time T/2 may be a half-integer hour, and no within-hour melting rule is stated, so flag that potential ambiguity."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "c8596208eeb40710873aa1d32143e0addc8f0c8661e18449a37ee1b21b9ee8e1",
+      "teacher_request_id": "9a274e56dd5fc6ead5215b8bd25801b8ccace84290f4d9ba878f6a9f04019e58",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11. The distances from some point $M$ to the vertices $A$ and $B$ of an equilateral triangle $ABC$ are $MA=2$ and $MB=3$. What can the distance $MC$ from point $M$ to the third vertex of the triangle be?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The conditions MA=2 and MB=3 place M at intersections of circles centered at A and B. The side length is not specified, so feasibility depends on it. For a fixed equilateral triangle, examine the resulting possible locations and distances MC; the wording may ask for a range rather than one value."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "fbbfad4b0cd2c2627bcbda8a4a15fd72303701846233349115d6b313ad000a56",
+      "teacher_request_id": "0ea18271a64ed48e52dc4b31b8dd2a84a246377ad29f6b96a71358bca7b44aab",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3-ча 2. See problem 2 for 9th grade.\n\n3-ча 3. Given 100 numbers \\(a_{1}, a_{2}, a_{3}, \\ldots, a_{100}\\), satisfying the conditions:\n\n\\[\n\\begin{array}{r}\na_{1}-4 a_{2}+3 a_{3} \\geqslant 0, \\\\\na_{2}-4 a_{3}+3 a_{4} \\geqslant 0, \\\\\na_{3}-4 a_{4}+3 a_{5} \\geqslant 0, \\\\\n\\ldots \\\\\n\\ldots \\\\\n\\ldots \\\\\na_{99}-4 a_{100}+3 a_{1} \\geqslant 0, \\\\\na_{100}-4 a_{1}+3 a_{2} \\geqslant 0\n\\end{array}\n\\]\n\nIt is known that \\(a_{1}=1\\), determine \\(a_{2}, a_{3}, \\ldots, a_{100}\\).",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Indices are cyclic modulo 100, with each inequality aᵢ−4aᵢ₊₁+3aᵢ₊₂≥0 and a₁=1. Sum all inequalities to obtain a global constraint, then combine it with the individual inequalities to determine what equality forces about the sequence."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "a07350d84a332b71ae307add1cef60f1e876755ebc20f24106c59b45533c233e",
+      "teacher_request_id": "c6abb809f9cce8eb3c95b7b207eadb83632b260374990c55f0dd802682d034a8",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. (5 points) On Valentine's Day, every student in the school gave a valentine to every female student. It turned out that the number of valentines was 40 more than the total number of students. How many valentines were given?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let N be total students and F female students. Every student gives one valentine to each female student, so the total is NF and NF=N+40. Assume 0<F≤N are integers; the requested number is NF."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "6daad6610eec9d16760f636190b28b54cb5a57e7adf2b73e1a1e0f4dfab055d2",
+      "teacher_request_id": "d376c1235e68a4126c2abd7c6f99fc14a28bf6d3c973d82ce4c9a26cb965e62d",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 5. From the digits $a, b, c, d, e$, a five-digit number $\\overline{a b c d e}$ is formed. For the two-digit numbers $\\overline{a b}, \\overline{b c}, \\overline{c d}, \\overline{d e}$, formed from the same digits, it is known that\n\n$$\n(\\overline{a b}+\\overline{b c})(\\overline{b c}+\\overline{c d})(\\overline{c d}+\\overline{d e})=157605\n$$\n\nFind the number $\\overline{a b c d e}$. Multi-digit numbers cannot start with zero.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let X=10a+b, Y=10b+c, Z=10c+d, W=10d+e. The condition is (X+Y)(Y+Z)(Z+W)=157605, with a nonzero and all digits in 0,…,9. No distinct-digit condition is stated; keep the overlapping-digit relations when checking solutions."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "d4ce790f389de4d3061e6d6714a7151590a92be74c7f36732900302c78035dce",
+      "teacher_request_id": "4a79198f00fe156d82a02257fa797866f11f8b0362e2ec024ff2775363c436e9",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. (8 points) On the radius $A O$ of a circle with center $O$, a point $M$ is chosen. On one side of $A O$ on the circle, points $B$ and $C$ are chosen such that $\\angle A M B = \\angle O M C = \\alpha$. Find the length of $B C$ if the radius of the circle is $6$ and $\\cos \\alpha = \\frac{2}{3}$?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "M lies somewhere on radius AO, but OM is unspecified. B and C lie on the circle on the same side of AO, with the stated angles at M. Identify which rays and angle convention are intended; different positions of M may affect BC, so check whether the data determine a unique length."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "8e30eab9848159c1e75405d188bf29cda04be37283ed00adf0d38c056475c294",
+      "teacher_request_id": "9232fdc4422b40f49710dd2ec32c69a2afcde77e19a2713657a7ea1e90ff2ad9",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. Find the number of distinct quadratic trinomials (i.e., with the leading coefficient equal to 1) with integer coefficients such that they have two distinct roots, which are powers of the number 5 with integer non-negative exponents, and at the same time, their coefficients in absolute value do not exceed $122^{20}$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A monic quadratic with these roots is (x−5^m)(x−5^n), for distinct nonnegative integers m,n; the exponent pair is unordered. Its coefficients are 1, −(5^m+5^n), 5^(m+n), and all must satisfy the absolute bound. Count pairs meeting both bounds."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "638d677973d3e714139515eb7913ef1409de1c18aaef94ac9707c016060e0186",
+      "teacher_request_id": "90e5edcd6cf4e3a4560861f8adfb0777058e4d0329cce2f377155d9b3f83251b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. A ball sliding on a smooth horizontal surface catches up with a block moving along the same surface. The ball's velocity is perpendicular to the edge of the block, against which it collides. The mass of the ball is much less than the mass of the block. After an elastic collision, the ball slides along the surface in the opposite direction with a speed that is half of its initial speed.\n\nFind the ratio of the ball's and the block's velocities before the collision.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let ball mass be m and block mass M≫m. Apply one-dimensional momentum and kinetic-energy conservation along the collision direction, taking the ball's final signed velocity to be −½ its initial velocity. The block velocity is along the surface; specify whether the requested ratio is signed or a ratio of speeds."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "58a4bca0bbad8cb354c7d3c49770053137ddaa2a6f5c61681b7e27936d24be15",
+      "teacher_request_id": "6f6c07c6821ee16a6ffa3d1f6b2a6ff5127204cb3c01f466405fc19b15337f45",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8.1. A corner cell has been cut out of a 5 by 5 square. Cut it into six polygons of equal area along the grid lines in such a way that there is exactly one pair of identical ones.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Removing a corner cell leaves 24 unit cells, so six equal-area pieces each have area 4. Cuts follow grid lines and pieces must be connected polygons. Interpret 'exactly one pair identical' as one congruent pair and four other distinct pieces unless the problem defines identity differently."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "865340d4b6b50f9a5b20c877a3c67e7e0d9f8d6303d40c87b4044cf4dbd6db9a",
+      "teacher_request_id": "49a42c31e357d48701188b72bd8203db3d6b2eb7c4d4ce95aee8ecee9176c336",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Find the probability that a randomly selected five-digit natural number with non-repeating digits, formed from the digits $1,2,3,4,5,6,7,8$, is divisible by 8 without a remainder. (10 points)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "There are 8P5 equally likely ordered five-digit strings using distinct digits 1,…,8. Divisibility by 8 depends only on the final three digits. Count valid ordered triples there, then arrange two unused digits in the first two places."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "e5b97b3659c4afa9adbabb72a9384b3c5e779fa26073b2e760cfc9b6acf4e126",
+      "teacher_request_id": "622dd996e35733907e92128d98c42f86e923309c7cd98f9c953cb29ee6c621fe",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. (15 points) A one-and-a-half kilogram model of a sports car body was made from carbon fiber for aerodynamic studies at a scale of 1:10. What is the mass of the actual body if it is also entirely made of carbon fiber?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Equal material density means mass scales as volume. A 1:10 linear scale gives a volume ratio 1:1000, so multiply the 1.5 kg model mass by 1000 for the actual body."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "362c1fd71f9719a29fbbc5f966ee2aba4ff8d23c6f77b2f54154fcf8db72dba0",
+      "teacher_request_id": "fb01c5019b80a838e7f755a4a5a7dd02e7943bf639ebb557f6413a10895f12ca",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "V OM - II - Task 3\n\nGiven: point $ A $, line $ p $, and circle $ k $. Construct triangle $ ABC $ with angles $ A = 60^\\circ $, $ B = 90^\\circ $, where vertex $ B $ lies on line $ p $, and vertex $ C $ lies on circle $ k $.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For angles A=60° and B=90°, C=30°. Construct a 60° ray from A; its intersection with p gives B. At B construct the perpendicular to AB; intersections with circle k give candidate C points. Retain candidates with the required orientation and angles, checking degenerate cases and whether intersections exist."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "024cbc0b4304b9f07108f8240274bc96371ec2d3e1bce4d1fa11cb55aa1b4859",
+      "teacher_request_id": "a6b4b25e5b05dd78ce81592aae89485dcdd4a38284ce6093ffc82fed234b3c53",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "10.4. Let's call a snake in a convex $n$-gon an open, non-self-intersecting broken line with $n-1$ segments, the set of vertices of which coincides with the set of all vertices of the $n$-gon. Find the number of different snakes in an $n$-gon. (Snakes are equal if they coincide as geometric loci of points. For example, the number of snakes in a triangle is 3)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Represent the snake by an ordering of all n polygon vertices joined consecutively, with no self-crossing. Reversal describes the same geometric locus, so endpoint order is immaterial. In a convex polygon, the connecting diagonals must not cross; the triangle example says the intended count identifies reversed paths."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "0f7ea4dba01bb795ef11ed0f9d4b04804e5a9470ae10902012185926511ba57c",
+      "teacher_request_id": "b60b71e1cd366df9ac968a7d64931d0ba215c069594042c76c2ddc7d513c21c7",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. The base of the pyramid $TABC$ is the triangle $ABC$, all sides of which are equal to $\\sqrt{3}$, and the height of the pyramid coincides with the lateral edge $TA$. Find the area of the section of the pyramid by a plane passing through the center of the sphere circumscribed around the pyramid, forming an angle of $60^{\\circ}$ with the base plane, intersecting the edge $AB$ at point $M$ such that $MB=2AM$, and intersecting the edge $BC$. It is known that the distance from point $A$ to the section plane is 0.25.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The plane passes through the circumsphere center, forms 60° with the base plane, meets AB at M with AM:MB=1:2, meets BC, and is 0.25 from A. The base is equilateral with side √3 and TA is perpendicular to it. Use coordinates to check that all these constraints are compatible before finding the section area."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "05d7b79d1da77fb98ed75d119011307bf051811813c82d6c9836c0d53047f05e",
+      "teacher_request_id": "cb03d41218515dcf0a9ac01806b0b5721f342718364040fcd0985b5f154e7599",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. How many integers $b$ exist such that the equation $x^{2}+b x-9600=0$ has an integer solution that is a multiple of both 10 and 12? Specify the largest possible $b$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Any allowed integer root x is a nonzero multiple of lcm(10,12)=60. From x²+bx−9600=0, b=9600/x−x must be an integer. Count distinct b values from positive and negative multiples x, then maximize b."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "da33089426cd40c5c6fd1406b2eb33342e7112b55babb3635691ae7a898dc9ac",
+      "teacher_request_id": "5633279185c6b299fb35a08fe4db5db63fbe878a5d13707feeef82d52e00d804",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11.3. The teacher is going to give the children a problem of the following type. He will inform them that he has thought of a polynomial $P(x)$ of degree 2017 with integer coefficients, the leading coefficient of which is 1. Then he will tell them $k$ integers $n_{1}, n_{2}, \\ldots, n_{k}$, and separately inform them of the value of the expression $P\\left(n_{1}\\right) \\cdot P\\left(n_{2}\\right) \\cdot \\ldots \\cdot P\\left(n_{k}\\right)$. Based on this data, the children are supposed to find the polynomial that the teacher could have thought of. For what smallest $k$ can the teacher formulate such a problem so that the polynomial found by the children necessarily coincides with the one thought of?\n\n(G. Zhukov)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For fixed integers n₁,…,n_k, only the product ∏P(nᵢ) is disclosed. To guarantee uniqueness for every monic integer polynomial of degree 2017, compare possible P and Q with the same leading term; their difference has degree at most 2016. The product need not determine individual values."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "fd035244088971b8531d74033b84e75775b0b5012adea79cb78dece3436b88c7",
+      "teacher_request_id": "b6c677a074631dba9bd1dd83bad28b256b9168ea4ccabd14575407837a603903",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Assignment 5.\n\n## Maximum 15 points\n\nIn a small state called Konyr, the beloved good \"ravot\" is sold in a perfectly competitive market. The Ministry of Economic Development of this state is conducting a study on the state of the economy and is collecting data on various markets, including the market for \"ravot.\" Analysts from the ministry have gathered the following information about the \"ravot\" market:\n\n- Demand and supply are always represented by linear functions and change only seasonally. Demand varies in each season, while supply changes only twice a year. In spring and autumn, supply is the same as in summer.\n- When the demand for \"ravot\" is halved in spring compared to the demand in summer, the volume of its sales on the market decreases by one and a half times.\n- In spring, the total revenue of \"ravot\" producers is 90 monetary units of Konyr.\n- In winter, when supply is halved compared to the other seasons and demand falls by half compared to the spring demand, the quantity of \"ravot\" sold on the market is only 5 units of this good.\n- At any time of the year, producers of \"ravot\" would be willing to sell it only if its price was more than 4 monetary units. At a price of 4 or less, producers do not produce \"ravot.\"\n\nYou need to help the Ministry of Economic Development of Konyr answer the following questions from its government:\n\n1) If the price of \"ravot\" is \"frozen\" at the winter price level for the entire year, what will be the shortage of this good in the summer?\n2) If there is no intervention in the pricing of the \"ravot\" market, what will be the total expenditures of Konyr residents on the purchase of this good in the summer?\n3) At what minimum price of \"ravot\" will Konyr residents refuse to buy it? Does this price depend on the time of year?\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Model seasonal demand and supply as linear curves. Spring and summer supply agree; winter supply is half as large. Spring demand is half summer demand, and winter demand is half spring demand. Spring revenue is 90 and winter quantity is 5; producers supply only above price 4. Distinguish winter-price freeze from seasonal equilibria and identify whether the given facts determine all curve parameters."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "f0a0d2c9c5b9187db28d7cd4f15d8f7063824c5d5b91dedc68d5228255102aec",
+      "teacher_request_id": "a53aa15d94bfb869ab7c0cb8d2bd00147df0edbaee6926d994b7a9492474eacd",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Each of the 10 people is either a knight, who always tells the truth, or a liar, who always lies. Each of them thought of some natural number. Then the first said: “My number is greater than 1”, the second said: “My number is greater than 2”, ..., the tenth said: “My number is greater than 10”. After that, they, in a different order, said (each one phrase): “My number is less than 1”, “My number is less than 2”, ..., “My number is less than 10”. What is the maximum number of knights that could have been among these 10 people? (O. Podlipsky)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let xᵢ be person i's natural number. Person i first asserts xᵢ>i, then receives exactly one assertion xᵢ<j, with j=1,…,10 assigned in a permutation. A knight must have both assertions true; a liar must have both false. If just one is true, the assignment is inconsistent. Maximize the number classified as knights."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "e3966f364e40b794563f78f270e193daf85310ba642927392c46c539b8c08f40",
+      "teacher_request_id": "055d330ccf8373ad20036a3be834cdfba2fa0decd6a096e9748e5bfea3c5cc44",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "7.1. A truck and a car are moving in the same direction on adjacent lanes at speeds of 65 km/h and 85 km/h, respectively. At what distance from each other will they be 3 minutes after they are side by side?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Since both vehicles move in the same direction, their separation grows at the relative speed 85−65 km/h. Convert 3 minutes to hours and multiply by that speed; the requested distance is the magnitude."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "a1304e35ed84684f7e745cac4bfb3d4234a9634ce30262c559dc26c5905849a2",
+      "teacher_request_id": "1bff026da40c06c70bd634f5764572254f3687b21a6068fc5f6ee8a1c5b0b8ad",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8. Let's call the efficiency of a natural number $n$ the fraction of all natural numbers from 1 to $n$ inclusive that have a common divisor with $n$ greater than 1. For example, the efficiency of the number 6 is $\\frac{2}{3}$.\n\na) Does there exist a number with an efficiency greater than $80\\%$? If so, find the smallest such number.\n\nb) Does there exist a number with the maximum efficiency (i.e., not less than the efficiency of any other number)? If so, find the smallest such number.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The efficiency is 1−φ(n)/n because the complementary integers are exactly those coprime to n. Part (a) asks for the least n with φ(n)/n<0.2. Part (b) asks whether that ratio has an attained minimum over finite n, distinguishing a maximum efficiency from a supremum."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "9b565727e667d327e76a4bf7368083e7b0b1081657f55cf9b66620ad9e06578b",
+      "teacher_request_id": "55149a96b98863504be7619c0c87dccef1ae160d652d5377fa0355769f10a082",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. On a piece of paper, the number 5000 is written. Little Boy and Karlson take turns dividing this number by any of the following numbers: $2, 5, 10$. The one who cannot divide the remaining number evenly on their turn loses. In which position should Little Boy play and how should he play to win?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A move is possible precisely when the current integer is divisible by 2, 5, or 10; each legal move divides it evenly by the chosen divisor. Play terminates when none applies. Analyze positions from the prime exponents of 5000, noting a division by 10 removes one factor each of 2 and 5."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "dev",
+      "question_hash": "819a2e01c1789791df08d7aafa08eb410ff6a7c3b2cacdc6f7e054d4596e498e",
+      "teacher_request_id": "b0299833df5d04e73809e5b7aa38940b1c13dabd7ce9268c65a6c37f2b208746",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  }
+]

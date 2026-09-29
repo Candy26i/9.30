@@ -1,0 +1,87 @@
+{
+  "anonymous_only": true,
+  "new_split": true,
+  "schema_version": 1,
+  "sources": {
+    "aime2026": {
+      "all_upstream_split_parquet_files": [
+        "data/train-00000-of-00001.parquet"
+      ],
+      "anonymous_access": true,
+      "dataset": "MathArena/aime_2026",
+      "dataset_card_sha256": "3bdcc94f6e4f3820e17d87829bac6fe32f6f67546a2cdf43685732e3f9e6eaa2",
+      "dataset_card_url": "https://huggingface.co/datasets/MathArena/aime_2026/blob/d2de22f3c656b4f56cf8981212186377d1e23bc3/README.md",
+      "license": "cc-by-nc-sa-4.0",
+      "raw_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/aime2026_raw.jsonl",
+      "raw_rows": 30,
+      "raw_sha256": "c931b7fff5803c03158a832b0831d01dc41ba26e145ef58873ac88a59318d50f",
+      "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+      "retrieved_at_utc": "2026-09-29T05:24:10.585663+00:00",
+      "revision": "d2de22f3c656b4f56cf8981212186377d1e23bc3",
+      "selection": "complete upstream split without filtering",
+      "source_split": "train",
+      "upstream_revision_verified": true,
+      "visited_files": [
+        {
+          "anonymous_url": "https://huggingface.co/datasets/MathArena/aime_2026/resolve/d2de22f3c656b4f56cf8981212186377d1e23bc3/data/train-00000-of-00001.parquet",
+          "filename": "data/train-00000-of-00001.parquet",
+          "rows_exported": 30
+        }
+      ]
+    },
+    "beyondaime": {
+      "all_upstream_split_parquet_files": [
+        "data/test.parquet"
+      ],
+      "anonymous_access": true,
+      "dataset": "ByteDance-Seed/BeyondAIME",
+      "dataset_card_sha256": "a6d3aede854212fa1d0c1b1063aaed581c210173974fe7c41c35da94c97e97a1",
+      "dataset_card_url": "https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME/blob/c705198ae1043810b1e1693bd879250b51a7a523/README.md",
+      "license": "cc0-1.0",
+      "raw_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/beyondaime_raw.jsonl",
+      "raw_rows": 100,
+      "raw_sha256": "bd3399dbf61b2354276a04ca44e30c8fe00bc6d981b4e5576acf7c931574dd30",
+      "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+      "retrieved_at_utc": "2026-09-29T05:24:11.839106+00:00",
+      "revision": "c705198ae1043810b1e1693bd879250b51a7a523",
+      "selection": "complete upstream split without filtering",
+      "source_split": "test",
+      "upstream_revision_verified": true,
+      "visited_files": [
+        {
+          "anonymous_url": "https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME/resolve/c705198ae1043810b1e1693bd879250b51a7a523/data/test.parquet",
+          "filename": "data/test.parquet",
+          "rows_exported": 100
+        }
+      ]
+    },
+    "numina": {
+      "all_upstream_split_parquet_files": [
+        "data/train-00000-of-00003.parquet",
+        "data/train-00001-of-00003.parquet",
+        "data/train-00002-of-00003.parquet"
+      ],
+      "anonymous_access": true,
+      "dataset": "AI-MO/NuminaMath-1.5",
+      "dataset_card_sha256": "fb1d9e6e0d8ad71e47fd1ef5671ee4ca522536aa0a5b8c907c0fbc7e3cd7e6b2",
+      "dataset_card_url": "https://huggingface.co/datasets/AI-MO/NuminaMath-1.5/blob/1b05109f9e5c1ad06c0663519502416c30b300f8/README.md",
+      "license": "apache-2.0",
+      "raw_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/numina_raw.jsonl",
+      "raw_rows": 30000,
+      "raw_sha256": "6848d5dd8d43a321c3f5c597d0921f457dfb4dbc85adc8d3f635252240776cd3",
+      "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+      "retrieved_at_utc": "2026-09-29T05:24:09.423822+00:00",
+      "revision": "1b05109f9e5c1ad06c0663519502416c30b300f8",
+      "selection": "first 30000 raw records",
+      "source_split": "train",
+      "upstream_revision_verified": true,
+      "visited_files": [
+        {
+          "anonymous_url": "https://huggingface.co/datasets/AI-MO/NuminaMath-1.5/resolve/1b05109f9e5c1ad06c0663519502416c30b300f8/data/train-00000-of-00003.parquet",
+          "filename": "data/train-00000-of-00003.parquet",
+          "rows_exported": 30000
+        }
+      ]
+    }
+  }
+}

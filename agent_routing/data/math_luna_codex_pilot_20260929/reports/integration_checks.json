@@ -1,0 +1,10 @@
+{
+  "real_trainer_copy_and_relocated_manager": true,
+  "subset_provenance_copied": true,
+  "tampered_subset_provenance_rejected": true,
+  "stale_tokenization_report.json_rejected": true,
+  "stale_tokenization_text_clean_report.json_rejected": true,
+  "cpu_tokenization_all_640_raw_and_544_filtered_kept": true,
+  "gpu_training_started": false,
+  "mathematical_review_performed": false
+}
