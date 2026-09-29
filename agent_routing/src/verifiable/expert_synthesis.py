@@ -63,10 +63,10 @@ def load_config(config):
     raw = dict(config) if isinstance(config, dict) else json.loads(Path(config).read_text())
     allowed = {'provider', 'model', 'teacher_revision', 'base_url', 'temperature', 'candidate_temperature',
                'max_tokens', 'candidate_max_tokens', 'candidates_per_question', 'train_size', 'dev_size',
-               'scan_limit', 'seed', 'max_retries', 'max_calls', 'source_revision', 'timeout'}
+               'scan_limit', 'seed', 'max_retries', 'max_calls', 'source_revision', 'timeout', 'generation_surface'}
     if set(raw) - allowed:
         raise ValueError('Unknown synthesis config fields; credentials must never be stored in synthesis config')
-    config = {**dict(provider='openai', model='gpt-4o', teacher_revision=None, base_url=None,
+    config = {**dict(provider='openai', model='gpt-4o', teacher_revision=None, base_url=None, generation_surface='api',
                     temperature=.2, candidate_temperature=.7, candidates_per_question=2,
                     train_size=128, dev_size=32, scan_limit=30000, seed=42, max_retries=1,
                     max_calls=1920, source_revision=ed.NUMINA_REVISION, timeout=120), **raw}
@@ -84,7 +84,12 @@ def load_config(config):
     if type(config['seed']) is not int or type(config['max_retries']) is not int or config['max_retries'] < 0:
         raise ValueError('Invalid seed or retry limit')
     if config['candidates_per_question'] != 2:
-        raise ValueError('This protocol requires two independently sampled teacher candidates per question')
+        raise ValueError('This protocol requires two teacher candidate tasks per question')
+    if config['generation_surface'] not in ('api', 'codex_subagent'):
+        raise ValueError('generation_surface must be api or codex_subagent')
+    if config['generation_surface'] == 'codex_subagent' and (
+            config['provider'] != 'openai' or config['teacher_revision'] is not None or config['base_url'] is not None):
+        raise ValueError('codex_subagent requires provider openai, unknown teacher_revision and no API base_url')
     for key in ('temperature', 'candidate_temperature'):
         if type(config[key]) not in (int, float) or not math.isfinite(config[key]) or not 0 <= config[key] <= 2:
             raise ValueError(f'{key} must be finite and between zero and two')
@@ -106,6 +111,13 @@ def load_config(config):
 
 def _teacher(config):
     return {'provider': config['provider'], 'model': config['model'], 'revision': config['teacher_revision']}
+
+
+def _codex_context_claims():
+    return {'task_messages_use_runtime_protocol': True, 'effective_prompt_identical_to_runtime': False,
+            'gt_visible_to_teacher': None, 'no_gold_disclosed_scope': 'orchestrator_inputs_only',
+            'evidence_scope': 'recorded orchestrator declarations; platform context and actual API model/sampling are not attested',
+            'candidate_sampling': 'separate requested tasks with shared context within each batch; independent stochastic API sampling is not established'}
 
 
 def _code_hashes():
@@ -142,6 +154,7 @@ def _make_request(run, row, kind, variant=0, dependency=None):
     core = {'schema_version': 1, 'task_id': f"{row['question_hash']}:{kind}:{variant}", 'kind': kind,
             'variant': variant, 'question_hash': row['question_hash'], 'split': row['split'],
             'provider': config['provider'], 'model': config['model'], 'teacher_revision': config['teacher_revision'],
+            'generation_surface': config['generation_surface'],
             'config_sha256': _hash(config), 'run_sha256': run['run_sha256'], 'messages': messages,
             'prompt_sha256': _hash(messages), 'temperature': config['candidate_temperature'] if kind == 'candidate' else config['temperature'],
             'max_tokens': config['max_tokens'][kind], 'candidate_request_id': dependency['request_id'] if dependency else None,
@@ -306,14 +319,53 @@ def prepare(out_dir, manager_data_dir, config, raw_jsonl=None, resume=False):
                'question_counts': {split: len(items) for split, items in selected.items()},
                'sha256': {name: ed._sha(root / name) for name in files},
                'code_sha256': _code_hashes(),
-               'sampling_reproducibility': 'seed fixes question selection and task identities; TeacherClient.chat has no seed argument, so API generations are stochastic; exact responses are frozen for reuse',
+               'generation_surface': config['generation_surface'],
+               'sampling_reproducibility': (
+                   'seed fixes question selection and task identities; Codex subagent batches share context within each batch; '
+                   'actual temperature, top_p and max_tokens are unknown; requested budgets are guidance only; '
+                   'candidate tasks are not claimed to be independent stochastic API samples; exact responses are frozen for reuse'
+                   if config['generation_surface'] == 'codex_subagent' else
+                   'seed fixes question selection and task identities; TeacherClient.chat has no seed argument, so API generations are stochastic; exact responses are frozen for reuse'),
                'pool_rule': 'Numina quality + text-only question + Manager/test exclusion + exact/near dedup; no arithmetic/reference/extractor-rule gate',
                'split_rule': 'fixed question-hash 20% dev bucket, seed-hash order; all role/candidate variants stay in the same split',
                'expected_tasks': len(pool) * 6}
+        if config['generation_surface'] == 'codex_subagent':
+            run['execution_context'] = _codex_context_claims()
         run['run_sha256'] = _hash(run)
         _atomic(run_path, run)
         _refresh(root, run, pool)
-        return run
+    return run
+
+
+def _codex_execution(value, request):
+    """Validate scoped orchestrator declarations, not hidden infrastructure claims.
+
+    Wrapper/output hashes bind externally archived exact UTF-8 text; only the
+    input-request hash can be checked against the frozen request here.
+    """
+    fixed = {'schema_version': 1, 'surface': 'codex_subagent', 'selected_model': request['model'],
+             'model_evidence_source': 'collaboration.spawn_agent', 'isolated_from_parent': True,
+             'shared_batch_context': True, 'no_gold_disclosed': True,
+             'no_gold_disclosed_scope': 'orchestrator_inputs_only',
+             'tool_policy': 'file_io_only_no_external_lookup_or_computation', 'reasoning_effort': None,
+             'tools_used': None, 'tool_use_evidence_source': 'not_independently_observed',
+             'actual_sampling': {'temperature': None, 'top_p': None, 'max_tokens': None},
+             'requested_budgets_scope': 'guidance_only'}
+    names = set(fixed) | {'agent_id', 'task_path', 'batch_id', 'input_request_sha256',
+                         'batch_input_sha256', 'wrapper_sha256', 'raw_output_sha256'}
+    if not isinstance(value, dict) or set(value) != names:
+        raise ValueError('Codex response requires complete execution provenance with no unknown fields')
+    if any(value[key] != expected or type(value[key]) is not type(expected) for key, expected in fixed.items()):
+        raise ValueError('Codex execution provenance or scoped declaration differs from the required protocol')
+    for key in ('agent_id', 'task_path', 'batch_id'):
+        if not isinstance(value[key], str) or not value[key].strip():
+            raise ValueError(f'Codex execution requires a nonempty {key}')
+    for key in ('input_request_sha256', 'batch_input_sha256', 'wrapper_sha256', 'raw_output_sha256'):
+        if not isinstance(value[key], str) or not re.fullmatch(r'[0-9a-f]{64}', value[key]):
+            raise ValueError(f'Codex execution requires a SHA256 {key}')
+    if value['input_request_sha256'] != _hash(request):
+        raise ValueError('Codex execution input request fingerprint differs from the frozen request')
+    return value
 
 
 def _normal_response(value, request):
@@ -342,6 +394,11 @@ def _normal_response(value, request):
         raise ValueError('Teacher request_attempts must be a positive integer or null')
     if response['provider_usage'] is not None and not isinstance(response['provider_usage'], dict):
         raise ValueError('Teacher provider_usage must be an object or null')
+    if request.get('generation_surface', 'api') == 'codex_subagent':
+        response['execution'] = _codex_execution(value.get('execution'), request)
+        if any(response[key] is not None for key in ('actual_model', 'usage', 'finish_reason',
+                'request_id', 'system_fingerprint', 'request_attempts', 'provider_usage')):
+            raise ValueError('Codex subagent responses require unknown API model, completion and usage metadata to remain null')
     return response
 
 
@@ -425,6 +482,8 @@ def generate(out_dir, config, teacher=None, resume=False):
     root = Path(out_dir)
     with _lock(root):
         run, pool = _read_run(root, config)
+        if run['config']['generation_surface'] == 'codex_subagent':
+            raise ValueError('codex_subagent is external-only; import recorded responses with finalize --responses-jsonl')
         if _attempts(root) and not resume:
             raise FileExistsError('Teacher attempts exist; use --resume')
         with Monitor(root, 'expert_teacher_synthesis') as monitor:
@@ -549,6 +608,7 @@ def finalize(out_dir, data_out=None, responses_jsonl=None):
         if not status['complete']:
             raise ValueError(f"Teacher synthesis incomplete: {len(accepted)}/{run['expected_tasks']} accepted. Review pending_requests.jsonl and verifier_requests.jsonl; no SFT bundle published")
         refs = {row['question_hash']: row for row in ed._local_rows(root / 'references.jsonl')}
+        codex = run['config']['generation_surface'] == 'codex_subagent'
         by_question = {row['question_hash']: row for row in pool}
         outputs = {f'{role}/{split}.jsonl': [] for role in protocol.KINDS for split in ('train', 'dev')}
         for request in requests:
@@ -570,9 +630,14 @@ def finalize(out_dir, data_out=None, responses_jsonl=None):
                      'quality_checks': {'gt_visible_to_teacher': False, 'runtime_prompt_aligned': True,
                                         'label_verification': 'unverified_teacher_judgment',
                                         'completion_metadata_known': response['finish_reason'] is not None}}
+            if codex:
+                entry['teacher_generation_surface'] = 'codex_subagent'
+                entry['teacher_execution'] = response['execution']
+                entry['quality_checks'].update(_codex_context_claims(), runtime_prompt_aligned=False)
             if candidate_evidence:
                 final = extract_final(candidate)
-                entry.update(verdict=evidence['validation']['verdict'], candidate_source='teacher_independent_solution',
+                entry.update(verdict=evidence['validation']['verdict'],
+                    candidate_source='teacher_codex_subagent_solution' if codex else 'teacher_independent_solution',
                     candidate_request_id=request['candidate_request_id'], candidate_response_sha256=request['candidate_response_sha256'],
                     candidate_hash=hashlib.sha256(candidate.encode()).hexdigest(),
                     candidate_terminal_diagnostic={'extracted_answer': final,
@@ -584,6 +649,7 @@ def finalize(out_dir, data_out=None, responses_jsonl=None):
         counts = {role: {split: len(outputs[f'{role}/{split}.jsonl']) for split in ('train', 'dev')} for role in protocol.KINDS}
         candidates = {split: {row['candidate_hash'] for row in outputs[f'verifier/{split}.jsonl']} for split in ('train', 'dev')}
         manifest = {'schema_version': 1, 'supervision': 'teacher_synthetic', 'teacher': run['teacher'],
+                    'generation_surface': run['config']['generation_surface'],
                     'synthesis': {'config': run['config'], 'config_sha256': run['config_sha256'], 'run_sha256': run['run_sha256'], **status},
                     'sampling_reproducibility': run['sampling_reproducibility'],
                     'source': run['source'], 'manager_exclusion': run['manager_exclusion'], 'counts': counts,
@@ -596,6 +662,9 @@ def finalize(out_dir, data_out=None, responses_jsonl=None):
                                       'verifier_candidate_audit': {'unique_counts': {**{s: len(v) for s, v in candidates.items()}, 'all': len(candidates['train'] | candidates['dev'])},
                                           'cross_split_overlap_count': len(candidates['train'] & candidates['dev'])},
                                       'independent_benchmark': False, 'semantic_decontamination_proven': False}}
+        if codex:
+            manifest['execution_context'] = _codex_context_claims()
+            manifest['quality_audit'].update(_codex_context_claims())
         # Hash the exact would-be publication before touching an existing bundle.
         manifest['sha256'] = {name: hashlib.sha256(''.join(ed._canonical(row) + '\n' for row in rows).encode()).hexdigest() for name, rows in outputs.items()}
         manifest['manifest_content_sha256'] = _hash(manifest)

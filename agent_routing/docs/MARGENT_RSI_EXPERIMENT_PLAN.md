@@ -1,8 +1,10 @@
 # MARGENT Agent RSI：完整实验计划
 
-设计日期：2026-09-26；2026-09-29更新为GPT-4o合成数据、专家优先执行，参见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
+设计日期：2026-09-26；2026-09-29更新为teacher合成数据、专家优先执行（本次 Codex / gpt-6-luna，保留 GPT-4o API 路径），参见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
 
 本文是执行和论文分析计划，不是已完成的实验报告。新增计划不会自动启动 RunPod。数学 subagent 的详细训练规范见 [SUBAGENT_TRAINING_PLAN.md](SUBAGENT_TRAINING_PLAN.md)；已有运行入口见 [RSI_RUNPOD.md](RSI_RUNPOD.md)。
+
+本次重新冻结 Manager 与专家题池，并保留完整 Codex 原始批次证据，具体来源限制和启动配置见 [CODEX_LUNA_TEACHER_DATA.md](CODEX_LUNA_TEACHER_DATA.md)。
 
 ## 1. 要回答的问题
 
@@ -24,7 +26,7 @@
 | Manager LoRA、GRPO 逐步日志、checkpoint 延续 | 有实现；GPU 小测试完成一次 SFT、一次 GRPO、再一次 SFT |
 | 当前数学 advisor | 一个冻结 Qwen3.5-9B，通过三个角色提示提供 extractor/reasoner/verifier；不是三个已训练专家 |
 | 旧 subagent SFT | src/subagents/train.py 有训练器；不能据此声称数学专家训练与服务集成已完成 |
-| GPT-4o 数学数据合成、三角色独立 adapter、角色评测、W&B | teacher 数据/训练/服务/日志已接入；真实 API 合成、9B GPU和独立质量仍需执行验证 |
+| Teacher 数学数据合成、三角色独立 adapter、角色评测、W&B | API / Codex 数据、训练、服务、日志已接入；数据包完成以 manifest 为准，9B GPU和独立质量仍需验证 |
 | AIME2026 全量基线 | 已启动但失败，不能算完成 |
 | 完整两轮 benchmark 前后提升 | 尚无结果 |
 | Manager 与 subagent 同时演化 | 仅作为后续扩展设计，当前无此流水线 |
@@ -48,7 +50,7 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 
     准备并锁定 Numina 专家题池，与 Manager 和外部 test 隔离
         ↓
-    GPT-4o 合成 E/R、两条完整候选及各自的 V 审查 → 检查并发布数据
+    Teacher 合成 E/R、两条完整候选及各自的 V 审查 → 检查并发布数据
         ↓
     [首先执行] 分别训练 extractor / reasoner / verifier → 评估 → 冻结专家
         ↓
@@ -155,7 +157,7 @@ Manager 标注/评测 temperature=0；独立答案和修订各最多 2,048 token
 |---|---|---|
 | 历史评测故障跟踪（不阻挡专家SFT） | 定位已有 AIME traceback；在 dev 复现、修复、恢复测试，再跑锁定30题 baseline | 新任务最多2小时；已有失败运行目录及原时限保留，不抹掉后复跑 |
 | 后续A0消融 | 16 train / 16 dev，D/S/U，各2轮，每轮 SFT8步 + GRPO8步，seed42 | 整体最多24小时，含采集与评测；到时保存并报告已完成范围 |
-| 首先：teacher 合成 | OpenAI/gpt-4o，128 train题 / 32 dev题，每题6任务，共960任务 | CPU/API阶段；最多1,920次任务尝试，非美元预算；独立记录API用量与未知成本 |
+| 首先：teacher 合成 | 本次 Codex/gpt-6-luna，128 train题 / 32 dev题，每题6任务，共960任务；另保留 GPT-4o API 配置 | 生成阶段；最多1,920次任务尝试，非美元预算；Codex实际采样、token用量未知，不编造成本 |
 | 第一步：subagent pilot | 三角色使用上述 teacher 数据，各16步SFT，做质量与服务检查 | 独立持久化预算最多2小时，含数据检查/训练/重载，不含teacher API；dev对照另行启动 |
 | 第二步：训练专家后的A1 | 通过专家质量检查后，固定专家，跑Manager三组 | 单独申请/锁定计算预算，不包含在P1的24小时内 |
 | P4：正式证据 | 128 train / 64 dev，至少3轮，训练seed 42/43/44；AIME30、BeyondAIME100 | 新配置每轮SFT32步/GRPO32步作为预注册起点，先做吞吐测量再确定时限；尚未实现自动总控 |
@@ -213,7 +215,7 @@ Manager pilot 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRP
 - [ ] 验证当前GPU环境的一题端到端路径及中断恢复，不只跑CPU单测。
 - [ ] 对齐 finite_actions_v1 配置；pilot shell默认使用专家生成的manager_config.json，保留finite_actions_v1。
 - [ ] 生成三组执行计划，确认第二轮加载本组GRPO1权重。
-- [ ] 完成 GPT-4o 合成、专家 SFT、独立质量检查与多adapter服务GPU验证后才进入A1。
+- [ ] 完成 teacher 合成、专家 SFT、独立质量检查与多adapter服务GPU验证后才进入A1。
 - [ ] 在看外部测试结果前锁定评测预算、比较对象和完成标准。
 - [ ] 保存W&B链接、run manifest、逐题结果、配对统计和失败清单。
 

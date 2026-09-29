@@ -25,7 +25,7 @@ Benchmarks: **MedQA-USMLE**, **LegalBench**, **MMLU-Pro**, **GPQA**,
 > This README covers the system + one end-to-end walkthrough per benchmark.
 > AQuA-RAT and ARC-Challenge commands: **[AQUA_ARC_BENCHMARKS.md](AQUA_ARC_BENCHMARKS.md)**.
 > Subagent prompt entry points, version changes, and math measurement coverage: **[SUBAGENT_PROMPTS.md](SUBAGENT_PROMPTS.md)**.
-> GPT-4o teacher synthesis followed by three independent math expert SFTs: **[EXPERT_SFT_RUNPOD.md](docs/EXPERT_SFT_RUNPOD.md)**.
+> Teacher synthesis followed by three independent math expert SFTs: **[EXPERT_SFT_RUNPOD.md](docs/EXPERT_SFT_RUNPOD.md)**. Current Codex / gpt-6-luna data provenance and RunPod instructions: **[CODEX_LUNA_TEACHER_DATA.md](docs/CODEX_LUNA_TEACHER_DATA.md)**.
 > Math RSI bug fixes, W&B evidence, and paper reporting scope: **[AUDIT_AND_PAPER_LOGGING.md](docs/AUDIT_AND_PAPER_LOGGING.md)**.
 
 ---

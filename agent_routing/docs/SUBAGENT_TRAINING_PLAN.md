@@ -6,7 +6,7 @@
 
 目标是训练三个独立角色 adapter：extractor、reasoner、verifier，并检验它们能否给 Manager 提供更有用、更可靠的帮助。
 
-2026-09-29 实现更新：主线按用户确认沿用 OpenAI / gpt-4o teacher 合成。`expert_synthesis.py` 先锁定 Numina 独立题池，生成三个角色监督、完整候选推导及审查标签，完成后才交给 `expert_train.py` 做三套独立 LoRA。数据、断点、服务、W&B 接入和本地小模型验证不等于已完成真实 API 合成或 9B GPU 训练。执行说明见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
+2026-09-29 实现更新：本次按用户最新选择使用 Codex / gpt-6-luna teacher 合成；另保留 OpenAI / gpt-4o API 路径。`expert_synthesis.py` 先锁定 Numina 独立题池，生成三个角色监督、完整候选推导及审查标签，完成后才交给 `expert_train.py` 做三套独立 LoRA。数据、断点、服务、W&B 接入和本地小模型验证不等于已完成真实 API 合成或 9B GPU 训练。执行说明见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
 
 旧 `expert_data.py` 的题面词法提取、参考压缩和局部算术扰动保留为 `weak_debug` 调试/消融。它不能替代 teacher 主实验，也不能冒充已有完整推导审核。Teacher 标签默认未经人工审核；自动完成不证明专家能力提升。
 
@@ -14,7 +14,7 @@
 
 主实验采用：
 
-    Numina 独立题池 → GPT-4o 合成 E/R/候选/V 数据 → 格式与来源检查
+    Numina 独立题池 → Teacher 合成 E/R/候选/V 数据 → 格式与来源检查
                 ↓
     同一个 pinned base
        ├─ extractor SFT → E*
@@ -27,7 +27,7 @@
 
 三套 LoRA 都从相同 base 独立开始，不按 E→R→V 串行继承 adapter。可以按顺序占用同一张 GPU 训练，节省显存。主实验不对专家做 GRPO，不在 Manager 两轮之间改变专家权重。
 
-模型为 Qwen/Qwen3.5-9B，revision c202236235762e1c871ad0ccb60c8ee5ba337b9a。teacher 与运行时专家都只能看到允许的题目/候选，不能看到 gold 或参考解答。Numina solution 仅保存到 sidecar，供事后审计和候选终值诊断。
+模型为 Qwen/Qwen3.5-9B，revision c202236235762e1c871ad0ccb60c8ee5ba337b9a。导出的 teacher 请求与运行时专家输入都只包含允许的题目/候选，不包含 gold 或参考解答。Codex 的完整系统上下文不可独立鉴证，限定声明见 [Codex 数据指南](CODEX_LUNA_TEACHER_DATA.md)。Numina solution 仅保存到 sidecar，供事后审计和候选终值诊断。
 
 ## 3. 数据池、规模和隔离
 
@@ -36,7 +36,7 @@
 - pilot：128个train题、32个dev题，先做每角色16步更新。
 - 扩展：1,024个train题、128个dev题；pilot题按所属split包含其中，不能从dev移入train。
 - 三角色可使用相同题目池，但按题目分组切分。一个题目的正确候选、错误候选、多个改写必须留在同一split。
-- 全部排除冻结的完整 Manager train/dev、AIME2026、BeyondAIME；当前 Manager 为128/64，但以完整 manifest 和文件为准，不能用 smoke 子集代替。任何同题或近重复排除都记录。
+- 全部排除冻结的完整 Manager train/dev、AIME2026、BeyondAIME；本次为新冻结 Manager 128/64 划分，不代表原 RunPod 数据；以完整 manifest 和文件为准，不能用 smoke 子集代替。任何同题或近重复排除都记录。
 - 保留原始solution sidecar、来源ID、question hash、教师版本、模板hash、标签依据、人工审核字段。
 - expert_synthesis 的 prepare 单独构建 references.jsonl；prompt 使用白名单，不修改旧 Manager 数据文件。
 
@@ -54,17 +54,17 @@
 
 ### 4.1 Extractor 标签
 
-GPT-4o 根据题面生成条件、变量、约束和目标，使用与服务端相同的 `advisor_messages`，不接收 reference solution。检查非空、完成状态、长度和协议；事实覆盖、无新增假设仍需独立抽查。
+Teacher 根据题面生成条件、变量、约束和目标，使用与服务端相同的 `advisor_messages`，不接收 reference solution。检查非空、完成状态、长度和协议；事实覆盖、无新增假设仍需独立抽查。
 
 ### 4.2 Reasoner 标签
 
-GPT-4o 从题目独立生成解题建议和关键推导，不直接复制 Numina reference。保留 teacher 原始输出和完整调用证据。终局答案匹配不能认证所有推理；定理使用、关键等式和边界条件需要人工或可执行检查。
+Teacher 从题目独立生成解题建议和关键推导，不直接复制 Numina reference。保留 teacher 原始输出和完整调用证据。终局答案匹配不能认证所有推理；定理使用、关键等式和边界条件需要人工或可执行检查。
 
 长度超限不静默裁掉后训练：API 已知截断会作为失败保存并按预算重试；学生 tokenizer 的序列超限会整条排除并报告实际监督数。
 
 ### 4.3 Verifier 标签
 
-每个题目由 GPT-4o 独立采样两条完整候选解，再对每条候选单独调用 verifier teacher，输出 `Verdict / Evidence / Correction`。每次审查绑定具体候选响应 hash。候选与标签均由 teacher 生成，不预先指示正确/错误，也不强行按 gold 匹配改 verdict。
+每个题目由 teacher 在分开的请求中生成两条完整候选解，再对每条候选单独调用 verifier teacher，输出 `Verdict / Evidence / Correction`。每次审查绑定具体候选响应 hash。候选与标签均由 teacher 生成，不预先指示正确/错误，也不强行按 gold 匹配改 verdict。
 
 pilot 预期 Verifier 为256 train / 64 dev条，但只有128/32个独立题目。允许 correct、incorrect、uncertain，保存实际类别计数和候选重复数；不保证三类都有、不按比例伪造标签。自然错误不够或类别严重偏斜时，先报告，在新版本数据计划中增加独立候选来源或经人工审核的错误，不能修改已冻结数据。
 
@@ -72,9 +72,9 @@ pilot 预期 Verifier 为256 train / 64 dev条，但只有128/32个独立题目�
 
 ## 5. 生成教师与训练样本格式
 
-主线 teacher 为用户选定的 OpenAI / `gpt-4o`；复用旧 benchmark 的 TeacherClient 接口，数学 prompt 与旧选择题 schema 分开。默认配置为 [math_expert_teacher.json](../configs/math_expert_teacher.json)。API 模型别名可能变化，因此同时记录请求型号、实际返回型号和 system fingerprint；不把它伪装成固定权重 revision。
+本次 teacher 为用户选定的 Codex / `gpt-6-luna`，使用 [math_expert_teacher_codex_luna.json](../configs/math_expert_teacher_codex_luna.json)，按 [Codex 数据指南](CODEX_LUNA_TEACHER_DATA.md) 保存批次上下文与来源证据。实际 API model、用量、采样参数未知时均为空；任务消息复用运行时模板不等于完整有效 prompt 相同。原 OpenAI / gpt-4o API 路径保留 [math_expert_teacher.json](../configs/math_expert_teacher.json)，复用旧 benchmark 的 TeacherClient；数学 prompt 与旧选择题 schema 分开，记录 API 实际返回的 model 和 system fingerprint。
 
-每题 E、R、两条候选、两次 V 审核，共6个任务；160题为960任务，允许每任务一次重试，总上限1,920次任务尝试。该限制不是 wire 请求数或美元上限；失败和未知调用保留计数，缺失 token 用量不能写成零。真正生成只在显式执行 `generate` 时发生，预览和 SFT 入口不会调用 API。
+每题 E、R、两条候选、两次 V 审核，共6个任务；160题为960任务，允许每任务一次重试，总上限1,920次任务尝试。该限制不是 wire 请求数或美元上限；失败和未知调用保留计数，缺失 token 用量不能写成零。API 路径只在显式执行 `generate` 时调用 API；Codex 路径由实际子任务生成后导入，并拒绝误用 API `generate`。预览和 SFT 入口不会调用 API。
 
 每条数据至少包含：
 
@@ -134,7 +134,7 @@ pilot 预期 Verifier 为256 train / 64 dev条，但只有128/32个独立题目�
 
 当前 serve.py 已支持此功能，实现和待GPU验证清单：
 
-- [x] GPT-4o 数学角色合成、完整候选审查、solution sidecar、逐次调用证据和分组去重 manifest。
+- [x] API / Codex 数学角色合成、完整候选审查、solution sidecar、逐次调用证据和分组去重 manifest。
 - [x] 兼容Qwen3.5及固定revision/模板的训练入口；拒绝静默截断或零监督目标。
 - [x] 支持按role加载/切换adapter，并在health/result中返回各role fingerprint。
 - [x] HTTPAdvisors客户端与服务端统一校验三个fingerprint，Manager重启不能接上另一个专家版本。

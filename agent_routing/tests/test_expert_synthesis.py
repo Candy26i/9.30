@@ -351,3 +351,110 @@ def test_pool_selection_is_reproducible_and_source_mutation_blocks_resume(tmp_pa
     raw.write_text(raw.read_text() + '\n')
     with pytest.raises(ValueError, match='source or Manager exclusion changed'):
         synth.prepare(root, manager, cfg, raw_jsonl=raw, resume=True)
+
+
+def codex_response_for(request, batch_id='fixture-batch'):
+    response = response_for(request)['response']
+    response.update(model=request['model'], actual_model=None, usage=None, finish_reason=None,
+                    request_id=None, latency_seconds=None, request_attempts=None)
+    response['execution'] = {
+        'schema_version': 1, 'surface': 'codex_subagent', 'selected_model': request['model'],
+        'model_evidence_source': 'collaboration.spawn_agent', 'agent_id': 'fixture-agent',
+        'task_path': '/root/fixture', 'batch_id': batch_id,
+        'input_request_sha256': synth._hash(request), 'batch_input_sha256': '1' * 64,
+        'wrapper_sha256': '2' * 64, 'raw_output_sha256': '3' * 64,
+        'isolated_from_parent': True, 'shared_batch_context': True, 'no_gold_disclosed': True,
+        'no_gold_disclosed_scope': 'orchestrator_inputs_only',
+        'tool_policy': 'file_io_only_no_external_lookup_or_computation', 'reasoning_effort': None,
+        'tools_used': None, 'tool_use_evidence_source': 'not_independently_observed',
+        'actual_sampling': {'temperature': None, 'top_p': None, 'max_tokens': None},
+        'requested_budgets_scope': 'guidance_only'}
+    return {'request_id': request['request_id'], 'response': response}
+
+
+def test_codex_import_preserves_scoped_execution_evidence_and_training_compatibility(tmp_path, monkeypatch):
+    from src.teachers import base
+    monkeypatch.setattr(base, 'build_teacher_client', lambda *a, **k: pytest.fail('No API client allowed'))
+    root, _, _, _ = make_run(tmp_path, model='gpt-6-luna', generation_surface='codex_subagent')
+    run = json.loads((root / 'synthesis_run.json').read_text())
+    assert run['generation_surface'] == 'codex_subagent'
+    assert run['execution_context']['gt_visible_to_teacher'] is None
+    assert 'guidance only' in run['sampling_reproducibility']
+    first = tmp_path / 'codex-first.jsonl'
+    requests = read_jsonl(root / 'pending_requests.jsonl')
+    write_jsonl(first, [codex_response_for(r) for r in requests])
+    with pytest.raises(ValueError, match='20/30'):
+        synth.finalize(root, responses_jsonl=first)
+    second = tmp_path / 'codex-second.jsonl'
+    write_jsonl(second, [codex_response_for(r, 'verifier-batch')
+                        for r in read_jsonl(root / 'verifier_requests.jsonl')])
+    manifest = synth.finalize(root, responses_jsonl=second)
+    assert manifest['generation_surface'] == 'codex_subagent'
+    assert manifest['quality_audit']['gt_visible_to_teacher'] is None
+    assert manifest['synthesis']['budget']['api_attempt_records'] == 0
+    assert manifest['synthesis']['budget']['unknown_usage_attempts'] == 30
+    assert manifest['synthesis']['budget']['observed_usage'] == {}
+    for role in KINDS:
+        assert read_dataset(root / 'data', role)
+        for row in read_jsonl(root / 'data' / role / 'train.jsonl'):
+            assert row['teacher_actual_model'] is None
+            assert row['teacher_execution']['selected_model'] == 'gpt-6-luna'
+            assert row['teacher_execution']['actual_sampling']['temperature'] is None
+            assert row['quality_checks']['gt_visible_to_teacher'] is None
+            assert row['quality_checks']['effective_prompt_identical_to_runtime'] is False
+            assert row['quality_checks']['task_messages_use_runtime_protocol'] is True
+            assert row['quality_checks']['runtime_prompt_aligned'] is False
+            if role == 'verifier':
+                assert row['candidate_source'] == 'teacher_codex_subagent_solution'
+    assert synth.finalize(root, responses_jsonl=second) == manifest
+
+
+def test_codex_generate_rejected_before_api_client_or_monitor(tmp_path, monkeypatch):
+    from src.teachers import base
+    root, _, _, cfg = make_run(tmp_path, model='gpt-6-luna', generation_surface='codex_subagent')
+    monkeypatch.setattr(base, 'build_teacher_client', lambda *a, **k: pytest.fail('No API client allowed'))
+    monkeypatch.setattr(synth, 'Monitor', lambda *a, **k: pytest.fail('No Monitor allowed'))
+    with pytest.raises(ValueError, match='external-only'):
+        synth.generate(root, cfg)
+    assert not list((root / 'calls').glob('*/*.json'))
+
+
+@pytest.mark.parametrize('field,value', [
+    ('selected_model', 'gpt-4o'), ('input_request_sha256', '0' * 64),
+    ('wrapper_sha256', 'missing'), ('batch_input_sha256', None), ('raw_output_sha256', 'missing'),
+    ('isolated_from_parent', False), ('shared_batch_context', False), ('no_gold_disclosed', False),
+    ('no_gold_disclosed_scope', 'all_infrastructure'), ('tools_used', []),
+    ('actual_sampling', {'temperature': .2, 'top_p': None, 'max_tokens': None}),
+    ('reasoning_effort', 'high'), ('agent_id', ''), ('schema_version', True)])
+def test_codex_execution_evidence_rejects_mismatched_or_unqualified_claims(field, value):
+    request = {'provider': 'openai', 'model': 'gpt-6-luna', 'generation_surface': 'codex_subagent',
+               'request_id': 'fixture', 'messages': [{'role': 'user', 'content': 'Solve this task'}],
+               'temperature': .2, 'max_tokens': 100}
+    response = codex_response_for(request)['response']
+    response['execution'][field] = value
+    with pytest.raises(ValueError, match='Codex'):
+        synth._normal_response(response, request)
+
+
+@pytest.mark.parametrize('field,value', [('actual_model', 'invented-snapshot'), ('finish_reason', 'stop'),
+    ('usage', {'prompt_tokens': 1}), ('request_id', 'invented-api-id'), ('request_attempts', 1)])
+def test_codex_cannot_claim_unobserved_api_metadata(field, value):
+    request = {'provider': 'openai', 'model': 'gpt-6-luna', 'generation_surface': 'codex_subagent',
+               'request_id': 'fixture', 'messages': [{'role': 'user', 'content': 'Solve this task'}],
+               'temperature': .2, 'max_tokens': 100}
+    response = codex_response_for(request)['response']
+    response[field] = value
+    with pytest.raises(ValueError, match='remain null'):
+        synth._normal_response(response, request)
+
+
+def test_codex_requires_execution_evidence_and_explicit_surface():
+    request = {'provider': 'openai', 'model': 'gpt-6-luna', 'generation_surface': 'codex_subagent'}
+    with pytest.raises(ValueError, match='execution provenance'):
+        synth._normal_response({'text': 'original model output', 'provider': 'openai', 'model': 'gpt-6-luna'}, request)
+    assert synth.load_config({})['generation_surface'] == 'api'
+    for options in ({'generation_surface': 'unknown'},
+                    {'generation_surface': 'codex_subagent', 'base_url': 'https://example.test'},
+                    {'generation_surface': 'codex_subagent', 'teacher_revision': 'invented'}):
+        with pytest.raises(ValueError):
+            synth.load_config(options)

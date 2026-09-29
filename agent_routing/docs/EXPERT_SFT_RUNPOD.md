@@ -1,6 +1,6 @@
-# GPT-4o 合成专家数据，再进行数学专家 SFT
+# Teacher 合成专家数据，再进行数学专家 SFT
 
-数学实验沿用其他 benchmark 的顺序：**Numina 题池 → teacher 合成三个角色的监督数据 → 独立 LoRA SFT → 专家 dev 检查与冻结 → Manager SFT / GRPO / RSI**。teacher 已按用户选择设为 OpenAI `gpt-4o`。API 数据合成不加载学生模型，可以先在 CPU 环境完成；GPU 入口只读取已完成的 teacher 数据，不自动调用 teacher、不启动 Manager 或 AIME。
+数学实验沿用其他 benchmark 的顺序：**Numina 题池 → teacher 合成三个角色的监督数据 → 独立 LoRA SFT → 专家 dev 检查与冻结 → Manager SFT / GRPO / RSI**。本次用户选择在 Codex 内以 `gpt-6-luna` 生成，请先读 [Codex Luna 数据包与 RunPod 接入](CODEX_LUNA_TEACHER_DATA.md)。下文保留 `gpt-4o` API 路径及其默认配置，二者使用不同来源标记和配置，不能混称同一实验。GPU 入口只读取已完成的 teacher 数据，不自动调用 teacher、不启动 Manager 或 AIME。
 
 ## 三个角色的数据如何生成
 
@@ -10,7 +10,7 @@
 | Reasoner | Numina 题目、允许的 context | 解题路径、关键中间推导与计算 |
 | Verifier | 题目 + 一条完整候选推导 | `Verdict / Evidence / Correction`，可判 correct、incorrect 或 uncertain |
 
-每题先额外调用 teacher 独立生成两条完整候选解，再各自交给 verifier teacher 审查。候选也由模型生成，不默认使用参考解答或“右侧加一”的程序错误。所有角色输入由数学运行时 `advisor_messages` 构建；teacher 不接收 gold 或 Numina solution，也不接收“此候选正确/错误”的暗示。参考答案只保留在 sidecar，用于候选终值诊断；终值相等不能证明整段推导正确，也不用于强制改写 teacher verdict。
+每题先额外调用 teacher 生成两条完整候选解，再各自交给 verifier teacher 审查。候选也由模型生成，不默认使用参考解答或“右侧加一”的程序错误。所有角色的任务消息由数学运行时 `advisor_messages` 构建，导出请求不含 gold 或 Numina solution，也不含“此候选正确/错误”的暗示。Codex 另有批次操作说明和系统上下文，因此不能声称完整有效 prompt 与运行时相同，或独立证明模型所有上下文均不可见 gold。参考答案只保留在 sidecar，用于候选终值诊断；终值相等不能证明整段推导正确，也不用于强制改写 teacher verdict。
 
 Teacher 标签仍可能出错。相同 teacher 生成候选并审查，会存在相关错误；不保证自然得到均衡的 correct/incorrect/uncertain 三类。实际类别数量和候选重复数会记录，不能伪造标签凑数。专家 dev 的 verifier 指标称为 **teacher 标签一致性**，不是独立数学正确率；Extractor/Reasoner 的质量以及对 Manager 的帮助仍需人工或独立评估。
 
@@ -104,6 +104,6 @@ bash scripts/runpod_rsi_pilot.sh run
 
 Manager 首轮 SFT 仍从独立 Manager Numina train 池采集反事实轨迹，由外部答案校验器选择成功分支，训练 CALL/COMMIT、成功修订和独立解答蒸馏。不会直接复制专家 teacher 答案或使用专家 dev 训练 Manager。AIME/BeyondAIME 保持锁定外部测试；当前两个入口都不会自动启动它们。
 
-## 本次代码验证
+## 代码验证与实际实验边界
 
-完整本地回归：376项测试与11项子测试通过，包含离线 teacher 模拟、真实小模型 CPU 三角色训练/重载/恢复及离线 W&B 证据检查。另已检查入口脚本语法和 Python 编译。没有调用真实 teacher API，没有生成本次正式160题数据，也没有完成9B CUDA训练；不能将这些软件测试计为论文实验结果。
+完整本地回归：398项测试与11项子测试通过，包含离线 teacher 模拟、Codex 来源校验、真实小模型 CPU 三角色训练/重载/恢复及离线 W&B 证据检查。另已检查入口脚本语法和 Python 编译。API 合成与 Codex 生成分开记录；某个数据包是否完整，以其 `synthesis_status.json` 和校验报告为准。尚未完成9B CUDA训练，软件测试与数据生成都不能计为 benchmark 提升。
