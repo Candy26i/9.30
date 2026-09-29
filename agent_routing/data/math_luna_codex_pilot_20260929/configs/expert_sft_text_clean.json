@@ -1,0 +1,23 @@
+{
+  "expert_data_mode": "teacher_synthetic",
+  "expected_teacher": {
+    "provider": "openai",
+    "model": "gpt-6-luna"
+  },
+  "base_model": "Qwen/Qwen3.5-9B",
+  "base_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "seed": 42,
+  "train_size": 104,
+  "dev_size": 32,
+  "scan_limit": 30000,
+  "max_seq_len": 8192,
+  "learning_rate": 2e-05,
+  "per_device_batch_size": 1,
+  "gradient_accumulation_steps": 8,
+  "max_steps": 16,
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "save_steps": 8,
+  "bf16": true
+}

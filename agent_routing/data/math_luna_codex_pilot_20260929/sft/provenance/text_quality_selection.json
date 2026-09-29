@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "policy": "exclude_question_if_any_sft_prompt_candidate_or_response_has_U0000_to_U001F_except_LF",
+  "timing": "Post-generation mechanical quality selection; not preregistered before synthesis.",
+  "scope": "Encoding/text hygiene only. No ground truth, correctness score, verdict or mathematical content used for selection. Retained teacher text and labels are byte-for-byte unchanged.",
+  "reviewed": false,
+  "source_manifest_sha256": "410225f751b7ecde6aaa4ad8eea8eccaf87b093a4f7bc63094cd5ef0087c847e",
+  "filter_code_sha256": "abcc4b14eca5873bfae31ce0a21348766bd9d8e8ef17e89f3fc22ff5cfaa30f1",
+  "original_question_counts": {
+    "dev": 32,
+    "train": 128
+  },
+  "original_counts": {
+    "extractor": {
+      "train": 128,
+      "dev": 32
+    },
+    "reasoner": {
+      "train": 128,
+      "dev": 32
+    },
+    "verifier": {
+      "train": 256,
+      "dev": 64
+    }
+  },
+  "question_counts": {
+    "train": 104,
+    "dev": 32
+  },
+  "counts": {
+    "extractor": {
+      "train": 104,
+      "dev": 32
+    },
+    "reasoner": {
+      "train": 104,
+      "dev": 32
+    },
+    "verifier": {
+      "train": 208,
+      "dev": 64
+    }
+  },
+  "excluded_question_hashes": {
+    "train": [
+      "0688ec6331181e7596ab3a9f9101888fff9eac5578685fe9e917b71ae1d1e700",
+      "15bdd937e6a251e55dafa08cefc702452fda109b74a5c0019477a121552bdea5",
+      "2935ec2af45e5fa5fdce58f5958e7266118c50f8c38c7a5c6b303e4736ba15d1",
+      "299048e67ba3e57f41ff207924532f3755bfe468acd07d15c2a8bca35aeb8690",
+      "2a8021d91e9b7ef879f5cca99531ee7aafa8ae447d39664cbc2f62dfd0a88ee8",
+      "326e42a502bed688e30d417780b574805b6bf61d4feb44bea484c0560e733712",
+      "34067ce2c906a219c2fec8c827de865f28795ca1e5fa9cb38a65b7a9c71ff212",
+      "375d265c09574fb240cc2188c1126758923030b40849440dbdd86ecc01a228fc",
+      "4a75b01ae717da2f86f982cfd518ef510284f6dcbff74da434d7171de69ce594",
+      "510fe6bbfc69c462d6ee4054d133c3eb0939633975dd1be7497a61c513cac26c",
+      "5d3293c47ab4417f49025ff5720829b661833abdf22bd10ea78db784fb5511b2",
+      "854250313d6be02fd806d32c2f49c54894d48a538a0f64f59003953c96e06a08",
+      "8af1096fddf933da4415fb27955395c09352d84865400aef2d818c5ab5efaee8",
+      "8ef36eaee65b4881d31b130349d7553d368c6d6cadccc92a4e339bcf062f0e0e",
+      "92979003b7697efa65e8fa5a889d48ee5b5777d9964bfc6ae9865995c476919f",
+      "95c7e6353ec1d212ba620ca8b48a61d3125e2bfdcaa91aa8abc08c9ac74abe92",
+      "974841fabd1684575d983bae44672984c149ab4eb8fccad6ecb7b370890cf02a",
+      "a663725af76f29f26a9f91914ca678b6f2965a302f7dd15346aadbf02520966e",
+      "b17cfdc1a188b2f5847d9a672a5a609ec20046a4315567b01e41141371fac91b",
+      "b54270c8c159d8801a947eedefd95962628b94d7430eb822974427fdc4f9a6f0",
+      "cd7ce0bfc791673c60c6bb66abed158297c003c671c141b81183b4261991ab18",
+      "e96dc4bb2130c5ccc066bd90511fa4f17a3c6fd1fc70073037e08846f3a3ff6f",
+      "f282a66594ca1b3abacb62879130ef04b2b78c8908ca3f923e14ba73feb35df9",
+      "fdd91abbc13d5c4981e349aaab84e0a5411d1c6c50c762ae95236afcf87a994f"
+    ],
+    "dev": []
+  },
+  "triggering_rows": [
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "a663725af76f29f26a9f91914ca678b6f2965a302f7dd15346aadbf02520966e",
+      "teacher_request_id": "526e6453c298f82de3e6069bc7118598e94082ecdfadb05c6383e82111165821",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "974841fabd1684575d983bae44672984c149ab4eb8fccad6ecb7b370890cf02a",
+      "teacher_request_id": "17ec608b639be86dccfa71a6e991e358e6bed711706fd16af6b38f5dc143cd39",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "92979003b7697efa65e8fa5a889d48ee5b5777d9964bfc6ae9865995c476919f",
+      "teacher_request_id": "46fb479e065f39697e569f9794921a54a43ab22ef7f10cf8faf43b028e011262",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "f282a66594ca1b3abacb62879130ef04b2b78c8908ca3f923e14ba73feb35df9",
+      "teacher_request_id": "2b9947dbb3fd35b08e589ed19031e9d9186466ff90c016cb75e5344f4fb4f2c4",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "8af1096fddf933da4415fb27955395c09352d84865400aef2d818c5ab5efaee8",
+      "teacher_request_id": "c81815410191bd11b9bed36d7fa5ed9039b3452e424e2d731e913af29f8425d8",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "326e42a502bed688e30d417780b574805b6bf61d4feb44bea484c0560e733712",
+      "teacher_request_id": "4e6df5306c6737eb32dac1442104872e701201d64c0543f0d9bfb85c9f913801",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "b54270c8c159d8801a947eedefd95962628b94d7430eb822974427fdc4f9a6f0",
+      "teacher_request_id": "7af425dd62aca0d652098884355af7c668a2fcb99d0a3904d939a3126f2eec08",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "5d3293c47ab4417f49025ff5720829b661833abdf22bd10ea78db784fb5511b2",
+      "teacher_request_id": "cb1be2136788bfc7d4c97a82b7a96867ed9013e016b5127d6597ddf5bca8135e",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "15bdd937e6a251e55dafa08cefc702452fda109b74a5c0019477a121552bdea5",
+      "teacher_request_id": "b8411aeea198495d3a98dbb8dbb3702f39fe1ffb62d1bd7532173b3e4726da84",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "510fe6bbfc69c462d6ee4054d133c3eb0939633975dd1be7497a61c513cac26c",
+      "teacher_request_id": "d4b0dbc2864315bccabaa57b25ce617cf070f1e2a0365f96541e3a618eeb7ddc",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "4a75b01ae717da2f86f982cfd518ef510284f6dcbff74da434d7171de69ce594",
+      "teacher_request_id": "328246634e56b9a19d59cb7f0b4362c577532adc49924cca3ec247c28303d057",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "2a8021d91e9b7ef879f5cca99531ee7aafa8ae447d39664cbc2f62dfd0a88ee8",
+      "teacher_request_id": "b56c691248732d1fbcc6ad7d720d9aade60d2077294c8e011a23b1b6c248edfe",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "95c7e6353ec1d212ba620ca8b48a61d3125e2bfdcaa91aa8abc08c9ac74abe92",
+      "teacher_request_id": "bccccc68c7c5543261f01fd56a93a442f1fae4a2c7e2d873df8a9be45c1c7082",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "375d265c09574fb240cc2188c1126758923030b40849440dbdd86ecc01a228fc",
+      "teacher_request_id": "d01b913b0653aab3179190e064e7372fd4d36ad4c91a4660811147fe90bb68b0",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "0688ec6331181e7596ab3a9f9101888fff9eac5578685fe9e917b71ae1d1e700",
+      "teacher_request_id": "66c85347bc4636d9ead7d2ac142772a4305ca40f7d054c8d8af6436b545c9f1b",
+      "fields": {
+        "response": [
+          "U+0008",
+          "U+0009"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "fdd91abbc13d5c4981e349aaab84e0a5411d1c6c50c762ae95236afcf87a994f",
+      "teacher_request_id": "444f1c21167a8bf04078556ca7393c02bb1f1cf3a8ebd9827343589458f21548",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "34067ce2c906a219c2fec8c827de865f28795ca1e5fa9cb38a65b7a9c71ff212",
+      "teacher_request_id": "fb035b87327b0fc2819e3b547cfc61390ab69469f910835cf7c5a2ace04d1144",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "e96dc4bb2130c5ccc066bd90511fa4f17a3c6fd1fc70073037e08846f3a3ff6f",
+      "teacher_request_id": "2f8d368e1d7a0d4f425e9dbaf185e09564f3662955ae03ebcd77a0672d23b917",
+      "fields": {
+        "response": [
+          "U+0008"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "2935ec2af45e5fa5fdce58f5958e7266118c50f8c38c7a5c6b303e4736ba15d1",
+      "teacher_request_id": "99e8a96117924bc67527e5e3ad229e53738b867425ba2e71f60b4e1caea73265",
+      "fields": {
+        "response": [
+          "U+0004"
+        ]
+      }
+    },
+    {
+      "role": "reasoner",
+      "split": "train",
+      "question_hash": "854250313d6be02fd806d32c2f49c54894d48a538a0f64f59003953c96e06a08",
+      "teacher_request_id": "ef79c29301b2feb8f9b6b7f39c026e9e99d86dffcea33f8dab01f76aa38a9f5d",
+      "fields": {
+        "response": [
+          "U+0009"
+        ]
+      }
+    },
+    {
+      "role": "verifier",
+      "split": "train",
+      "question_hash": "299048e67ba3e57f41ff207924532f3755bfe468acd07d15c2a8bca35aeb8690",
+      "teacher_request_id": "596181833d88f5612bd9a4bb15b19d111f14bcaa1625da40270c33835b41bb26",
+      "fields": {
+        "candidate": [
+          "U+0009"
+        ],
+        "prompt/1": [
+          "U+0009"
+        ]
+      }
+    },
+    {
+      "role": "verifier",
+      "split": "train",
+      "question_hash": "8ef36eaee65b4881d31b130349d7553d368c6d6cadccc92a4e339bcf062f0e0e",
+      "teacher_request_id": "6c682932095d1ca88764b4e878e502a3cde83a12b767395bd75383708df93098",
+      "fields": {
+        "candidate": [
+          "U+0009"
+        ],
+        "prompt/1": [
+          "U+0009"
+        ]
+      }
+    },
+    {
+      "role": "verifier",
+      "split": "train",
+      "question_hash": "cd7ce0bfc791673c60c6bb66abed158297c003c671c141b81183b4261991ab18",
+      "teacher_request_id": "0fbc8deb71e76fd56a47bc506900e73c0c6db22f1a7603241a0730eae9f4f8ce",
+      "fields": {
+        "candidate": [
+          "U+0009"
+        ],
+        "prompt/1": [
+          "U+0009"
+        ]
+      }
+    },
+    {
+      "role": "verifier",
+      "split": "train",
+      "question_hash": "b17cfdc1a188b2f5847d9a672a5a609ec20046a4315567b01e41141371fac91b",
+      "teacher_request_id": "32ad944689a223de0f9d790d5a978309583efeeb9042092c17c34de5996ccec3",
+      "fields": {
+        "candidate": [
+          "U+0008"
+        ],
+        "prompt/1": [
+          "U+0008"
+        ]
+      }
+    }
+  ],
+  "excluded_rows": 96,
+  "retained_rows": 544,
+  "candidate_terminal_diagnostics_recomputed": false,
+  "generation_evidence_scope": "Full original generation requests/responses remain archived, including excluded questions."
+}

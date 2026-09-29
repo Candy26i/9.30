@@ -1,0 +1,26 @@
+{
+  "all_upstream_split_parquet_files": [
+    "data/test.parquet"
+  ],
+  "anonymous_access": true,
+  "dataset": "ByteDance-Seed/BeyondAIME",
+  "dataset_card_sha256": "a6d3aede854212fa1d0c1b1063aaed581c210173974fe7c41c35da94c97e97a1",
+  "dataset_card_url": "https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME/blob/c705198ae1043810b1e1693bd879250b51a7a523/README.md",
+  "license": "cc0-1.0",
+  "raw_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/beyondaime_raw.jsonl",
+  "raw_rows": 100,
+  "raw_sha256": "bd3399dbf61b2354276a04ca44e30c8fe00bc6d981b4e5576acf7c931574dd30",
+  "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+  "retrieved_at_utc": "2026-09-29T05:24:11.839106+00:00",
+  "revision": "c705198ae1043810b1e1693bd879250b51a7a523",
+  "selection": "complete upstream split without filtering",
+  "source_split": "test",
+  "upstream_revision_verified": true,
+  "visited_files": [
+    {
+      "anonymous_url": "https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME/resolve/c705198ae1043810b1e1693bd879250b51a7a523/data/test.parquet",
+      "filename": "data/test.parquet",
+      "rows_exported": 100
+    }
+  ]
+}

@@ -1,0 +1,2602 @@
+[
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. Chords $AB$ and $CD$ of circle $\\Gamma$ with center $O$ have a length of 8. The extensions of segments $BA$ and $CD$ beyond points $A$ and $D$ respectively intersect at point $P$. Line $PO$ intersects segment $AC$ at point $L$, such that $AL: LC = 1: 5$.\n\na) Find $AP$.\n\nb) Suppose additionally that the radius of circle $\\Gamma$ is 5, and point $T$ is the center of the circle inscribed in triangle $ACP$. Find the length of segment $PT$ and the area of triangle $ACP$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The circle points are A, B, C, D; AB = CD = 8, and the point order on the two extended lines is B–A–P and C–D–P. Also L lies on segment AC with AL:LC = 1:5, so AL = AC/6 and LC = 5AC/6. The center O lies on PL. For part (b), the radius is additionally 5, and T is the incenter of triangle ACP. Useful constraints include OA = OC = 5 in part (b), and the equal chord lengths imply equal central angles (or equal distances from O to the chords). The requested quantities are AP, then PT and the area of ACP."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "774b527074a61563a457be632fbb0eb51301338943a53038116cb288340ddd87",
+      "teacher_request_id": "e1f972f892c1039906678bb1afe07d0da48b6b8a298e4576ce4d301eadbf4eaf",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "A2 Find all real numbers $a, b, c, d$ such that $a+b+c+d=20$ and $a b+a c+a d+b c+b d+c d=$ 150 .",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The variables are real and satisfy a+b+c+d=20 and ab+ac+ad+bc+bd+cd=150. Squaring the first condition gives a²+b²+c²+d²+2(ab+ac+ad+bc+bd+cd)=400, hence a²+b²+c²+d²=100. Together with sum 20, this reaches equality in (a+b+c+d)² ≤ 4(a²+b²+c²+d²), so all four variables must be equal. This is a useful equivalent constraint for identifying the real solution."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "9b1d5316fba238488ae8cfe54eba2adb094d95ef9a0d7a13c7fb896116dfbf90",
+      "teacher_request_id": "483282239b6b14dff0972ca223a26fd17ff5dabc52e597d4e771a6b56e56b0b5",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 6. Calculate\n\n$$\n\\operatorname{tg} \\frac{\\pi}{47} \\cdot \\operatorname{tg} \\frac{2 \\pi}{47}+\\operatorname{tg} \\frac{2 \\pi}{47} \\cdot \\operatorname{tg} \\frac{3 \\pi}{47}+\\ldots+\\operatorname{tg} \\frac{k \\pi}{47} \\cdot \\operatorname{tg} \\frac{(k+1) \\pi}{47}+\\ldots+\\operatorname{tg} \\frac{2019 \\pi}{47} \\cdot \\operatorname{tg} \\frac{2020 \\pi}{47}\n$$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The expression is the finite sum Σₖ₌₁²⁰¹⁹ tan(kπ/47)tan((k+1)π/47). Since tan(x+π)=tan x, the factors repeat with period 47 in their integer indices. No factor is singular: nπ/47 cannot be congruent to π/2 modulo π for integer n, because 2n cannot equal 47 times an odd integer. Thus the sum can be organized into full blocks of 47 consecutive terms plus a final partial block. A useful identity for adjacent angles is tan x tan y = (tan y − tan x) / tan(y−x) − 1; here y−x=π/47."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "a78b3b6ae1d539f33754d51771507f79af0d6ea94a64b323c4f7221d30d48844",
+      "teacher_request_id": "54900f3ebe46391fc110e17285343791e499af9c01398b63757e2b368c720eac",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "14.1. $[9.1$ (15 points), 10.1 (15 points)] Calculate\n\n$$\n\\sqrt{1+2 \\sqrt{1+3 \\sqrt{1+\\ldots+2017 \\sqrt{1+2018 \\cdot 2020}}}}\n$$\n\nAnswer: 3.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Interpret the nested radical from the outside inward as √(1+2√(1+3√(1+⋯+2017√(1+2018·2020)))). The successive coefficients are 2, 3, …, 2017, and the innermost radicand is 1+2018·2020. All radicands are positive. The prompt supplies 3 as the expected answer; a useful verification approach is to test a proposed value by repeatedly squaring the nested relation while keeping the coefficient at each level."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "309638c6590fa4ea135263f29e57dec566df671ab4732ed6470c29b2335ddc72",
+      "teacher_request_id": "0c872af5c79b3de5362ea2ff6e2bd40bf32e88167e690a2ac171bad3e05a663f",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9.4. The number 49 is written on the board. In one move, it is allowed to either double the number or erase its last digit. Is it possible to get the number 50 in several moves?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the current positive integer be n. A move sends n to 2n or to ⌊n/10⌋ (the latter removes the units digit). The starting state is 49 and the target is 50; both move types may be used repeatedly. To analyze reachability, track the possible reverse moves: a predecessor of m is m/2 when m is even, or any 10m+d (d=0,…,9) whose doubling/last-digit deletion leads appropriately. In particular, deletion is irreversible information loss, so a proposed path should be checked step by step."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e5cf6ac8e288a3e0dbfefc5d3331849eb05aa0de7f580572c09048bbc145d997",
+      "teacher_request_id": "a529723f893f27c30e6889f9c83adbdce531db79e879a9ef1360ff7e8ec319aa",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. How many diagonals in a regular 32-sided polygon are not parallel to any of its sides",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A regular 32-gon has 32 vertices. A diagonal joins two nonadjacent vertices; count each unordered pair once. Two chords are parallel precisely when their directions agree modulo π. The request excludes diagonals parallel to any side, so first classify chord directions by the cyclic separation of their endpoints (modulo 32), then remove all chords whose direction class also occurs among side directions. State whether ‘parallel to a side’ includes any side itself; diagonals by definition exclude sides."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e9a1f326ea1745680e2764d832e24fd55c7d30665208c7d425893db7055ceba6",
+      "teacher_request_id": "0bf2dfb9503fb1c3444d5be302544a1bab9976c3ddb2d37830b11fadc4e1dcad",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11.4. We will call a natural number interesting if it is the product of exactly two (distinct or equal) prime numbers. What is the greatest number of consecutive numbers, all of which are interesting",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "An interesting natural number has exactly two prime factors counted with multiplicity: it is p² or pq for primes p and q, with p=q allowed; equivalently its prime-factorization length is Ω(n)=2. The task asks for the maximum length of an interval of consecutive positive integers all satisfying this condition. A useful constraint is that every such number is even or odd according to its factors; divisibility and parity can restrict adjacent candidates. Clarify that ‘natural’ conventionally means positive integers."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e2c284724e1dfe6d8f38dbf5342c774556680a9fb36b7b8cdb40cb0193da88fd",
+      "teacher_request_id": "e224c90108acde5abdc09fd42376193a0fc902bf0c24c9abe7f5ab87abe6ecdf",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 5.\n\nIn 10 minutes, Zhenya eats 5 cottage cheese vatrushki, while Sasha eats only 3. On Saturday, all the baked vatrushki went to Zhenya, and on Sunday, they went to Sasha. In total, 35 vatrushki were eaten in one and a half hours of pure time. How many cottage cheese vatrushki did each of the children get?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let t_Z and t_S be the pure eating times on Saturday and Sunday, respectively, in minutes. With the stated rates, Zhenya eats (5/10)t_Z and Sasha eats (3/10)t_S. The times sum to 90, and the total eaten is 35, so the model is t_Z+t_S=90 and t_Z/2+3t_S/10=35. Saturday’s entire baked supply is assigned to Zhenya and Sunday’s to Sasha; this wording does not specify equal baking amounts or any separate daily quantity. The requested amounts are the two rate-times-time totals."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "cbfcbe357f004d0e0d15aae76366df9ba695739e311993f8793dd69671ad3299",
+      "teacher_request_id": "410b7d7caa8e4c75a972b607185e30f7bf3f6667dc8b6ffd6f95425efeafe01b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8.1. At the Olympiad, students from gymnasiums, lyceums, and regular schools met. Some of them stood in a circle. Gymnasium students always lie to regular school students, lyceum students lie to gymnasium students, and regular school students lie to lyceum students. In all other cases, the students tell the truth. Each one said to their right neighbor: “I am a gymnasium student.” How many students from regular schools were in this circle?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Classify each student as G (gymnasium), L (lyceum), or R (regular school), around a finite circle. A speaker lies exactly when the listener belongs to the school type that the speaker is specified to lie to: G lies to R, L to G, R to L; otherwise the speaker tells the truth. Each speaker asserts ‘I am G,’ so truthfulness depends on both the speaker type and the type of the person on their right. The question asks for the number of R students. A useful setup is to encode truth of each assertion as a relation between consecutive types, including wraparound; ‘some … stood in a circle’ leaves the total size unspecified."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "1847f0bd3cb2095a98ea833976e14d38e2c1b6079f5c5a1cf19ffcee36fe1f0f",
+      "teacher_request_id": "aadb40b44c1ee92d15061f689d667af8a9fbc56643dbad67165b4dc5c6f0bc11",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8. (40 points) On one of the planets in the Alpha Centauri system, elderly women love to paint the cells of $2016 \\times 2016$ boards with gold and silver paints. One day, it turned out that in all the boards painted that day, each $3 \\times 3$ square had exactly $A$ gold cells, and each $2 \\times 4$ or $4 \\times 2$ rectangle had exactly $Z$ gold cells. For which values of $A$ and $Z$ is this possible?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Model the board as a 2016×2016 array of binary cells (gold=1, silver=0). Every contiguous 3×3 subarray must have gold count A, and every contiguous 2×4 and 4×2 subarray must have count Z. Thus A and Z are integers in [0,9] and [0,8], respectively, and all overlapping windows impose simultaneous constraints. Since 2016 is divisible by 2, 3, and 4, periodic colorings are natural candidates, but any proposed values must be both necessary from the window-count relations and realizable by a full board."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "711c2968cf55b614331c34e33c4b9094e5c55b2faa54174051d7d52885720eaa",
+      "teacher_request_id": "396815bc81adae65c3398b93a382826b6ade55e2abcfaafdaaac9da6ec43c6d2",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. (7 points) Zhenya arranged the numbers from 1 to 10 in a circle in some order, and Dima wrote the sum of each pair of adjacent numbers in the gaps between them. Could it happen that all the numbers written by Dima were distinct?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The ten labels 1,…,10 are placed once each on a cycle. There are ten gaps, one for each neighboring pair, including the pair across the closing gap; Dima writes their sums. The question is whether all ten resulting sums can be pairwise distinct. Each sum ranges from 3 to 19, and the sum of all gap values equals twice 1+⋯+10, which can be useful as an aggregate constraint. Any construction or impossibility argument must account for the cyclic adjacency structure."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "dff5db48265fd54c4e59dcc3c0923954338683839afa6f689770428fded38e3f",
+      "teacher_request_id": "60d045c4d3d96d9b84b9d4020a9abb1cbd8e23034970a3d37e770af95441b9fa",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Oleg and Sergey take turns writing down one digit from left to right until a nine-digit number is formed. At the same time, they cannot write down digits that have already been written. Oleg starts (and finishes). Oleg wins if the resulting number is divisible by 4; otherwise, Sergey wins. Who will win with correct play? (O. Dmitriev, R. Zhenodarov)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Digits are chosen without repetition from 0–9 to fill nine positions in order; Oleg moves on positions 1,3,5,7,9 and Sergey on positions 2,4,6,8. Oleg wants the completed nine-digit numeral divisible by 4. Divisibility by 4 depends only on the final two digits, but the last two positions are chosen by Sergey and then Oleg, respectively, and their choices affect which digits remain. The first digit cannot be 0. Analyze optimal play with the available-digit state, particularly the parity and possible final two-digit residues modulo 4."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "65107d7823b7adb97465b160e1f091e8a7948cf6f1707d9dc4e77b38e643496c",
+      "teacher_request_id": "5b114e93a2096f8f109fe5d36ad6ce8b32ab7503186d2d9f0b292d01939375e6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 4.6. Some digits in the rectangle are already placed. Place the remaining digits so that:\n\n- the sum of the digits in each column is the same;\n- the sum of the digits in each row is the same;\n- the sum of the digits in the red cells is equal to the sum of the digits in any row. Enter the three-digit number $A B C$ as your answer.\n\n| 4 |  | 3 |\n| :--- | :--- | :--- |\n|  | $A$ | 1 |\n| 1 |  | 6 |\n| $B$ | 2 | $C$ |",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The displayed grid has four rows and three columns. The fixed entries are row 1: 4, blank, 3; row 2: blank, A, 1; row 3: 1, blank, 6; row 4: B, 2, C. Fill the blanks with the remaining digits (the wording implies a digit-placement puzzle; confirm whether each digit 1–9 is used once if that is intended). All three column totals must equal one another, all four row totals must equal one another, and the sum in the red cells must equal a row total. The red-cell locations are not visually identified in the text transcription, so that condition cannot be instantiated without the original coloring. The requested output is the three-digit number ABC."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "56ff328657657bb597102c7bdc1db61c7f9e3bb33a75c52b46940159cf4d7a15",
+      "teacher_request_id": "44e715540156a17c7214aeac4b915309753f42ffa9da89879bcc6aba18688492",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9. (20 points) Find all values of $x$ and $y$ for which the following equality holds:\n\n$$\n(x-10)^{2}+(y-11)^{2}+(x-y)^{2}=\\frac{1}{3}\n$$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The equation is a sum of three nonnegative squares: (x−10)²+(y−11)²+(x−y)²=1/3. For real x,y, the first two terms measure displacement from (10,11), and the third penalizes unequal coordinates. Complete the square or use a quadratic-form matrix to describe the resulting ellipse (possibly degenerating only if the form were not positive definite); no integrality restriction on x or y is stated."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "428e9a632aa94c39f63cefdf522875e68955cacd9118f47ef97d889b2f95d848",
+      "teacher_request_id": "dd8111688076157a748a8e4bfd59a500dc39e72daa3ba39add3c2577e7503265",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. A family of beekeepers brought containers of honey to the fair with volumes of $13,15,16,17,19,21$ liters. In August, three containers were sold in full, and in September, two more, and it turned out that in August they sold twice as much honey as in September. Determine which containers were emptied in August. In your answer, indicate the largest volume. #",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The six container capacities are 13,15,16,17,19,21 liters. Three distinct containers were emptied in August and two different remaining containers in September. If the August and September totals are X and Y, respectively, the condition is X=2Y. The sixth container is unsold. Find the unique/equivalent feasible allocation, then report the largest of the three August capacities. Containers are emptied in full; quantities are their stated capacities."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "f1929dc569967898d6a20d147cb7403ff8fb6f4bb539dc214d8a1270748dad33",
+      "teacher_request_id": "07fb35a25cc92fd1d6c25a7eb6aface65cf8432c3e25eef10f00719a2c5fa5eb",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. (2 points) A chess piece called a quadraliner attacks two verticals and two horizontals adjacent to the square it occupies. What is the maximum number of non-attacking quadraliners that can be placed on a $10 \\times 10$ board?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A quadraliner on a 10×10 board attacks every square in the two adjacent vertical files and two adjacent horizontal ranks, as the wording defines; clarify whether ‘two verticals and two horizontals adjacent’ means the immediately neighboring files/ranks in both directions. Under that natural reading, two pieces attack if either occupies a square in one another’s attacked files or ranks. The task asks for the largest placement with no attacking pair. Board-edge pieces have fewer available attacked lines, so boundary placement may matter."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "7e09dcbc1adfa43bf04bece23b3a6a00e70e0421d80a7b9d9f88f0a6722ad10f",
+      "teacher_request_id": "c60f9100caa0bd000e44dfee087fe2e4f218c34aeb6ae923da913b6f525ddcf3",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Solve the equation $\\cos \\left(\\pi x^{2}\\right)-\\cos ^{2}\\left(\\frac{\\pi x^{2}}{2}\\right)+1+\\cos \\left(\\pi x^{2}-4 \\pi x\\right)=\\sin ^{2}\\left(\\frac{\\pi x^{2}}{2}\\right)$. In your answer, specify the third term of the increasing sequence of all positive roots of the equation.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Set θ=πx²/2. The leftmost cosine is cos(2θ), and the squared cosine and sine terms use θ; the identity cos(2θ)=cos²θ−sin²θ may simplify the equation. The remaining term is cos(πx²−4πx)=cos(2θ−4πx). The task is to find all real roots, then select the third positive root in increasing order. Keep track of periodicity and the fact that x appears quadratically as well as linearly; any reduction to a trigonometric condition must preserve equivalence."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "8175f99cf68b4e8bcb6425863483e5067761a175efbf5c167339cc52153531e7",
+      "teacher_request_id": "cda6a93089ecd2756a5196b5fc96fa0e96c4eda68428f50f22bbbfaaf2a0a9c7",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8-2. Kolya is older than Tolya, and the age of each of them is a whole number less than 100. If you swap the digits of Kolya's age, you get Tolya's age. Moreover, the difference between the squares of their ages is a square of a whole number. How old is each of them?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let K be Kolya’s age, a two-digit integer from 10 to 99, and let T be Tolya’s age, obtained by reversing its digits. Since K>T, if K=10a+b then T=10b+a and a>b. Both ages are whole numbers below 100. The additional condition is K²−T²=q² for some whole number q, equivalently (K−T)(K+T) is a perfect square. Account for the possible zero units digit and ensure the reversed value is an age as interpreted in the question."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "01e2863b7fc071de707ee6fd048959c3c6c8aa2984c43f155e2e1bb8bd840e5f",
+      "teacher_request_id": "688fc8fa95f9f4dc680f074afafd419e41f1db4ca9d2c3142524aac21748b2d6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# 7. Option 1\n\nDiligent Masha wrote down in a row all natural numbers from 372 to 506 inclusive. Then she calculated two sums: first, the sum of all odd numbers in this row, and then the sum of all even numbers. After that, she subtracted the smaller sum from the larger one. What result did she get?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The inclusive interval 372,…,506 contains 135 integers. Since 372 is even and 506 is even, it has 68 even numbers and 67 odd numbers. Pair consecutive integers (372,373), (374,375), …, (504,505), with 506 left over; each pair contributes a difference of 1 between the odd and even sums, and the remaining even value contributes 506. This provides a direct aggregate setup for the absolute difference of the two sums."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "7988e58db7152774df392d6cb64d03b31774adcfc63b78cf8f34f9c89387080d",
+      "teacher_request_id": "9c9da5cb69682dc3336ce440014ef1d557de486c25aa07b478019ed70ac14966",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 6. Solve the equation $\\arcsin \\frac{x \\sqrt{5}}{3}+\\arcsin \\frac{x \\sqrt{5}}{6}=\\arcsin \\frac{7 x \\sqrt{5}}{18}$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The real-domain restrictions are |x√5/3|≤1, |x√5/6|≤1, and |7x√5/18|≤1; together they bound allowable x. Let U=arcsin(x√5/3) and V=arcsin(x√5/6), each in [−π/2,π/2]. The equation says U+V equals the principal arcsine of the third argument, so when using sine addition one must also ensure U+V lies in [−π/2,π/2]. The arguments are proportional to the same x, which is useful for simplifying sin(U+V)."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "21541f033618066954b5ad95974a0280b3b48b8779ec4567f551f051b408ace1",
+      "teacher_request_id": "cf03c92aa6e505b970176cb204b597f7cbfa48847746a8826c97d47cb022e53f",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3-ча 1. Divide $a^{128}-b^{128}$ by $(a+b)\\left(a^{2}+b^{2}\\right)\\left(a^{4}+b^{4}\\right)\\left(a^{8}+b^{8}\\right)\\left(a^{16}+b^{16}\\right)\\left(a^{32}+b^{32}\\right)\\left(a^{64}+b^{64}\\right)$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Use the telescoping identity a^(2^m)−b^(2^m)=(a−b)∏_{j=0}^{m−1}(a^(2^j)+b^(2^j)). The displayed denominator is precisely the product for j=0,…,6, with a+b as the j=0 factor. Thus the quotient is a polynomial; the identity leaves one factor corresponding to the remaining difference. The prompt says ‘divide,’ so give the quotient (and note the identity as a polynomial identity in a,b)."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "812de67f3db4d21de5f2969b87ea8c1d9ecaddf6022c5d9aa57433d24307c142",
+      "teacher_request_id": "7746474876536329b5d40c53b1eb01794659e04722ed08c41a562d632f42e7a2",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 9.6. At a ball, 29 boys and 15 girls arrived. Some boys danced with some girls (no more than once in each pair). After the ball, each person told their parents how many times they danced. What is the maximum number of different numbers the children could have mentioned?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Represent the dances as edges of a simple bipartite graph with 29 boy-vertices and 15 girl-vertices; an edge means that pair danced, and at most one edge joins any pair. Each reported number is a vertex degree, between 0 and 15 for a boy and between 0 and 29 for a girl. The question asks for the maximum number of distinct degree values mentioned across all 44 people, not the number of distinct individuals or dances. The shared graph imposes that the sum of boy degrees equals the sum of girl degrees."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "7ae03a6bab3d50529ad4328c4bd0f80b3b33aa1f237bc75a0dafc1ecfcfd0f25",
+      "teacher_request_id": "679d3840b49dbc2e272484268718e69cbf5f322463202f9ed9c4821256fba6b5",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. (3 points) Anya counted all nine-digit numbers, all digits in each of which are distinct, divisible by 9. Kolya counted all ten-digit numbers, all digits in each of which are distinct, divisible by 5. Who of them counted more numbers?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Anya counts nine-digit numerals with pairwise distinct digits divisible by 9; the leading digit is nonzero. Kolya counts ten-digit numerals with all ten decimal digits distinct and divisible by 5; again the leading digit is nonzero. For Anya, divisibility by 9 depends on the digit sum. For Kolya, the units digit must be 0 or 5, after which the remaining digits fill the other positions. Compare the two counts, taking care that Anya’s nine distinct digits omit exactly one decimal digit."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "24905291a55b6a09656beb3424d55c10d1a6bd68f88a4dadc272f5c35b8594c7",
+      "teacher_request_id": "6f78172099ec95276100227525dda270b4c2ed5d3d5c9f00b66ceb10d93f989e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. Solve the equation $2^{x}+15^{y}=z^{2}$ in natural numbers.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Assume ‘natural numbers’ means positive integers x,y,z (some conventions include zero, which would change the domain). The equation is 2^x+15^y=z². Modulo 3, the first term is 2^x and the second vanishes, so z²≡2^x (mod 3); modulo 5, z²≡2^x (mod 5). Parity and the fact that a square lies between consecutive squares may also constrain solutions. State all triples (x,y,z), respecting positivity."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "7a8a5b947be7228145a94b5dba0ccc7b40820fe425835fe0698476a2854294d2",
+      "teacher_request_id": "1ecb794ad0ebe3986cc137a962c142b1dbbf7fa3b7017c40492ed6cd6ed36908",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "57. In Ruritania, every two of the $n$ cities are connected by a direct flight operated by one of two airlines, Alpha or Beta. The antimonopoly committee wants at least $k$ flights to be operated by Alpha. To achieve this, the committee can, every day, choose any three cities and change the ownership of the three flights connecting these cities (i.e., take each of these flights from the company that operates it and transfer it to the other). For what largest $k$ can the committee definitely achieve its goal in some time, regardless of how the flights are currently distributed?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The flights form the edges of the complete graph on n cities, each edge colored Alpha or Beta. A move selects a triangle and switches all three edge colors, so the parity of the number of Alpha edges changes by either 1 or 3 and therefore flips. The committee seeks a guaranteed lower bound k on the final Alpha-edge count, from any starting coloring, using any sequence of triangle flips. Relevant constraints include reachability invariants under triangle flips and the fact the total number of edges is N=binom(n,2); the prompt does not specify a numerical n, so the requested largest k may need to be expressed as a function of n (with small n treated separately)."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "652738805046ebb03b6c9e65e04270c44f2f4056b0a9788ae7dc09f8544c6cd3",
+      "teacher_request_id": "1738e0625ad4700009a0ce4d87cb94ec57e75fea91b246178a46e34da9bc30bc",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. There is 25 ml of a $70\\%$ acetic acid solution and 500 ml of a $5\\%$ acetic acid solution. Find the maximum volume of a $9\\%$ acetic acid solution that can be obtained from the available solutions (no dilution with water is allowed).\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let x ml of the 70% solution and y ml of the 5% solution be mixed, with 0≤x≤25 and 0≤y≤500. To obtain exactly 9%, require 0.70x+0.05y=0.09(x+y), equivalently 0.61x=0.04y. The volume is x+y and should be maximized under these availability bounds; no water may be added. Using all of one stock may not be optimal, so check which bound becomes active."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "67a133c0d51f3eeaf9cb30a4fbe9d9b14c5785d76009b92c25338d9691a8d4b8",
+      "teacher_request_id": "afa310febf32c63457791cf21000f3957744d9665b4ba32ce7a961d5f92e23aa",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. The number 98 is written on the board. Every minute, the number is erased and replaced with the product of its digits, increased by 15. What number will be on the board after an hour?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Define the iteration f(n)= (product of the decimal digits of n)+15, starting from n₀=98 and applying f once each minute. Thus n₆₀=f iterated 60 times. For a two-digit state with digits a,b the next state is ab+15; if the value has more digits, multiply all its decimal digits. The process is deterministic, so identify the states reached and any eventual fixed point or cycle; the question asks for the board value after exactly 60 updates."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b2b82654758f3a218b04b17229713d745eafd249ddf99e12ece12df3d6132049",
+      "teacher_request_id": "537bbba03c2d545a8e3884167492cad05917e964b60ac4ea8fd1502132474e5d",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 7-3. Midway between points A and B is a coffee shop. A cyclist first set off from A to B. When he was halfway to the coffee shop, a motorist set off from A. It is known that when the motorist arrived at the coffee shop, the cyclist was still on the way between A and B, and the distance between him and the motorist at that moment was half of what it was when the motorist first set off from A. Which event will happen earlier: the cyclist reaching B or the motorist reaching B?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the route length be AB = 2d, so the shop is distance d from either endpoint. At the motorist's start, the cyclist is d/2 from A, hence the gap is d/2. When the motorist reaches the shop, the cyclist is still between A and B and the gap has shrunk to d/4. If their constant speeds are v_c and v_m, the elapsed time is d/v_m and the cyclist's advance is v_c d/v_m; the gap change gives v_c/v_m=1/4. From the motorist's departure, the cyclist needs (3d/2)/v_c to reach B, while the motorist needs d/v_m. Compare those times using the speed ratio. The wording presumes both travel at constant speeds."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "ed4b204480b1b0ff6a278bf54ae20517884a4091323d9d366f2e2c234729709f",
+      "teacher_request_id": "5fcd72af57f7e093fbcbea4b73f8b0946f62bd3e9a6d458b5dfa1db21e04bd1d",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. In the cells of a $3 \\times 3$ square, the numbers $0,1,2, \\ldots, 8$ are arranged. It is known that any two consecutive numbers are located in adjacent (by side) cells. Which number can be in the central cell if the sum of the numbers in the corner cells is 18?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Model the cells as the 3-by-3 grid graph: the labels 0 through 8 form a Hamiltonian path in numerical order, with consecutive labels joined by a side. The center has degree 4, corners degree 2, and edge-middle cells degree 3. The center cannot contain 0 or 8, since an endpoint of the number path needs a neighboring cell for its sole consecutive neighbor but the center's role and the path constraints should be checked together. A useful constraint is that each corner's adjacent grid cells are its only possible neighbors in the numerical path. Let C be the center label and impose that the four corner labels sum to 18; parity, endpoints, and adjacency in the path can narrow the possibilities. The question asks which value is feasible, so an actual path arrangement should certify it."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "a2016c76dbd71e290cfcf849f479c9e132bcec055e71e96720529e05a30d5949",
+      "teacher_request_id": "13fec6f9ce3345b42bfd21e8285a7707119dd39ccabf0c701e5cdaedb678bb23",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. A cube with edge $a=1$ is illuminated by a cylindrical beam of light with radius $\\rho=\\sqrt{2-\\sqrt{2}}$, directed along the main diagonal of the cube (the axis of the beam contains the main diagonal). Find the area of the illuminated part of the cube's surface.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Take the cube as [0,1]^3 and the beam axis along the line through (0,0,0) and (1,1,1). A point is illuminated when its perpendicular distance to that axis is at most ρ. The distance squared from (x,y,z) to the diagonal line is x²+y²+z²-(x+y+z)²/3. Intersect this cylinder with each of the six square faces and add the resulting areas; face interiors do not overlap. Symmetry makes all six face contributions equal. On a face such as z=0 the condition becomes x²+y²-(x+y)²/3 ≤ ρ², with 0≤x,y≤1. Substitute the given ρ²=2-√2 and evaluate that planar region."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "a204bc5ec58531a03a92a381f3b9094209b84738e5b432849d59db2b1409ff80",
+      "teacher_request_id": "2c8dd6cfa026f59a119f09d823bafe4ea2215731ab1186861f5b5bff5cb057dc",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Task 2. (10 points) A circle touches two adjacent sides $AB$ and $AD$ of square $ABCD$ and cuts off segments of length 8 cm from vertices $B$ and $D$ at the points of tangency. On the other two sides, the circle intersects and cuts off segments of 4 cm and 2 cm from the vertices, respectively. Find the radius of the circle.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the square side be s and use coordinates A=(0,0), B=(s,0), D=(0,s), C=(s,s). The circle is tangent to AB and AD, so its center is (r,r) for radius r. Equal tangents from B and D explain why the tangency points on those sides lie 8 cm from B and D; hence s-r=8. The intersections with BC and CD cut off lengths 4 and 2 from their named vertices, but the prompt says 'respectively' without explicitly naming which length belongs to which side. For each assignment, impose the circle equation on those side points, e.g. (s-r)^2+(y-r)^2=r² on BC, and check consistency with s-r=8. The labeling/assignment is material."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "85ee1273dd48436edaf02e0f85ea23d843829960c1472963fd229396fdccc029",
+      "teacher_request_id": "77bdc8f37ba7812f615b65e34a3cc6d7d6d4907ed1b9ea314450b15957440796",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# 6. CONDITION\n\nFrom point $B$ of a square billiard, we launch a ball parallel to the diagonal. Find the set of points on the billiard such that if a second ball is launched simultaneously with the first, at the same speed and in the same direction, they will collide.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Unfold the square billiard into a tiling by reflected square copies. In this plane, each ball travels along a straight line with the same velocity vector, so the launched balls remain separated by a constant displacement vector. They can collide only when their unfolded starting points coincide; distinct starting points therefore never collide in the ideal specular-reflection model. If instead 'second ball' means the second ball is launched from a selectable point while the first begins at B, simultaneous same direction and speed still give parallel translated trajectories in the unfolded plane. Check whether the puzzle intends collisions after wall reflections to count across different reflected copies or whether the balls are initially at different points; the geometric conditions of collision require their positions to coincide at some time."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "9d94e3feb960d7e049e42599b2ba6cf37b366a6dfa2b6ed759ce67d5f747d3fe",
+      "teacher_request_id": "60fb03eeec5a0f091e762f7cdfd7858ff8da04604a3cbc17c66b01c2e0c21ff7",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. In trapezoid $A B C D$ with bases $A D / / B C$, the diagonals intersect at point $E$. It is known that the areas $S(\\triangle A D E)=12$ and $S(\\triangle B C E)=3$. Find the area of the trapezoid.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the parallel bases have lengths p and q. The diagonals split the trapezoid into two triangles at E, and ΔADE is similar to ΔCBE because AD∥BC. Their area ratio is (p/q)²=12/3=4, so p/q=2. The remaining two triangles ABE and CDE each have area equal to the geometric mean of the two base-triangle areas, hence each has area √(12·3)=6. Add all four pieces to obtain the trapezoid's area. This uses positive lengths and the usual convex trapezoid configuration."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c59e9c7e84a3c6bda4bb081878d937a7265efe126ec0be50d6b35c0e6413a6d8",
+      "teacher_request_id": "3db5150ec04abfde73e4d12e1030752cdc6d4b0522ce9d19f597e00bdd1836f6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. Find the maximum value of the expression $(\\sin 3 x+\\sin 2 y+\\sin z)(\\cos 3 x+\\cos 2 y+\\cos z)$. (15 points)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Set A=3x, B=2y, C=z; these three angles vary independently over all real values. The expression is the product of the sums of the sine and cosine coordinates of three unit vectors on the circle. If U=Σsin and V=Σcos, maximize UV. The resultant vector (V,U) has length at most 3; for a fixed length its coordinate product is at most half its squared length, with equality when the coordinates have equal magnitude. Three equal-angle vectors can attain resultant length 3, and choosing their common angle appropriately tests attainability. This gives a direct geometric upper bound and equality condition."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "6637fa956e4bc3cbb01fd6c0054b25a6da7d81d773642b9839a96c4dc4eb9c2c",
+      "teacher_request_id": "99168243f045207d80d95aee6939569029cb69f82c1376c1b43d5fdd61dcb3ba",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5.1. Find $\\frac{S_{1}}{S_{2}}$, where\n\n$S_{1}=\\frac{1}{2^{2019}}+\\frac{1}{2^{2018}}-\\frac{1}{2^{2017}}+\\ldots+\\frac{1}{2^{3}}+\\frac{1}{2^{2}}-\\frac{1}{2}, \\quad S_{2}=\\frac{1}{2}+\\frac{1}{2^{2}}-\\frac{1}{2^{3}}+\\ldots+\\frac{1}{2^{2017}}+\\frac{1}{2^{2018}}-\\frac{1}{2^{2019}}$\n\n(in both sums, the signs of the terms alternate as follows:,,,,,,,,,$++-++-++- \\ldots$ ).",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The signs are periodic in the exponent index with pattern +,+,−, then repeating. S₁ lists the same powers as S₂ in reverse order, but the sign attached to a given exponent must be compared carefully: S₁ starts at exponent 2019 and ends at 1, while S₂ starts at 1 and ends at 2019. Write each as Σ ε_k/2^k for k=1,…,2019 and identify ε_k from the displayed pattern; then determine whether reversal preserves or shifts the period-three signs. The ratio is well-defined only after confirming S₂≠0. The unusual comma string before the pattern appears to be a formatting artifact; use the explicit stated alternation ++−++−…"
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "136ed8c96fa48cd4e1feae151a0cf8a14adc67c403870e20c46f597f8e29f5ad",
+      "teacher_request_id": "5ea2c3363ed77d42ed56dbaff037a5ff0ecf8665bc44f6823f106d4d3f021969",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. Solve the equation $x^{2}-x y-6 y^{2}+2 x+19 y=18$ in integers.\n\nRewrite the equation as\n\n$$\nx^{2}-x(y-2)-6 y^{2}+19 y+k=18+k\n$$\n\nand we will choose the number $k$ so that the discriminant of the quadratic trinomial on the left side of the equation becomes a perfect square. We have\n\n$$\nD=25 y^{2}-80 y+4-4 k\n$$\n\nTo obtain a perfect square, we need $k=-15$. Now we have the opportunity to factor the left side of our equation\n\n$$\nx_{1,2}=\\frac{y-2 \\pm(5 y-8)}{2} \\Rightarrow(x-3 y+5)(x+2 y-3)=3\n$$\n\nThe factors on the left side are integers, so we get four systems\n\n$$\n\\left\\{\\begin{array}{l}\nx-3 y+5=1 \\\\\nx+2 y-3=3\n\\end{array},\\left\\{\\begin{array}{l}\nx-3 y+5=-1 \\\\\nx+2 y-3=-3\n\\end{array},\\left\\{\\begin{array}{l}\nx-3 y+5=3 \\\\\nx+2 y-3=1\n\\end{array},\\left\\{\\begin{array}{l}\nx-3 y+5=-3 \\\\\nx+2 y-3=-1\n\\end{array}\\right.\\right.\\right.\\right.\n$$\n\nSolve these systems and we get the answer.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The stated factorization should be checked against the original equation before solving the systems. Expanding (x−3y+5)(x+2y−3) gives x²−xy−6y²−4x+19y−15, whereas adding 15 to the original left side gives x²−xy−6y²+2x+19y+15; the x coefficients differ. Thus the proposed completion/factorization has an algebraic inconsistency. A valid approach is to seek a discriminant square for the quadratic in x: D=(y+2)²+24y²−? Directly compute D from coefficients x²+(2−y)x+(−6y²+19y−18)=0, then impose D to be a nonnegative square and derive integer constraints, or find a correct factorization after an appropriate linear change."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "ea222b1e26098dcf91201461054d94c9e7347fb97396432448fb7c9e8f99b680",
+      "teacher_request_id": "9074b7d854aac60518e2c1022241b678fe51f6005b1847a0b33bfcb48ce1234c",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "7. What is the maximum volume that the parallelepiped $A B C D A_{1} B_{1} C_{1} D_{1}$ can have, given that its diagonals $A_{1} C_{1}, C_{1} D, B D_{1}, B_{1} C$ have lengths param1, param2, param3, param4 in some order? Write the square of the volume in the answer.\n\n| param1 | param2 | param3 | param4 | answer |\n| :---: | :---: | :---: | :---: | :---: |\n| 5 | 13 | 17 | 22 |  |\n| 3 | 13 | 15 | 18 |  |\n| 4 | 11 | 14 | 18 |  |\n| 6 | 14 | 19 | 25 |  |",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A parallelepiped can be represented by three edge vectors u,v,w. The four named diagonals have direction vectors corresponding, up to signs, to u+v+w, u+v−w, u−v+w, and −u+v+w (depending on vertex convention); their squared lengths are four combinations of |u|²,|v|²,|w|² and pairwise dot products. The four lengths are assigned in any order, so test assignments. A useful identity for these four body-diagonal vectors relates their Gram matrix to the squared volume det(Gram(u,v,w)). For each row, use the given four lengths to recover/constraint the Gram data and maximize the determinant subject to positive semidefiniteness. The labels 'diagonals' should be confirmed as the four body diagonals specified."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "62ab161d9d9ffb9bfa95dc485b7250390b7f2d83a7d86db5e57b4f659b8caac5",
+      "teacher_request_id": "a3de1b25b1267367040375834fecfaf0053587f58334323ed2864acac1ced672",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 3. (3 points)\n\nIt is known that $a^{2} b+a^{2} c+b^{2} a+b^{2} c+c^{2} a+c^{2} b+3 a b c=30$ and $a^{2}+b^{2}+c^{2}=13$.\n\nFind $a+b+c$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let s=a+b+c. The cyclic sum of mixed terms equals (a+b+c)(ab+bc+ca)−3abc, so the given first expression, which adds 3abc, simplifies to s(ab+bc+ca). Also a²+b²+c²=s²−2(ab+bc+ca)=13. Consequently the two conditions become s·q=30 and s²−2q=13, where q=ab+bc+ca. Eliminate q to obtain an equation for s; check whether its solutions are consistent with real (or otherwise intended) a,b,c. The problem does not explicitly state whether variables are real."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b5c163d3e7031201fb325214fde71ca1bf435d86074faae752cde22f446d43c6",
+      "teacher_request_id": "45068095463d75a2da84bde363d16b34fdea2396b68f7a27656902d739ab7ae6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 9.5 (7 points)\n\nIn a store, there are buttons of six colors. What is the smallest number of buttons that need to be bought so that they can be sewn in a row, such that for any two different colors in the row, there are two adjacent buttons of these colors?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Represent the six colors as vertices of K₆. A row of buttons determines an ordering of colors; the condition requires every unordered pair of distinct colors to appear as consecutive entries somewhere, so every edge of K₆ must occur among the row's adjacent pairs. A row of m buttons has only m−1 adjacent pairs, giving a lower bound of 16 because K₆ has 15 edges. Repeated adjacent pairs or same-color pairs do not help, and the main constructive issue is whether an ordering can traverse all 15 edges consecutively as a trail (possibly with repeats). Interpret 'for any two different colors in the row' as every pair among the six colors available; if not all six must appear, clarify the wording."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "11fc03e89958f66d3676c7e5fd087a93775a9108b897565d6e4891affff01781",
+      "teacher_request_id": "3d944adb6449e8408eff12e94a7811a01dce6c8d57734727e209c6754097d56e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "19. Circles with radii $R$ and $r$ touch each other internally. Find the side of a regular triangle, one vertex of which coincides with the point of tangency, and the other two lie on different given circles.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let T be the tangency point of the internally tangent circles, and place T at the origin with their common tangent as the x-axis. The centers lie on the normal through T, at signed distances R and r on the same side for internal tangency. The third vertex of the equilateral triangle lies on the ray making a 60° angle from the tangent line; its distance from T is the desired side ℓ. Its perpendicular distances from the two centers must equal R and r, respectively, because it lies on the corresponding circles. Solve the resulting circle equations for ℓ, noting that the two possible orientations of the equilateral triangle produce symmetric placements. State any assumption that each non-tangency vertex lies on the circumference, as 'lie on circles' ordinarily means."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d0ef6b2eb3aad08964e7266c2ef0270891f6ddba076202648fe798d79f381e53",
+      "teacher_request_id": "0df44afc39d7c4404de390f34681e1235bd1a422022030042dab19769e1b4082",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. The turtle crawled out of its house and moved in a straight line at a constant speed of 5 m/hour. After an hour, it turned $90^{\\circ}$ (right or left) and continued moving, then crawled for another hour, then turned $90^{\\circ}$ (right or left) again... and so on. It crawled for 11 hours, turning $90^{\\circ}$ at the end of each hour. What is the shortest distance from the house it could have been?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Each of the 11 hourly legs has length 5 m, and each new leg is perpendicular to the previous one. The direction at each turn can be chosen left or right, so the displacement is a sum of 11 signed axis-aligned vectors with directions rotating by quarter-turns. Group the legs by horizontal and vertical direction; the squared final distance is the sum of the squares of the net horizontal and vertical displacements. The first direction is fixed arbitrarily by rotation, and subsequent turn choices determine the signs. Find the smallest attainable resultant among these discrete choices; distance cannot be less than zero, and exact return to the starting point requires canceling each axis component."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "94fa90f9a983e4de9a1eafd12f097a8514876c7d39c638cfda9502ff6a7a8ed7",
+      "teacher_request_id": "8757d5425b6f44d7af95390813207e7ca7c6d2d8b254ff584a19bc24d089b720",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 6.\n\nB-1 For which values of the parameter $a \\in \\mathbb{R}$ does the maximum distance between the roots of the equation\n\n$$\na \\operatorname{tg}^{3} x+\\left(2-a-a^{2}\\right) \\operatorname{tg}^{2} x+\\left(a^{2}-2 a-2\\right) \\operatorname{tg} x+2 a=0\n$$\n\nbelonging to the interval $\\left(-\\frac{\\pi}{2} ; \\frac{\\pi}{2}\\right)$, take the smallest value? Find this smallest value.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Put t=tan x. Since x lies in (−π/2,π/2), tan is one-to-one onto all real numbers, and root distances in x are differences of arctangents of real roots in t. Factor the cubic in t if possible; the coefficients suggest checking simple factors depending on a. For each real root set t_i, the corresponding x_i=arctan(t_i), and the maximum distance is max x_i−min x_i, bounded above by π. Parameter values where the degree drops (a=0) and repeated roots occur need separate treatment. The target is to minimize this span over a, taking only real roots that exist in the interval."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "480dac2c35fb2e6e608331e66354305f7b5c5001cc1e1de61a8560ff121f55aa",
+      "teacher_request_id": "2422fdba5f13a47661218c953cffa71e1d4716d39b5e3c94d4975e0d0eb04d3f",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. (7 points) Anya multiplied 20 twos, and Vanya multiplied 17 fives. Now they are going to multiply their huge numbers. What will be the sum of the digits of the product?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The numbers are 2²⁰ and 5¹⁷, so their product is 2¹⁷·(2³·5¹⁷)=2¹⁷·10¹⁷, equivalently 2²⁰·5¹⁷. To find a digit sum, exploit 2²⁰·5¹⁷=2³·10¹⁷: the product is a one-digit factor times a power of ten. Multiplication order does not matter. This avoids expanding the huge number; the trailing zeros contribute nothing to the digit sum."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "2e28831782fd029d2bcf80217259c06b822aaba3aa135a55ebd0cbb1b5f72993",
+      "teacher_request_id": "8e9c99b0202ddcec58d608aabf3e9461d29b121b11533e5739daff549bbb8d29",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 2. In an aquarium, there are three types of fish: gold, silver, and red. If the cat eats all the gold fish, the number of fish will be 1 less than $2 / 3$ of the original number. If the cat eats all the red fish, the number of fish will be 4 more than $2 / 3$ of the original number. Which fish - gold or silver - are there more of, and by how many?\n\n[4 points] (I.R. Vysotsky, I.V. Raskina)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the original total be T, with gold G, silver S, and red R; T=G+S+R. After removing gold, T−G=(2/3)T−1, so G=T/3+1. After removing red, T−R=(2/3)T+4, so R=T/3−4. Substitute into T=G+S+R to express S in terms of T, then compare G and S. Fish counts are nonnegative integers, and these equations also impose divisibility/integrality constraints on T."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b334e133b1b6dcdd5f91540b681ef891b392ae20ff23bc650dec5014aceca46b",
+      "teacher_request_id": "196bb6a07080049c074681413e36b3c14ef59a3865b6dca6367e39c6261c1009",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. In the multi-story fraction\n\n$$\nP+\\frac{1}{A+\\frac{1}{B+\\frac{1}{H+\\frac{1}{0}}}}\n$$\n\ndigits other than zero were substituted for the letters. What is the smallest result that can be obtained in this case? (As usual, different letters correspond to different digits).",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "All four letters P,A,B,H are distinct nonzero digits, so they form a permutation of four elements of {1,…,9}. Because 1/0 is undefined, the innermost notation H+1/0 is problematic as written. If this is intended as a continued fraction terminating with H (with the displayed 1/0 serving as a convention for an infinite tail), then 1/(H+1/0)=1/H, and the value is P+1/(A+1/(B+1/H)). Under that interpretation, the integer part P should be minimized first, followed by minimizing the positive fractional tail subject to distinct digits. Clarify the convention for division by zero before claiming a numeric minimum."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "a958f09614a068d32da81964ad9a0e7fead383df46db723428e0a3955e6110dd",
+      "teacher_request_id": "b2e8cc4853d2b49d866f1fdf33dd65f66f233f426ff221e98113cf8d412ee15e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9. One farmer made cheese in the form of an irregular pentagonal prism, while another made it in the form of a regular quadrilateral pyramid, the height of which is half the length of the side of the base. At night, mice ate all the cheese particles from the vertices of these polyhedra that were no more than 1 cm away from the corresponding vertex. The eaten pieces of cheese did not share any particles. Which farmer suffered greater damage and by how many times?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "At a vertex of a polyhedron, the nearby cheese is the intersection of a radius-1 ball centered at that vertex with the solid's interior; when these neighborhoods are disjoint, total loss is the sum of these local volumes. For a convex cone, the volume of such a spherical sector is (solid angle/3)·1³. Therefore the irregular pentagonal prism's loss depends on the sum of its vertex solid angles (which is not determined by the word 'irregular' alone), while the regular square pyramid's sum depends on its base side length relative to the fixed 1 cm cutoff and on whether the vertex neighborhoods overlap. The premise that pieces do not share particles removes overlap, but no scale/side length is supplied; determine whether a general polyhedral solid-angle identity makes the comparison independent of dimensions, and flag that the prism's shape is unspecified."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "f9476c275af3d1034b324a2562f25d8f31a1c5baa580b50431c6ef6999e5ca19",
+      "teacher_request_id": "a2eb46fa87018b931be568aaf026b4e0bb4cc96d308d7dcfc3b35264b2c32a55",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. In a six-digit number, one digit was crossed out to obtain a five-digit number. The five-digit number was subtracted from the original number, and the result was 654321. Find the original number.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "If the crossed-out digit is at position j from the left in the six-digit number, deleting it changes place values nonuniformly. Write the original digits d₁…d₆ and the shortened number after deletion; then set original minus shortened equal to 654321. Equivalently, for a deletion after the first digit, the difference is the prefix before the deleted digit times its place-value change plus the deleted digit's own contribution and the suffix shift; case-split on j=1,…,6, remembering that deletion of the leading digit must leave a five-digit number. The positional structure, rather than just the digits' sum, is decisive."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "a30125e78b35d2d1c5b46806e76e3e9a669bff9a3a03dd0c7530f84ffbf3ed18",
+      "teacher_request_id": "188b62f36c19cbcaf7e9928d755c3d6c3b2c14674c3cf9c79713e67d3fd9ea88",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. In a convex quadrilateral $ABCD$, diagonal $BD$ is drawn, and a circle is inscribed in each of the resulting triangles $ABD$ and $BCD$. A line passing through vertex $B$ and the center of one of the circles intersects side $DA$ at point $M$. Here, $AM=\\frac{8}{5}$ and $MD=\\frac{12}{5}$. Similarly, a line passing through vertex $D$ and the center of the second circle intersects side $BC$ at point $N$. Here, $BN=\\frac{30}{11}$ and $NC=\\frac{25}{11}$.\n\na) Find the ratio $AB:CD$.\n\nb) Find the lengths of sides $AB$ and $CD$, given that the circles are tangent to each other.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For an incenter I of triangle ABD, the line BI is the angle bisector at B; by the angle-bisector theorem, AM/MD=AB/BD. Thus AB/BD=(8/5)/(12/5)=2/3. Likewise, in triangle BCD the line DI is the angle bisector at D, so BN/NC=BD/CD=(30/11)/(25/11)=6/5. Combining gives AB:CD=(2/3)(6/5)=4:5. For part (b), tangency of the incircles gives a relation between their radii and the distance between their centers, which depends on the shared side BD and the triangle angles. Use the tangent lengths to express AB, CD and BD, then impose center distance = sum of radii (external tangency) or difference (internal tangency); the statement should specify which tangency is intended."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b3f87c667d1fe8e9f734c15bea7b38f65c0b141559970e7f4f5d8501547ba1bb",
+      "teacher_request_id": "7d592acd6605addd883e2901851b495c0184e7c361aa5f5382b0f2279f23ad79",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 5. Merlin decided to weigh King Arthur on enchanted scales that always err by the same weight in the same direction. When Merlin weighed Arthur, they showed a weight of 19 stones. Then Merlin weighed the royal horse and got a weight of 101 stones. Finally, Merlin weighed Arthur on the horse, and the scales showed 114 stones. How many stones does King Arthur actually weigh?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let Arthur’s true weight be A, the horse’s true weight H, and the scales’ fixed additive error be e (positive if they overread). The readings give A+e=19, H+e=101, and A+H+e=114; the shared error is added once to a combined weighing."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c26a6d737315ded3152081efbac82838335c49c9d318f98a355b2604e5bfb3ee",
+      "teacher_request_id": "cd86b19c37115cdf7245b967a5e00f089874752cd299f3205296ff734ea03c60",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. (20 points) Two mutually perpendicular rays, propagating in the same vertical plane, fall from air onto a horizontal glass surface. The refractive index of the glass $n=1.6$. The angle of refraction for the first ray $\\beta=30^{\\circ}$. Determine the angle between the refracted rays.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Angles of incidence are measured from the surface normal. Snell’s law gives sin(i₁)=n sin(β)=1.6·sin 30°=0.8; because the incident rays are perpendicular, their acute incidence angles relative to the normal sum to 90°. The second ray also travels from air into glass, so its refracted angle γ satisfies sin γ=sin(i₂)/1.6; determine the angle between the refracted directions in the common plane using β and γ, taking care of which side of the normal each ray lies on."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "99a1c34c7527934a743a43805ec1af39b5fe51ec9c076eae811c81ed5c1dc7cc",
+      "teacher_request_id": "e91d1efeed8d9a6984e5fc7bc142a2998704f0cd1cf951cdd2448944301f972b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. When insuring property, the insurance amount cannot exceed its actual value (insurance value) at the time of concluding the insurance contract.\n\nInsurance tariff - the rate of the insurance premium or the insurance premium (insurance premium) expressed in rubles, payable per unit of the insurance amount, which is usually 100 rubles. In simpler terms, it is the percentage of the insurance value of the property established by the insurance company within the framework of laws concerning insurance activities.\n\nAn underwriter of an insurance company is a person authorized by the insurance company to analyze, accept for insurance (reinsurance), and reject various types of risks, as well as classify the selected risks to obtain the optimal insurance premium for them.\n\nTitle insurance (title insurance) is protection against the risk of losing the right of ownership of real estate as a result of the transaction for the acquisition of real estate being declared invalid or illegal. A transaction can be declared invalid by a court in the following situations:\n\n- the presence of unaccounted property interests of minors, heirs, persons serving time in places of deprivation of liberty;\n- the discovery of errors or fraud in the current or previous transactions with the real estate;\n- in the case of the incapacity of one of the parties to the transaction, etc.\n\nThe appraised value of the property is the final result of the appraisal study, calculated by a licensed appraiser.\n\nThe cadastral value of housing is the value of the real estate object established through state valuation, primarily for the calculation of taxes.\n\n## Instruction:\n\nIn the event of a discrepancy between the insurance amount and the actual value of the property, the following consequences are established:\n\na) if the insurance amount is set below the actual value of the property in the Insurance Contract, the Insurer, in the event of an insurance case, compensates the Insured (Beneficiary) for the damage incurred within the limits of the insurance amount established by the Insurance Contract without applying the ratio of the insurance amount and the actual value of the property (first risk payment condition).\n\nb) if the insurance amount specified in the Insurance Contract exceeds the actual value of the property, the Contract is void to the extent that the insurance amount exceeds the actual value of the property.\n\nGross insurance tariffs (title insurance)\n\n| Group of insured objects | Number of previous transactions with the real estate object | Annual tariff |\n| :--- | :--- | :---: |\n| Apartments and parts of apartments, consisting of one or several isolated rooms, non-residential buildings | Primary market (one transaction) | 0.18 |\n| Secondary market (no more than 3 transactions) | One transaction preceding the current transaction | 0.20 |\n| No more than 3 transactions*** |  |  |\n\n**** in the case of more than 3 transactions over the past 3 years preceding the current transaction, the tariff is agreed individually.\n\n## List of corrective coefficients (title insurance)\n\n| Factors | Coefficient |\n| :--- | :---: |\n| The presence in the history of the real estate object of one or more of the following facts:  - a time gap of less than one year between two preceding (or between the current and the preceding) transfers of ownership of the real estate object;  - the presence of lease transactions;  - transfer of rights as a result of inheritance or gift;  - transactions carried out by persons on the basis of a power of attorney;  - more than 2 transfers of ownership of the real estate object. |  |\n| - the last transaction preceding the current one was more than 3 years ago | 1.2 |\n| Absence of one of the necessary documents | 0.8 |\n\n## MOSCOW OLYMPIAD OF SCHOOL STUDENTS IN FINANCIAL LITERACY FINAL STAGE $10-11$ GRADES 2nd variant Answers and solutions\n\n## Problem 1\n\nYou are an underwriter of an insurance company. According to the instructions for title insurance (Appendix to this problem), based on the data provided below, you need to set the tariff and determine the amount of the insurance premium. Be sure to keep the glossary in front of you.\n\nData:\n\nInsured Ostrozhnov Konstantin Petrovich is purchasing an apartment on the secondary market with the participation of credit funds. The loan amount secured by real estate is 20 million rubles. Konstantin Petrovich has a good credit history and easily obtained approval for such an amount. The appraised value of the apartment is 14,500,000 rubles, the cadastral value is 15,000,000 rubles. The bank-lender requires Ostrozhnov to purchase a title insurance policy to protect its financial interests.\n\nSeller - Ivanov G.L., born in 1952, the sole owner of the apartment, purchased it more than 5 years ago under a construction investment agreement. Married, has adult children, no one is registered in the apartment. At the time of purchasing the apartment, he was married. Provided all necessary documents except for certificates from the psychiatric and narcological dispensaries. Does not drive, does not have a driver's license, and is not subject to military service.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The policy’s insured amount must not exceed the property’s actual insurance value; the stated appraisal is 14.5 million rubles, while the 20 million loan and 15 million cadastral value do not replace that value under the supplied glossary. The property is a secondary-market apartment, reportedly bought by the seller more than five years ago, and required documents are missing: the psychiatric and narcological certificates. Apply the applicable secondary-market base tariff and each relevant correction coefficient from the provided table, then calculate premium as insured amount per 100 rubles times the gross tariff (and adjustments). The table’s layout omits the coefficient for several listed risk factors, so do not invent one; state any assumption or ambiguity about its applicability. The over-insurance rule also means the bank’s loan amount cannot simply be used as the insured value."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "9d7bfb38c14e74bb7e667b0d453774ff2bb709937850304e6cde8f82ff258bbd",
+      "teacher_request_id": "9797ed70c2ee0ea6988ae2342f9bdc6cf700b4dd1edb1468edcf7d04bad13c33",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 3.3. Several letters A and several letters B were sitting on a pipe. After some A fell and some B disappeared, only three letters remained on the pipe, and the following dialogue occurred between them:\n\nFirst letter: “I am the only one of my kind here.”\n\nSecond letter: “There are definitely fewer than two A letters here.”\n\nThird letter: “There is only one B letter among us.”\n\nIt turned out that each letter told the truth if it was A, and lied if it was B. Determine which letter is where.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "There are exactly three positions, each occupied by A or B. An A-speaker’s statement is true and a B-speaker’s statement false. For each position, translate the quoted sentence into a predicate of the total counts and test its truth value against that speaker’s type. In particular, ‘only one of my kind’ depends on the speaker’s own letter and the other two; ‘fewer than two A’ means the total number of A’s is at most one; and ‘only one B’ means the total number of B’s is exactly one."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c4d0f4bac2b76dd14be0b3219e0a88fd55ee03a0e6626d37024b6ea9a057dd6b",
+      "teacher_request_id": "2ffad038af9c722181072cc8a5441d9be6f275c9aa9b3e06d9f288efa1273c5e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8.5. Kolya drew 10 segments and marked all their intersection points in red. Counting the red points, he noticed the following property: on each segment, there are three red points. a) Provide an example of the arrangement of 10 segments with this property. b) What is the maximum number of red points for 10 segments with this property?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Every one of the 10 segments must contain exactly three red intersection points (the wording says three points on each segment). A red point may lie on several segments, so counting segment-point incidences gives 30 incidences, while a point common to r segments contributes r incidences; this distinction matters for maximizing the number of distinct red points. For part (a), specify an arrangement and check the count on every segment; for part (b), account for possible shared multi-segment intersections and segment endpoints if those count as intersection points."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "34bddc65331d3f3ec04dba0f7d20825b892d7d4782443712efd0619a82ed6618",
+      "teacher_request_id": "52c238b8c802acae8da866cde6d4cca810f6f701da2876948d0f185e6b3c50eb",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "4. On the board, the product of the numbers $\\overline{\\text { IKS }}$ and $\\overline{\\text { ISK }}$ is written, where the letters correspond to different non-zero decimal digits, one of which is even. This product is a five-digit number and reads the same from left to right and from right to left. What is written on the board?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let I, K, S be distinct nonzero decimal digits; at least one is even. The two three-digit factors are IKS and ISK, so the product must be a five-digit palindrome (its ten-thousands and units digits agree, as do its thousands and tens digits). These place-value and palindrome constraints can be used to restrict the digits; leading digit I is nonzero automatically."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "f9a874c4d1d226115c15126cdef4aba802cfb46a17a1bef13f85b6d1dbece449",
+      "teacher_request_id": "e0ca28e5fbfb935aaf94b2b8c2421e652915d786971dd4e114ed0d126d093ef0",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "L OM - I - Task 5\n\nFind all pairs of positive integers $ x $, $ y $ satisfying the equation $ y^x = x^{50} $.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For positive integers x,y, the equation is y^x=x^50. The case x=1 should be handled separately. For x>1, prime factorization shows that every prime exponent in x^50 must be divisible by x; equivalently x divides 50 times each prime exponent of x. Also y is forced to be the positive integer x^(50/x) whenever 50/x is integral, while more generally the prime-exponent divisibility conditions determine whether the rational power is integral."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "73e7ba5d09d076e32d4591aa54e23253d21e691ae326db66e9b6bd5434d66686",
+      "teacher_request_id": "e6f635309874b05b0e3cc2e1d703661238484991bf3587ef7021140391999aa9",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9. The decagon $A B C D P Q R S T U V W$ has two parallel bases: square $A B C D$ and octagon $P Q R S T U V W$, all angles of which are equal, and eight lateral faces: triangles $A P Q, B R S, C T U, D V W$ and rectangles $D A P W, A B R Q, B C T S$ and $C D V U$. It is known that the area of the section of the decagon by a plane passing through points $A, S$ and $U$ is $\\frac{1372}{585},|A B|=1 / 3,|P Q|=2 \\sqrt{2} / 3$. Find the distance between the bases of the decagon. Write the found value in the answer, rounding it if necessary.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The two bases are parallel, with the lower base a square of side 1/3 and the upper base an equiangular octagon of side 2√2/3; the listed triangular and rectangular lateral faces specify how corresponding vertices are connected. A plane through A, S, and U cuts the solid in a polygon whose area is 1372/585. To find the base separation, set coordinates for the two base planes and their vertices, determine where the plane ASU meets the lateral faces, and express the section area in terms of the vertical separation. Clarify the octagon’s orientation/vertex placement relative to the square as implied by the face incidences."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "fecc6730681653bf0f6792e0a97c391bc55f96e343e0ebd4fc4926a66ca96cb2",
+      "teacher_request_id": "60a561b9d6f96e1164f22f6279c1b792cd9eeeabea7691f7c0f9e633c197db62",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11.2. Given different real numbers $a_{1}, a_{2}, a_{3}$ and $b$. It turned out that the equation $\\left(x-a_{1}\\right)\\left(x-a_{2}\\right)\\left(x-a_{3}\\right)=b$ has three different real roots $c_{1}, c_{2}, c_{3}$. Find the roots of the equation $(x+$ $\\left.+c_{1}\\right)\\left(x+c_{2}\\right)\\left(x+c_{3}\\right)=b$.\n\n(A. Antropov, K. Sukhov)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Define f(t)=(t−a₁)(t−a₂)(t−a₃). The given distinct real numbers c₁,c₂,c₃ satisfy f(cᵢ)=b, so the monic cubic g(x)=∏(x−cᵢ) is f(x)−b. The target left side is ∏(x+cᵢ)=−g(−x); its roots are the negatives of the cᵢ. The target equation then asks where this product equals the same b, so distinguish those roots of the expression from roots of the equation itself."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "f4a26eaba7d9f2f8ed91b6f33c1adb3e01baed152105e1bdd6f612fd5334b338",
+      "teacher_request_id": "2030002106075ba0876f9c6d6ec8032b44ca037e8c1c2c460621823bf1baa05c",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. Petya was exchanging stickers. He trades one sticker for 5 others. At first, he had 1 sticker. How many stickers will he have after 50 exchanges?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "One exchange replaces one sticker by five others, so the net change is +4 stickers per exchange. Starting from 1, after 50 exchanges the count is 1+50·4, assuming each exchange can be carried out and no stickers are spent otherwise."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "83204162f9b2feded13eca00df81b9d9d66e3dd3d73a6edb2a8b3b52fc610432",
+      "teacher_request_id": "87abcdb887a5ad0def994548118842c95da24c9502a5a134a3ad8e467dd27b99",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 1.\n\nA sequence of 100 non-zero numbers is written in a row. Each number, except the first and the last, is equal to the product of the two adjacent numbers. The first number is 2018. Find the last number in such a sequence.\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Write the terms as a₁,…,a₁₀₀, all nonzero, with a₁=2018 and aᵢ=aᵢ₋₁aᵢ₊₁ for 2≤i≤99. The relation can be rearranged as aᵢ₊₁=aᵢ/aᵢ₋₁, so nonzero terms allow a recurrence; track its period or derive the resulting dependence of the final term on the first two terms. Only a₁ is specified, so check whether the constraints actually determine a₂ and hence a₁₀₀."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "143fc1030a8cc918e332734a5dc52dcef1569024f8aade55985a0ecf471a27c1",
+      "teacher_request_id": "2bed746e4903d48dabe4a5a41415209ae28c2294fdc89a9da64c5f846040bec0",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8.4. What is the maximum number of cells in an $n \\times n$ square, drawn on graph paper, that can be colored so that no $2 \\times 2$ square contains three colored cells?\n\n## rectangular city",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Choose a subset of cells in an n×n grid subject to the condition that every contiguous 2×2 block contains at most two colored cells. Maximize the total number of colored cells. A useful counting approach compares colored-cell incidences over all (n−1)² such blocks; corner and boundary cells belong to fewer blocks than interior cells, so boundaries need separate treatment. The trailing phrase ‘rectangular city’ appears unrelated or incomplete and does not define an extra condition."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "99e55a8c9d21df0e33c92a07059662c318dd3dcff070a7bdc44886f9584089c5",
+      "teacher_request_id": "24eb5ba80a06551c815d67e99fea6fdf958f71bfa3f2231bc0bd95ce15c34c08",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. There is a number 1201201201201. In one move, you can swap two adjacent digits, but it is forbidden to swap digits on the positions where they have already been swapped. Additionally, 0 cannot be placed in the first position. Two players take turns, the one who cannot make a move loses. Who will win with correct play?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The initial string has 13 digits: 1,2,0,1,2,0,1,2,0,1,2,0,1. A legal move swaps adjacent positions only if that pair of positions has never previously been swapped; swaps may change digit values at positions, and a zero may never occupy position 1. The game ends when the current position arrangement has no legal swap. Analyze the impartial game with the history of used edges (the 12 adjacent position-pairs), as well as the first-position restriction; the current string alone may not capture the state."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "5a357d5debc779cf0109efa4c1a3f4e0c50aeb90198143065a1589078cec0292",
+      "teacher_request_id": "9be7228cba8fb7640589efbebec27da49c304f5f69920f8c258b7bdd05217fd6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Task No. 8.1\n\n## Condition:\n\nPostman Pechkin thinks that his watch is 10 minutes slow, but in reality, it is 20 minutes fast. He agreed with Uncle Fyodor to meet at the post office at $12:00$, and then called and said that he wouldn't make it on time and would be 17 minutes late. At what time will Pechkin actually arrive for the meeting?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Pechkin’s watch reads 10 minutes behind the actual time according to his belief, but it is actually 20 minutes ahead of correct time. He says he will arrive 17 minutes late based on his watch. Interpret the statement as his watch showing a time 17 minutes after the agreed 12:00, then convert that displayed time to actual time using the given 20-minute fast error. His mistaken belief explains the setup but does not change the watch’s actual offset."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e185284a51f00ff1c1a14a4abaff7df681aa20f13d4da724adc98c3f52bf6123",
+      "teacher_request_id": "e3ad380c577207bb4ffa696f713571c21cf0e8272dc39fa5245755120eb02854",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. (7 points) From the airplane window, I can see part of an island, part of a cloud, and a bit of the sea. The cloud occupies half of the landscape visible from the window and thus hides a quarter of the island, which therefore takes up only a quarter of the observed landscape. What part of the landscape does the part of the sea hidden by the cloud constitute?\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Normalize the visible landscape area to 1. The cloud has area 1/2 and hides 1/4 of the island; the island’s visible portion is 1/4 of the landscape. The question asks for the portion of the landscape occupied by the sea that is hidden by the cloud. These area statements do not specify the total island area or the cloud’s overlap with sea, so test whether they determine that overlap uniquely; avoid equating ‘hides a quarter of the island’ with a quarter of the visible landscape without further information."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "4a85b3592b0518f7e239a17d2a026d98d73a8696333a1bc0e5bb0b35824a7552",
+      "teacher_request_id": "10521d9949572fa205fa74381e276ba584892d8b1694972561a332eb8aeaaf97",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9.3. We consider all possible tilings of an 8 by 8 chessboard with dominoes, each consisting of two adjacent squares. Determine the maximum natural number \\( n \\) such that for any tiling of the 8 by 8 board with dominoes, one can find some rectangle composed of \\( n \\) squares of the board that does not contain any domino in its entirety. The lengths of the sides of the rectangle in squares can be any natural numbers, starting from one.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For each domino tiling of the 8×8 board, consider all axis-parallel rectangles made of whole board squares, with positive integer side lengths. A rectangle qualifies if it contains no domino with both of its cells inside. The goal is the largest n such that every tiling has at least one qualifying rectangle containing exactly n cells. This is a universal-over-tilings condition; distinguish a rectangle’s cell area from its side lengths, and seek both a lower guarantee and a tiling that rules out any larger candidate."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "93734cb925425ef53a96b080a583899185526c0be336a2c96c1b003f2aa50ab8",
+      "teacher_request_id": "d6e7952c872c43a8b259fa8e9c7bcb78a30de6ce1ea2111f58b39a3c9a947350",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. Given a right triangle $K L M$ with legs $L M=60$ and $K M=80$. On the sides $K L, L M$, and $M K$, points $M_{1}, K_{1}, L_{1}$ are chosen, respectively, such that $K M_{1}=L K_{1}=\\mathrm{ML}_{1}=2$. Find the area of triangle $K_{1} L_{1} M_{1}$.\n\nANSWER: 2216.8",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The right angle is at M, with legs LM=60 and KM=80, hence KL is the hypotenuse. M₁ lies on KL with KM₁=2; K₁ lies on LM with LK₁=2; L₁ lies on MK with ML₁=2. The requested triangle is K₁L₁M₁. A coordinate setup M=(0,0), L=(60,0), K=(0,80) makes K₁ and L₁ immediate and places M₁ two units from K along KL; use a determinant (or base–height) to compute its area. The supplied ‘ANSWER: 2216.8’ is a check, not an additional geometric condition."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e8d56f96d18c1d3c052a72fcebc6dbedceae3a649d3d22ad29bfdf2cefd42390",
+      "teacher_request_id": "09529c190c1a5207df8745e1ed391bfed4976ce84a5043b8c378d87637db9c0e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. You have decided to buy yourself a New Year's gift for 8,000 rubles. You have the option to pay with one of two bank cards: a debit card or a credit card. If you pay with the credit card (the credit limit allows it), you will have to return the money to the bank exactly half a month later to avoid going beyond the grace period, during which you can repay the credit for free. In this case, the bank will pay a cashback of $0.5\\%$ of the purchase amount after 1 month. If you pay with the debit card (there is more than enough money on the card), you will receive a cashback of $0.75\\%$ of the purchase amount after 1 month. It is known that the annual interest rate on the average monthly balance of funds on the debit card is $0.5\\%$ per month (the next interest payment will occur exactly one month from now). Which card, under all other equal conditions, is it more profitable for you to pay with? (20 points)\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let P=8,000 rubles. Credit pays 0.5% cashback after one month, but requires repayment after half a month; debit pays 0.75% cashback after one month and also earns interest on the balance. The debit comparison must account for the purchase reducing the balance now and the stated 0.5% monthly rate on the average monthly balance; the problem does not specify whether that monthly interest is simple or how a half-month is handled for the credit option. Compare net amounts at a common time, including cashback and any foregone interest on the funds used for the purchase."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "5608b398d2b0568166e5f17e4ff3c1c96b907c561fe06923606e6f84aa1bf72e",
+      "teacher_request_id": "581e66b1bd2f1484e35ca9e34c4630325d8f304417530b1ca933bbb94170f2fc",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 7.\n\nB-1 The height $B D$ of an acute-angled triangle $A B C$ intersects with its other heights at point $H$. Point $K$ lies on segment $A C$ such that the measure of angle $B K H$ is maximized. Find $D K$, if $A D=2, D C=3$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let AC be the base of the acute triangle, with D its foot from B and AD=2, DC=3, so AC=5 and BD⊥AC. H is the orthocenter on BD, where the other altitudes meet it. K varies along segment AC and the objective is to maximize ∠BKH; the requested distance is DK. A coordinate treatment can set D=(0,0), A=(-2,0), C=(3,0), B=(0,h), with h>0 constrained by the triangle being acute; analyze the angle as K=(t,0) varies over [-2,3]."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "451fb6cd188c0f7b1232f7c5a0d899eb7917d8fcc3cc87ef2851bd73f6f20691",
+      "teacher_request_id": "6060f6eed3b369f7901da622886e6dea4ab960234b2d13c14e89e5bfb70e4749",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. Pantelej and Gerasim received 20 grades each in November, and Pantelej received as many fives as Gerasim received fours, as many fours as Gerasim received threes, as many threes as Gerasim received twos, and as many twos as Gerasim received fives. At the same time, their average grade for November is the same. How many twos did Pantelej receive in November?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let Pantelej’s counts of grades 5,4,3,2 be p₅,p₄,p₃,p₂, and Gerasim’s be g₅,g₄,g₃,g₂. The stated cyclic equalities are p₅=g₄, p₄=g₃, p₃=g₂, p₂=g₅, with each student having 20 grades. Equal averages mean equal total grade sums, 5p₅+4p₄+3p₃+2p₂=5g₅+4g₄+3g₃+2g₂. Counts are nonnegative integers and each row sums to 20."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "605347610b0b69c35f73a865772c0e9f828e0b0de34f1c1c15463bd38c7f945a",
+      "teacher_request_id": "1a4c0ab709577a4a7ca9edf2c341f1f7178653cc082068669a2eca761c272399",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "11.5. In a convex pentagon $P Q R S T$, angle $P R T$ is half the size of angle $Q R S$, and all sides are equal. Find angle $P R T$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "All five sides of the convex pentagon PQRST have a common length. The given relation is ∠PRT=½∠QRS, with R the vertex of both angles. Use the equal lengths to relate triangles involving adjacent sides and diagonals; convexity fixes the relevant interior angle and diagonal-ray ordering. The requested angle is ∠PRT, so any argument should distinguish it from the full pentagon angle ∠QRS."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "22df69b24f27389ef66fbc9e37312e65f4cb8e6934ddef83ab1507654043df0e",
+      "teacher_request_id": "3c4e57072fbc1937833939b6164a0f5c5970f2263454857afb39c0e305bd0537",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2.4 In a closed bag lie apples. Three friends tried to lift the bag and guess how many fruits were inside. The first one said that, in his opinion, there were 18 apples, the second thought there were 21, and the third said 22. When the friends opened the bag, it turned out that one of them was off by 2, another by 3, and the third by 6. How many apples were in the bag? Find all possible answers.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the number of apples be N. The three guesses are 18, 21, and 22, and their absolute errors must be exactly 2, 3, and 6 in some order, with each error used once. Thus N must belong to {18±2,18±3,18±6} and simultaneously have a distinct assigned error among the corresponding sets for 21 and 22. N is a positive integer; enumerate compatible assignments rather than requiring the first, second, and third guesses to match 2, 3, and 6 in that order."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "54862ae45b794c9ad861bc8f4df61088891a89b817d6279cfaabc5aeeeed40d0",
+      "teacher_request_id": "fa0877546e475ff039d1361c9a765d391fb76391fb349e9b67fe9693c07d11c7",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6.1. On the board, there are 5 integers. By adding them in pairs, the following set of 10 numbers was obtained: $-1,4,6,9,10,11,15,16,20,22$. Determine which numbers are written on the board. In your answer, write their product.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the five integers be a,b,c,d,e. Their ten unordered pair sums are exactly the listed multiset/set, so each pair i<j contributes once. Sort the integers as a≤b≤c≤d≤e; the smallest sum is a+b, the next candidates include a+c and b+c, and the largest is d+e. These extremal sums and the total of all ten pair sums (which is 4(a+b+c+d+e)) provide consistency constraints before computing the requested product abcde. Check that the recovered integers reproduce all ten sums."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "ff1ed20d3036ffc41f75ff695a647b3af6e9908a7ca01b8e4e75ace39b38c371",
+      "teacher_request_id": "ba4ad025cc942eec79b686d9024418e8503a8d5e026a3160c37f328a6a0111ab",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. A school coach decided to reward 12 students who ran the distance in the best time. Each of them should be awarded a \"gold\", \"silver\", or \"bronze\" medal. All three types of medals must be used (at least once), and the one who finished earlier cannot be awarded a less valuable medal than the one who finished later.\n\nIn how many ways can the coach distribute the medals (all runners have different times)?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Order the 12 students by finish time. The medal rule forces a nonincreasing sequence of medal values in that order (gold before silver before bronze), and all three medal types must appear at least once. Therefore each valid assignment is determined by positive block sizes for the gold, silver, and bronze finishers, with the three block sizes summing to 12. Count such compositions, with the medal identities fixed by rank."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "483f3aacdec8e2094517daecfdadd77e45d23a5a7effa9c052ee68f69e24d0cf",
+      "teacher_request_id": "c7cff38b9201c6b2b25d7e8b697892284e4ba99d023143a634236578fb25228a",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Solve the equation: $\\cos ^{4}\\left(\\sqrt{\\frac{\\pi^{2}}{4}-|x|}\\right)+\\sin ^{4}\\left(\\sqrt{\\frac{\\pi^{2}}{4}-|x|}\\right)=\\sin ^{-2}\\left(\\sqrt{\\frac{\\pi^{2}}{4}-|x|}\\right)$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Set t=√(π²/4−|x|). The square root requires |x|≤π²/4, and the right side sin⁻²(t)=1/sin²(t) requires sin(t)≠0. Since 0≤t≤π/2, rewrite cos⁴t+sin⁴t using s=sin²t (or the identity 1−2sin²t cos²t); retain only roots with 0<s≤1, then recover |x|=π²/4−t² and both signs of x where permitted."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c3c1011b7088c304ec65ce97038e53becf873e65f465038afb949bd61a913b19",
+      "teacher_request_id": "e78764e536721df6c802ca0121cb3e116f1053b734f59c89ba15d9f9d8da8e7f",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "19. In how many ways can 20 kopecks be exchanged for coins worth 5 kopecks, 2 kopecks, and 1 kopeck?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let a,b,c be the nonnegative counts of 5-, 2-, and 1-kopeck coins. The exchange condition is 5a+2b+c=20, with each solution counted once as a combination; order of coins is irrelevant. If the wording requires using each of the three denominations at least once, impose a,b,c≥1; otherwise allow zero counts. Usually ‘coins worth 5, 2, and 1’ names available denominations, not a requirement to use each."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "e7af3420387e7ed03571ff3afb745708d636b046da18438c1ce07b7cb31fc904",
+      "teacher_request_id": "9aeda5b39aa66d84fe9abcc8801ff34128b6d704686bccc6fedc1cd7b6f2e1e6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "15. Minimum Sum (9th grade, 4 points). There are a lot of symmetric dice. They are thrown simultaneously. With some probability $p>0$, the sum of the points can be 2022. What is the smallest sum of points that can fall when these dice are thrown with the same probability $p$?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For a fixed number N of fair, identical symmetric dice, let S be their total. The condition is P(S=2022)=p>0, so 2022 must be an attainable sum. Every outcome sum has the same parity as N because each die’s faces are symmetric in the standard sense only if specified; the number and face values of the dice are not actually stated. If ‘symmetric die’ means faces labeled 1,…,m with equal probabilities, use attainable sums from N to Nm and their probabilities; clarify whether the same N dice and same p refer to comparing another possible total for that fixed setup."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "5af5af5bf3acfde3d71e2c5ea7941c4ced6da77cb3270913bb22fcc02e5e0ecb",
+      "teacher_request_id": "d66025dc67de2d6dc5958e2d1e3335d40e5211726b195d083cd3055e88a3d23a",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "14.18. In the barycentric coordinate system associated with the tetrahedron $A_{1} A_{2} A_{3} A_{4}$, find the equation: a) of the line $A_{1} A_{2}$; b) of the plane $A_{1} A_{2} A_{3}$; c) of the plane passing through $A_{3} A_{4}$ parallel to $A_{1} A_{2}$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "In tetrahedral barycentric coordinates (x₁:x₂:x₃:x₄), a point has homogeneous coordinates relative to vertices A₁,…,A₄. The line A₁A₂ consists of points with x₃=x₄=0; the face plane A₁A₂A₃ has x₄=0. A plane containing A₃ and A₄ and parallel to A₁A₂ must be spanned by the direction A₁A₂ and the line A₃A₄; express its affine equation in normalized barycentric coordinates (x₁+x₂+x₃+x₄=1), and note that homogeneous barycentric coordinates are defined only up to common scale."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "32470e76f3ab7a11268caa7c4eeafa9fdb35b416bac6890d24f5314404b1d824",
+      "teacher_request_id": "ef28d852f0e0b68ba4bb407da359bd7824022e2dd31b02c042055c10bd4e77b5",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "7.1 The length of a rectangle is $25 \\%$ greater than its width. By a straight cut, parallel to the shorter side, this rectangle is cut into a square and a rectangular strip. By what percentage is the perimeter of the square greater than the perimeter of the strip?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the rectangle’s width be w and its length 1.25w. A cut parallel to the shorter side separates a w×w square from a strip of dimensions w by 0.25w. Their perimeters are 4w and 2(w+0.25w), respectively. The requested percentage compares the square perimeter’s excess to the strip perimeter, so the denominator is the strip’s perimeter."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d7870cf0232450cf04f3a0d2f55162af76d6e9b84d81a0ff711f4587ff7fbf3e",
+      "teacher_request_id": "187740f2b606b1589a23acf2fa3e8e38dcb45d617aca1c26c3a781b22301e166",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. In the Thirtieth Kingdom, there are 100 cities, and no more than one road connects any two cities. One day, the tsar ordered that one-way traffic be introduced on each road, and at the same time, each road should be painted either white or black. The Minister of Transport proudly reported that after the order was carried out, from any city to any other, one could travel by alternating the colors of the roads, and in such a way that the first road in the journey would be white. What is the minimum number of roads that could have been in this country? When traveling from city to city, one can pass through intermediate cities any number of times. (M. Antipov)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Represent the roads as edges of a simple graph, each given a direction and one of two colors. A route must be a directed walk whose edge colors alternate, beginning with white; intermediate cities and repeated visits are allowed. The requirement applies to every ordered pair of distinct cities. Seek the fewest edges among 100-vertex graphs with such a walk between every ordered pair."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "2314d210ce83a1252546b2f91a8dd52185f6fc52d8b1fded564b854446a41f15",
+      "teacher_request_id": "98e76dfe635b72c57499bf8ed20777e7e7dd5e709e48d46de0be05fbaa683241",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "98. Find the quotient and remainder of dividing the number $A$, which is written using 1001 sevens, by the number 1001.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let A=777…777 with exactly 1001 digits. Use the division algorithm A=1001q+r, where 0≤r<1001. Grouping digits in blocks of three or using the geometric sum A=7(10^1001−1)/9 may help; take care that the block length 1001 is not divisible by 3."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "6b2d3d79a9eebab7bda6edb102ed1df957e148db4c8a731ce805af781cb9bce2",
+      "teacher_request_id": "7bcca927ebaca3d810602ace577a873ccd3c0deb2230411ab73b7bb1ccdb6db8",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "10.2. Find the number of different arrangements of 8 rooks on different white squares of an 8 by 8 chessboard such that no rook attacks another. A chess rook attacks all squares in the row and column it occupies.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A valid placement has one rook in each of the 8 rows and each of the 8 columns, so it corresponds to a permutation matching rows to columns. The additional condition is that all 8 chosen squares have the board's white color; the requested arrangements distinguish placements by their occupied squares."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "1ab7414331ed1a732f5475a980a0586f767b99363ae32c52d28513cf3e0bb2fd",
+      "teacher_request_id": "0a80af94f62522d3d3d534fa93e1b3bf9672a5bb8123d41d8fdd0e56bd1bec5b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. Given a triangular pyramid $S A B C$, the base of which is an equilateral triangle $A B C$, and all plane angles at vertex $S$ are equal to $\\alpha$. For what least $\\alpha$ can we assert that this pyramid is regular?\n\nM. Malkin",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The base sides satisfy AB=BC=CA. The three face angles at S are ∠ASB=∠BSC=∠CSA=α. The question asks for the least value of this common angle that forces all six edges to be equal (equivalently, the tetrahedron is regular); distinguish a forcing threshold from the particular regular-pyramid angle."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "5a087bda03b06fd113ebd5ea79c0225b953ca1f4972a06ed0bcc2c499b1c6289",
+      "teacher_request_id": "e951bd0f420e3a4b25157cedefedb080c22a07dc9109eda7ac01674b4b86ce4e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "6. Find all values of the parameter $b$, for each of which there exists a number $a$ such that the system\n\n$$\n\\left\\{\\begin{array}{l}\ny=-b-x^{2}, \\\\\nx^{2}+y^{2}+8 a^{2}=4+4 a(x+y)\n\\end{array}\\right.\n$$\n\nhas at least one solution $(x ; y)$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The variables a and b are real parameters, with b fixed and a allowed to be chosen; x,y are real solution variables. Substitute y=−b−x² into the second equation. Its left side can be rewritten as x²+y²+8a²−4a(x+y)−4=0, or (x−2a)²+(y−2a)²=4−? Check by completing squares: (x−2a)²+(y−2a)²=4−? since 8a² is exactly the added square constant; the equation is equivalent to (x−2a)²+(y−2a)²=4. Thus one seeks a real a and a point on this radius-2 circle that also lies on the parabola y=−b−x²."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "1d882f8dfa89da0b4db4de20cc17908682a80e22c2f772cbab8b56ebb8bad972",
+      "teacher_request_id": "b26fc6ea4869b5988249d476ea1cb24d4f76e00fdcedd389696b5c2c4a009d7b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "8.2. On 14 cards, different natural numbers are written, their sum is 112. Masha laid out the cards in ascending order. What can the sum of the numbers on the two middle cards be? Find all possible answers.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Write the distinct natural numbers in increasing order as n₁<⋯<n₁₄, with sum 112. The two middle cards are n₇ and n₈, and the requested quantity is n₇+n₈. Use the minimum possible sum of distinct positive integers on either side and account for the remaining total when testing candidate middle pairs."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "30156258f8336ba919e61b551c38a67dc7847fd6c1f6163a1d72e3b00eb61e63",
+      "teacher_request_id": "72a4b3afc8fde6aeadf70062daa38b16e97ed97b4a6eebfcb7dd4c0362d38fa6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. Given a regular 16-gon $M$. Find the number of quadruples of vertices of this 16-gon that are the vertices of trapezoids.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Choose four distinct vertices of a regular 16-gon and consider the quadrilateral they form in cyclic order. A trapezoid has at least one pair of opposite sides parallel; clarify whether the convention includes parallelograms (they ordinarily do). Parallelism can be expressed through equal chord directions, or equivalently by the corresponding arcs/vertex indices on the circle."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b24fa73cba3689167a7e3a215bc20dc71f299886123d6a24d18ec18bbfd68670",
+      "teacher_request_id": "bb592ac0eb184f145c4614aca0cf081c3d91f031642bef2087fcb4bbdd49c5bb",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "13. In a trapezoid, the lengths of the diagonals are 6 and 8, and the length of the midline is 5. Find the height of the trapezoid.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the parallel base lengths be p and q; the midline gives p+q=10. Place the bases horizontally and let the horizontal displacement between corresponding endpoints be t. The diagonals then have squared lengths h²+(t+p)² and h²+(t+q)² (up to endpoint labeling). Their lengths are 6 and 8. Use these relations to eliminate t and find h; note that the data may allow either assignment of the two diagonal lengths."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d9fd6fe5921ce936f3f647d94d5bb933edf5f9592c56e3a8e198c44fd7029b3f",
+      "teacher_request_id": "605f64c767ec9c9572c931788398684ebc8fe4d52c2971c4868c1a9c787ef30e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 5. (20 points) A point is randomly thrown onto the segment [12; 17] and let $k-$ be the obtained value. Find the probability that the roots of the equation $\\left(k^{2}+k-90\\right) x^{2}+(3 k-8) x+2=0$ satisfy the condition $x_{1} \\leq 2 x_{2}$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Here k is uniform on [12,17], so probability is the length of the admissible k-set divided by 5. On this interval k²+k−90=(k+10)(k−9)>0, so the equation is quadratic. Its discriminant is (3k−8)²−8(k²+k−90); first check it is nonnegative. The root labels x₁,x₂ are not specified as ordered, so state the convention used (usually x₁≤x₂) before translating x₁≤2x₂ into a condition on k."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "cfc869aabb595be3558e953cf2883f5cd9fe9ad250e3c8bc253660a50fec1440",
+      "teacher_request_id": "35f069b3345b2235438b02840206193dbe35152198f775d29a7fad15d24f8ee7",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. Find $g$(2021), if for any real $x, y$ the equality holds\n\n$$\ng(x-y)=g(x)+g(y)-2022(x+y)\n$$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The identity holds for all real x,y. Substituting special choices such as y=0, x=0, and then replacing (x,y) by (y,x) yields constraints on g and can determine its form. The target is g(2021); preserve the exact constant 2022 and the argument x−y."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "98b5e3e5d8095a34f13141d7c79bf59c35b22cdccfee2025c6093c18f4ceeaa7",
+      "teacher_request_id": "9e9b878af0f0bd77711a2a523c790cd35412e6e211f09553799e7ddeb3bfcb93",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. Several boys and girls gathered around a round table. It is known that exactly for 7 girls, girls are sitting to their left, and for 12 - boys. It is also known that for $75\\%$ of the boys, girls are sitting to their right. How many people are sitting at the table?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The wording appears to say that exactly 7 girls have a girl immediately to their left, exactly 12 boys have a girl immediately to their left, and 75% of boys have a girl immediately to their right. Let G and B be the total numbers of girls and boys. Because neighbors around the table are counted position by position, translate the two left-neighbor counts carefully; check whether the phrase “12 - boys” is a typo or means 12 boys. The right-neighbor percentage implies an integer count 3B/4."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d39a778327fb3453a8f4e3c9b41f6713ac942adca7358e4a994623ac4cc64f16",
+      "teacher_request_id": "b4270b60e87c1fcffbc9061961c8ffb481510a2469077c46ec92405a11df41f1",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Find the number of all natural numbers in which each subsequent digit is less than the previous one. (8 points)",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "A natural number is written in decimal notation and each digit after the first is strictly smaller than the digit immediately before it. Thus no digit can repeat, and zero may occur only as the final digit. The question asks for the total number of such positive integers of all possible lengths; handle the first digit as nonzero."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "dc15652ded795662fc0bc5a8cb19aeaf19d01b88ab52b226682ac6bd2d2ec088",
+      "teacher_request_id": "63ebe9fc9c5f6e44b34396ff7e29d4d96dbb8e4012ff388813fc522126490cc5",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "# Problem 3.\n\nFind all functions $f(x)$ defined on the entire number line and satisfying the condition\n\n$$\nf(x-y)=f(x) \\cdot f(y) \\text { for all } x, y.\n$$\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The domain is all real numbers, and f(x−y)=f(x)f(y) for every real pair. Substituting zero and relating y to −y gives strong restrictions; also consider positivity/nonvanishing and the multiplicative law after a change of variables. Include the zero function if it satisfies the identity, and do not assume continuity or other regularity that is not stated."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "4cd516f21d5ed2c129bea25faa3904b6d7c5674400df1a60c26c266740e9055a",
+      "teacher_request_id": "a6569db1c720aa8ce48b75ad6f7827cb740543d6b74c811f4f6f3c5c3abaa95e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Buratino accurately calculated the time and left Papa Carlo's house at 13:40 to arrive at the Field of Wonders and plant 4 soldi exactly at sunset. If he had walked 25% faster, he would have arrived at the Field of Wonders 1.5 hours earlier and waited. At what time did Buratino arrive at the Field of Wonders?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Buratino leaves at 13:40 and in the planned scenario reaches the destination exactly at sunset to plant the coins. Let the walking time at the original speed be t hours and the faster-speed time be 0.8t; the faster arrival is 1.5 hours earlier than sunset and includes waiting. The stated data determine the schedule relative to sunset, so keep separate walking duration, arrival time, and waiting time."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "48ce4cffbcd44343d0084f57503214b564919fddae3abea45d599fe0ed711fad",
+      "teacher_request_id": "59b2961799e886f35254dfa6cb16139e55808f0a15de65e96e48b0187df60559",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "10. Namesakes (recommended from 7th grade, 1 point) Let's assume that among eighth-graders, the name Alexander is three times more common than the name Alexandra, Yevgenyev is three times less common than Yevgeny, Valentinov is one and a half times more common than Valentin, and Vasilyev is 49 times more common than Vasilisa. One day, a randomly selected group of four eighth-graders, about whom we only know that they are called Sanya, Zhenya, Valya, and Vasya, drew lots. Find the probability that the lot was won by an eighth-grade girl, not an eighth-grade boy.\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The four selected students are known only by familiar names Sanya, Zhenya, Valya, and Vasya. For each pair of masculine/feminine name forms, convert the stated population ratios into the conditional probability of being a girl given that familiar name. Then use the assumption that the four are independently/randomly selected from the corresponding name groups; the question asks which of the four drawn lots is a girl, so distinguish that from the probability any particular named student is a girl."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "eae0e85c1da42f30eb68a66aebca2e94603e1b07341a8052642350f956ba83f8",
+      "teacher_request_id": "5d8413d87ea9a76518f5c5a287d4e1b430a557b94d8adebc9ba413b0c8020356",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. Given two linear functions $f(x)$ and $g(x)$ such that the graphs $y=f(x)$ and $y=g(x)$ are parallel lines, not parallel to the coordinate axes. Find the minimum value of the function $(g(x))^{2}+$ $5 f(x)$, if the minimum value of the function $(f(x))^{2}+5 g(x)$ is -17.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Since the two non-axis-parallel linear graphs are parallel, write f(x)=mx+c and g(x)=mx+d with m≠0. The given minimum is over real x for (f(x))²+5g(x); the target is the minimum over real x of (g(x))²+5f(x). Complete the square or change variable from x to the common line value to relate the two minima, retaining the same slope m and offsets c,d."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c83689ff63c72383db16747b873c0ce2d98dfcb068692aaa668d13d49c1afdb7",
+      "teacher_request_id": "ef0c15b8f4330282b35ead4ed4d46f84726c2ceaea307facc3833356abe21dd4",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3.1. (13 points) Ani has blue, green, and red paints. She wants to paint a wooden cube so that after painting, the cube has two faces of each color. In how many different ways can she do this? Ways of painting that can be obtained by rotating the cube are considered the same.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Color the six faces with exactly two blue, two green, and two red. Count assignments up to the 24 orientation-preserving rotations of a cube; reflections are not identified. A useful representation pairs each color's two faces among the three pairs of opposite faces, while also allowing same-color faces to be adjacent. Burnside's lemma can organize the rotation classes, with color counts fixed exactly."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c6c53f61a8f2468b9fa1609371fbc97d8b141c5d706bbafdeda41048df09a831",
+      "teacher_request_id": "0543594a9c77b9f64ba35174f71d52a4933bd7ddb1283f464def7ce6caeb22d6",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5.3. Find the sum of the digits in the decimal representation of the integer part of the number $\\sqrt{\\underbrace{44.44}_{2017} \\underbrace{22 \\ldots 22}_{2018}} 5$.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The notation is potentially ambiguous in plain text: determine whether the radicand is the decimal formed by 2017 copies of the block 44 followed by 2018 copies of the digit 2, and whether the final 5 lies inside the square root. Preserve the grouping as printed. The task is the digit sum of the integer part (floor) of the square root, not the digit sum of the full decimal radicand."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d924205077f358b48bdf9321b896e9ab9b156b03196a93fbaa06d4c7dee0c0f1",
+      "teacher_request_id": "e02a4b03c574585f6164bb0e1b400c789f67a260235e79e918c318bffc0af0ad",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. On the island, $2 / 3$ of all men are married and $3 / 5$ of all women are married. What fraction of the island's population is married",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let M be the number of men and W the number of women. Married men number 2M/3 and married women 3W/5, so the total married fraction is (2M/3+3W/5)/(M+W). The sex ratio M:W is not supplied. Unless another condition links those totals, the requested population fraction depends on M/W and is not uniquely determined; identify this missing information."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "c06e68e44844fb9dc2d82ebc8f518f6ac2fd3a4bbf7a9ba1163420fd909e91a7",
+      "teacher_request_id": "82d1503576dafee5f1fa794496d900fd49b1fc06efd7f3b085943352ba0b5f5e",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "2. In a $10 \\times 10$ grid, the centers of all unit squares are marked (a total of 100 points). What is the minimum number of lines, not parallel to the sides of the square, needed to cross out all the marked points?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The marked points are the 100 centers of unit cells, forming a 10×10 lattice; after a translation and scaling their coordinates can be taken as (i+1/2,j+1/2), 0≤i,j≤9. Each line must not be parallel to either side direction and should pass through at least one marked point. The task is to cover all points with as few such lines as possible; a line can cover multiple lattice points when its slope and intercept permit it."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d55c14d15848254a0b1e22584907bc6a0053dca1bc740b80e8cd21fcc13a5564",
+      "teacher_request_id": "a08332a4963c09cc863331ca30b9e1cf38d198af29391e37a2cc5ec947b268d9",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "1. Solve the system $\\left\\{\\begin{array}{l}\\sqrt{2 x^{2}+2}=y+1 ; \\\\ \\sqrt{2 y^{2}+2}=z+1 ; \\\\ \\sqrt{2 z^{2}+2}=x+1 .\\end{array}\\right.$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Each square root is the principal nonnegative root. Consequently y+1, z+1, and x+1 must be nonnegative, and the equations cycle x→y→z→x. One useful form is y=√(2x²+2)−1 and its cyclic analogues; compare or compose these relations while retaining the sign/domain restrictions."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "86db0023e97d458537ad3ebbdfb69fb256880e8b6acfd1a62ad18ca43107f696",
+      "teacher_request_id": "ec8c23d69dd4de4d6c203cf81cf8bdd44306a0a14fa54714d049613bb53e8f90",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "415. From a regular pentagon with a side of 1 cm, all points that are at a distance less than 1 cm from all vertices of the pentagon have been removed. Find the area of the remaining part.",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the regular pentagon vertices be V₁,…,V₅ and the pentagon's interior be the region under consideration. The removed set is the intersection of the five open disks of radius 1 centered at the vertices: points whose distance from every vertex is <1. The remaining region is the pentagon with that common intersection removed (boundary points at distance exactly 1 remain). Confirm whether “remaining part” is restricted to the pentagon, as the wording otherwise does not explicitly state the ambient region."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "3be9d56151a6be967e0f361575d68c1c22fd6cd4c72c62f0dfe41319da57908d",
+      "teacher_request_id": "3d54e445158a62b7079741b78cb4f0bb88af82b4e59c498e7351b34c90f7b214",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "3. Solve the system of equations $\\left\\{\\begin{array}{l}x^{2} y+x y^{2}+3 x+3 y+24=0, \\\\ x^{3} y-x y^{3}+3 x^{2}-3 y^{2}-48=0 .\\end{array}\\right.$",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The first equation factors as (x+y)(xy+3)+24=0. The second can be grouped as xy(x²−y²)+3(x²−y²)−48=0, or (x²−y²)(xy+3)=48. Set u=x+y and v=x−y, so xy=(u²−v²)/4 and x²−y²=uv; use both transformed equations to reduce the system, then recover x=(u+v)/2 and y=(u−v)/2."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "5fbfed5bec8a855f52aabdc6599313ea61d6f249a423e4c0563e7810ca618e31",
+      "teacher_request_id": "1d8a92c6fe9bcd3707062c3c89a7ccc70d0ff2654f3264cd9d4657503e535d74",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "Problem 10.2. How many real numbers $x$ exist such that the value of the expression $\\sqrt{123-\\sqrt{x}}$ is an integer?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "For real x, the inner root requires x≥0, and the outer radicand requires √x≤123. If the displayed expression equals an integer n, then n is a nonnegative integer and √x=123−n² must be nonnegative. Conversely each allowed integer n yields x=(123−n²)². Count the integer n values satisfying these constraints; different n give different x."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "4d1d7c2bf7ff46c5a33337541f15d94ec1ec5538e85c423889bd0928f6363578",
+      "teacher_request_id": "ac57b6a00dc5f31a52d247d204c3ec89026c7d53ff8bb58b7a09467f719297ce",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "65. What is the smallest degree that a polynomial $P$ can have if it is known that there exists an integer $b$ such that $A_{P}$ contains elements both greater and less than $b$, but does not contain $b$?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The notation A_P is not defined in the supplied question, and no condition defining the set associated with polynomial P is given. The stated property is that A_P has elements on both sides of an integer b but omits b. To find a degree, one needs the definition of A_P (for example, whether it denotes values, roots, or something else); without it the optimization problem is underspecified."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "b9e47aa4548c33e22efbbe36c8ea0d68c6ac356d73eb086715f7ebabf3023dc0",
+      "teacher_request_id": "856e7d1068a3af639ae4d9e05c5368bba2ef9fd7a2cfb426520a3f4223732e5f",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "5. On the board, the numbers $1, \\frac{1}{2}, \\frac{1}{3}, \\ldots, \\frac{1}{100}$ are written. It is allowed to erase any two numbers $a$ and $b$ and write $a+b+a b$ instead. After several such operations, only one number remains on the board. What can this number be?",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "The update a+b+ab satisfies 1+(a+b+ab)=(1+a)(1+b). Thus the quantity 1+current_value is invariant under combining two entries, in the sense that it becomes their product after adding 1. Starting entries are 1/n for n=1,…,100; consequently any sequence of operations has the same final value. Use the product ∏(1+1/n), then subtract 1."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "d7e678c22ab18fdb4ed7ab37d1659b228dd06f42d66575786e5703f3bf4e3a01",
+      "teacher_request_id": "f7eb3b17633ce0ee3911ee229b820947bab554c99c2699fe35f41b78af3bfbf1",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  },
+  {
+    "messages": [
+      {
+        "content": "You are a reasoning sub-agent. Use the subject matter of the supplied question. Extract givens, constraints, variables and useful equivalent formulations. Give concise concrete help. You have no answer key. Do not use tools.",
+        "role": "system"
+      },
+      {
+        "content": "9. (20 points) On the sides of a triangle, isosceles triangles are constructed outward with angles at the vertices $\\alpha, \\beta$ and $\\gamma$, where $\\alpha+\\beta+\\gamma=360^{\\circ}$. Find the angles of the triangle formed by the vertices of these isosceles triangles.\n\n#",
+        "role": "user"
+      },
+      {
+        "role": "assistant",
+        "content": "Let the original triangle's angles be A,B,C, with A+B+C=180°. On each side, an outward isosceles triangle is built; α, β, γ are the specified angles at the corresponding original vertices and satisfy α+β+γ=360°. Identify the three new apexes and the triangle they form. Establish the angle at each new apex from the adjacent isosceles triangles and the original angles; check whether the construction's wording fully specifies which base angles of each isosceles triangle are α, β, or γ."
+      }
+    ],
+    "metadata": {
+      "role": "extractor",
+      "split": "train",
+      "question_hash": "9979221a1599e4174343c7fe0f579baa1037b0bed884729f4c75eb2307e1b761",
+      "teacher_request_id": "bc109a48e51811edf976d9e0f88740797b7cbc65f5a63934175a529960268e2b",
+      "teacher_model": "gpt-6-luna",
+      "teacher_generation_surface": "codex_subagent",
+      "reviewed": false
+    }
+  }
+]
