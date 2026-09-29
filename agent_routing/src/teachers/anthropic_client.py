@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from .base import TeacherClient, TeacherResponse
+from ._response_metadata import failure_message, response_metadata
 
 
 class AnthropicTeacherClient(TeacherClient):
@@ -28,7 +29,7 @@ class AnthropicTeacherClient(TeacherClient):
         key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not key:
             raise RuntimeError("ANTHROPIC_API_KEY not set.")
-        self._client = Anthropic(api_key=key, timeout=self.timeout)
+        self._client = Anthropic(api_key=key, timeout=self.timeout, max_retries=0)
 
     @staticmethod
     def _split_system(messages: List[Dict[str, str]]):
@@ -52,8 +53,11 @@ class AnthropicTeacherClient(TeacherClient):
     ) -> TeacherResponse:
         system, msgs = self._split_system(messages)
         last_err: Optional[Exception] = None
+        started = time.perf_counter()
+        request_attempts = 0
         for attempt in range(self.max_retries + 1):
             try:
+                request_attempts += 1
                 resp = self._client.messages.create(
                     model=self.model,
                     system=system,
@@ -68,11 +72,14 @@ class AnthropicTeacherClient(TeacherClient):
                 text = "".join(text_parts).strip()
                 return TeacherResponse(
                     text=text, provider=self.provider, model=self.model,
-                    raw={"id": getattr(resp, "id", "")},
+                    raw=response_metadata(resp, finish_reason=getattr(resp, "stop_reason", None),
+                                          latency_seconds=time.perf_counter() - started,
+                                          request_attempts=request_attempts,
+                                          input_field="input_tokens", output_field="output_tokens"),
                 )
             except Exception as e:
                 last_err = e
                 if attempt < self.max_retries:
                     time.sleep(min(2 ** attempt, 8))
                 continue
-        raise RuntimeError(f"Anthropic chat failed after retries: {last_err}")
+        raise RuntimeError(failure_message("Anthropic", last_err, request_attempts)) from None

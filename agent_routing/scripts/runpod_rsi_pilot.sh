@@ -8,7 +8,7 @@ export HF_HUB_DISABLE_XET=1
 export TMPDIR="${TMPDIR:-/workspace/margent-tmp}"
 mkdir -p "$TMPDIR"
 RSI_PYTHON="${RSI_PYTHON:-/workspace/margent-venv/bin/python}"
-RSI_EXPERT_ROOT="${RSI_EXPERT_ROOT:-/workspace/margent-expert-sft-01}"
+RSI_EXPERT_ROOT="${RSI_EXPERT_ROOT:-/workspace/margent-expert-teacher-sft-01}"
 RSI_CONFIG="${RSI_CONFIG:-$RSI_EXPERT_ROOT/manager_config.json}"
 RSI_DATA="${RSI_DATA:-/workspace/margent-data-restart-20260925}"
 RSI_SUBSET="${RSI_SUBSET:-/workspace/margent-rsi-pilot-data-v1}"

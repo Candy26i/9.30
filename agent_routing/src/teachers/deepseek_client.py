@@ -12,6 +12,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from .base import TeacherClient, TeacherResponse
+from ._response_metadata import failure_message, response_metadata
 
 
 DEEPSEEK_DEFAULT_BASE_URL = "https://api.deepseek.com"
@@ -39,7 +40,7 @@ class DeepSeekTeacherClient(TeacherClient):
         if not key:
             raise RuntimeError("DEEPSEEK_API_KEY not set.")
         url = base_url or os.environ.get("DEEPSEEK_BASE_URL", DEEPSEEK_DEFAULT_BASE_URL)
-        self._client = OpenAI(api_key=key, base_url=url, timeout=self.timeout)
+        self._client = OpenAI(api_key=key, base_url=url, timeout=self.timeout, max_retries=0)
 
     def chat(
         self,
@@ -48,8 +49,11 @@ class DeepSeekTeacherClient(TeacherClient):
         max_tokens: int = 2048,
     ) -> TeacherResponse:
         last_err: Optional[Exception] = None
+        started = time.perf_counter()
+        request_attempts = 0
         for attempt in range(self.max_retries + 1):
             try:
+                request_attempts += 1
                 resp = self._client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -59,11 +63,13 @@ class DeepSeekTeacherClient(TeacherClient):
                 text = (resp.choices[0].message.content or "").strip()
                 return TeacherResponse(
                     text=text, provider=self.provider, model=self.model,
-                    raw={"id": getattr(resp, "id", "")},
+                    raw=response_metadata(resp, finish_reason=getattr(resp.choices[0], "finish_reason", None),
+                                          latency_seconds=time.perf_counter() - started,
+                                          request_attempts=request_attempts),
                 )
             except Exception as e:
                 last_err = e
                 if attempt < self.max_retries:
                     time.sleep(min(2 ** attempt, 8))
                 continue
-        raise RuntimeError(f"DeepSeek chat failed after retries: {last_err}")
+        raise RuntimeError(failure_message("DeepSeek", last_err, request_attempts)) from None

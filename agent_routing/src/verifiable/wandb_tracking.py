@@ -102,8 +102,8 @@ class WandbTracker:
             raise ValueError("Set WANDB_ENTITY to your W&B username or team before enabling tracking")
         # A loop owns the group; its subprocess stages discover the same manifest.
         experiment = next((p for p in (self.root, *self.root.parents)
-                           if any((p / name).exists() for name in ("expert_run.json", "rsi_run.json", "loop.json", "benchmark_run.json"))), self.root)
-        manifest = next((experiment / name for name in ("expert_run.json", "rsi_run.json", "loop.json", "benchmark_run.json", "run.json", "training_run.json")
+                           if any((p / name).exists() for name in ("expert_run.json", "synthesis_run.json", "rsi_run.json", "loop.json", "benchmark_run.json"))), self.root)
+        manifest = next((experiment / name for name in ("expert_run.json", "synthesis_run.json", "rsi_run.json", "loop.json", "benchmark_run.json", "run.json", "training_run.json")
                          if (experiment / name).exists()), None)
         metadata = _read(manifest) if manifest else {}
         stage_manifest = next((self.root / name for name in ("training_run.json", "run.json")
@@ -186,6 +186,7 @@ class WandbTracker:
         if self.run is None:
             return
         names = {"run.json", "training_run.json", "loop.json", "rsi_run.json", "benchmark_run.json", "expert_run.json",
+                 "synthesis_run.json", "synthesis_status.json",
                  "expert_status.json", "expert_report.json", "expert_data_report.json", "experts.json", "manager_config.json",
                  "data_report.json", "dev_metrics.json", "expert_checkpoint.json", "expert_eval_report.json",
                  "summary.json", "run_summary.json", "status.json", "training_metrics.json",
@@ -198,9 +199,14 @@ class WandbTracker:
                  "gpu_samples.jsonl", "wandb_link.json", ".stage_complete.json", ".rsi_complete.json"}
         if self.text_enabled:
             names.update({"records.jsonl", "generations.jsonl", "rollout_diagnostics.jsonl", "invalid_group.json"})
+            if (self.root / 'synthesis_run.json').exists():
+                names.update({'pool.jsonl', 'references.jsonl', 'exclusions.jsonl', 'teacher_requests.jsonl',
+                              'teacher_responses.jsonl', 'pending_requests.jsonl', 'verifier_requests.jsonl'})
         paths = [self.root / name for name in sorted(names) if (self.root / name).is_file()]
         paths += sorted(self.root.glob("environment_*.json"))
         paths += sorted(self.root.glob("logs/*.log"))
+        if self.text_enabled and (self.root / 'synthesis_run.json').exists():
+            paths += sorted(self.root.glob('calls/*/*.json'))
         # Freeze the complete expert dataset identity; raw prompts/references are opt-in.
         if (self.root / 'expert_run.json').exists():
             paths += [p for p in (self.root / 'data/manifest.json',) if p.is_file()]

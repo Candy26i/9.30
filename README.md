@@ -37,6 +37,6 @@ the historical SFT-only loop and disabled legacy RL entry point are unchanged.
 - [Complete experiment plan (Chinese): training stages, benchmarks, controls, budgets, and current status](agent_routing/docs/MARGENT_RSI_EXPERIMENT_PLAN.md)
 - [Subagent training plan (Chinese): role data, LoRA SFT, validation, frozen serving, and implementation gaps](agent_routing/docs/SUBAGENT_TRAINING_PLAN.md)
 
-The math workflow now starts with three independent Numina role SFT adapters, then freezes them for Manager training. Data isolation, resumable SFT, role serving and W&B evidence are implemented; a completed 9B GPU experiment is still required.
+The math workflow starts with OpenAI/gpt-4o synthesis on an isolated Numina question pool, then trains three independent role SFT adapters and freezes them for Manager training. Teacher generation, data isolation, resumable SFT, role serving and W&B evidence are connected. Real teacher API generation, 9B GPU execution and independent role-quality evaluation still need to be performed. Rule-based labels are an explicit debug ablation only.
 
 - [Expert-first RunPod entry point and supervision limits](agent_routing/docs/EXPERT_SFT_RUNPOD.md)

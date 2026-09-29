@@ -24,6 +24,151 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _verified_files(root, hashes):
+    """Authenticate every published file, including optional provenance evidence."""
+    if not isinstance(hashes, dict) or not hashes:
+        raise ValueError("Expert manifest requires a nonempty file fingerprint map")
+    root = Path(root).resolve()
+    for relative, expected in hashes.items():
+        if (not isinstance(relative, str) or not relative or "\\" in relative
+            or "\x00" in relative or Path(relative).is_absolute()
+            or any(part in ("", ".", "..") for part in relative.split("/"))):
+            raise ValueError(f"Expert manifest requires a safe relative file path: {relative!r}")
+        path = root / relative
+        if not path.resolve().is_relative_to(root):
+            raise ValueError(f"Expert manifest file escapes the data directory: {relative}")
+        if not path.is_file():
+            raise ValueError(f"Expert manifest file is missing or not a file: {relative}")
+        if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected) or digest(path) != expected:
+            raise ValueError(f"Expert data fingerprint mismatch: {relative}")
+
+
+_WEAK_LABEL_SOURCES = frozenset({"question_span_extraction_weak", "numina_reference_weak",
+    "executable_reference_arithmetic", "executable_arithmetic_corruption"})
+
+
+def supervision_metadata(manifest):
+    """Keep label origin separate from correctness and human-review claims."""
+    mode = manifest.get("supervision")
+    if mode is None:
+        mode = ("legacy_rule_weak" if manifest.get("quality_audit", {}).get("teacher_used") is False
+                else "legacy_unspecified")
+    return {"supervision": mode, "teacher": manifest.get("teacher"),
+        "synthesis": manifest.get("synthesis"), "data_quality_audit": manifest.get("quality_audit", {}),
+        "supervision_scope": "label provenance only; teacher output and unreviewed labels are not correctness evidence"}
+
+
+def _json_digest(value):
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                    separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _teacher_evidence(root, manifest):
+    """Validate archived teacher calls without contacting the teacher service."""
+    if manifest.get("supervision") != "teacher_synthetic":
+        return None
+    from ..utils.io import read_jsonl
+    teacher = manifest.get("teacher")
+    if (not isinstance(teacher, dict) or any(not isinstance(teacher.get(k), str) or not teacher[k].strip()
+                                          for k in ("provider", "model"))
+        or "revision" not in teacher or teacher["revision"] is not None and not isinstance(teacher["revision"], str)
+        or not isinstance(manifest.get("synthesis"), dict)):
+        raise ValueError("Teacher supervision requires explicit teacher identity and synthesis metadata")
+    synthesis = manifest["synthesis"]
+    if (not isinstance(synthesis.get("config"), dict)
+        or synthesis.get("config_sha256") != _json_digest(synthesis["config"])
+        or not re.fullmatch(r"[0-9a-f]{64}", str(synthesis.get("run_sha256", "")))):
+        raise ValueError("Teacher synthesis configuration or run fingerprint is invalid")
+    quality = manifest.get("quality_audit")
+    if (not isinstance(quality, dict) or quality.get("teacher_used") is not True
+        or quality.get("reviewed") is not False or quality.get("reviewed_examples", 0) != 0):
+        raise ValueError("Teacher-synthetic exports are unreviewed; human review requires separate review evidence")
+    for name in ("teacher_requests.jsonl", "teacher_responses.jsonl"):
+        if name not in manifest["sha256"]:
+            raise ValueError(f"Teacher supervision is missing fingerprinted evidence: {name}")
+    requests, accepted = {}, {}
+    for request in read_jsonl(str(root / "teacher_requests.jsonl")):
+        request_id = request.get("request_id")
+        if (request.get("schema_version") != 1 or request_id in requests
+            or request_id != _json_digest({k: v for k, v in request.items() if k != "request_id"})
+            or request.get("prompt_sha256") != _json_digest(request.get("messages"))
+            or not isinstance(request.get("messages"), list) or not request["messages"]
+            or request.get("provider") != teacher["provider"] or request.get("model") != teacher["model"]
+            or request.get("teacher_revision") != teacher["revision"]
+            or request.get("config_sha256") != synthesis["config_sha256"]
+            or request.get("run_sha256") != synthesis["run_sha256"]):
+            raise ValueError("Teacher request identity, prompt or fingerprint mismatch")
+        requests[request_id] = request
+    for evidence in read_jsonl(str(root / "teacher_responses.jsonl")):
+        request = requests.get(evidence.get("request_id"))
+        response = evidence.get("response")
+        validation = evidence.get("validation")
+        if (evidence.get("schema_version") != 1 or request is None or not isinstance(validation, dict)
+            or type(validation.get("accepted")) is not bool):
+            raise ValueError("Teacher response has missing request or validation evidence")
+        if response is None:
+            if evidence.get("response_sha256") is not None or validation["accepted"]:
+                raise ValueError("Empty teacher response cannot be accepted")
+            continue
+        if (not isinstance(response, dict) or evidence.get("response_sha256") != _json_digest(response)
+            or response.get("provider") != request["provider"] or response.get("model") != request["model"]):
+            raise ValueError("Teacher response identity or fingerprint mismatch")
+        if validation["accepted"]:
+            if not isinstance(response.get("text"), str) or not response["text"].strip():
+                raise ValueError("Accepted teacher response requires nonempty target text")
+            accepted[(evidence["request_id"], evidence["response_sha256"])] = evidence
+    return teacher, requests, accepted
+
+
+def _verify_teacher_row(row, evidence):
+    if evidence is None:
+        if row.get("label_source") == "teacher_synthetic":
+            raise ValueError("Teacher targets require a teacher_synthetic manifest and archived evidence")
+        return
+    teacher, requests, accepted = evidence
+    request = requests.get(row.get("teacher_request_id"))
+    response_evidence = accepted.get((row.get("teacher_request_id"), row.get("teacher_response_sha256")))
+    response = response_evidence["response"] if response_evidence else None
+    if (row.get("label_source") != "teacher_synthetic" or request is None or response is None
+        or row.get("teacher_provider") != teacher["provider"] or row.get("teacher_model") != teacher["model"]
+        or "teacher_revision" not in row or row["teacher_revision"] != teacher["revision"]
+        or "teacher_actual_model" not in row or row["teacher_actual_model"] != response.get("actual_model")
+        or row.get("teacher_prompt_sha256") != request["prompt_sha256"]
+        or row.get("response") != response["text"]
+        or row.get("role") != request.get("kind") or row.get("split") != request.get("split")
+        or row.get("question_hash") != request.get("question_hash")):
+        raise ValueError("Expert teacher target does not match its accepted request/response evidence")
+    if row.get("reviewed") is not False:
+        raise ValueError("Teacher-synthetic targets cannot claim human review without review evidence")
+    if row["role"] == "verifier":
+        verdict = response_evidence["validation"].get("verdict")
+        if verdict not in ("correct", "incorrect", "uncertain") or row.get("verdict") != verdict:
+            raise ValueError("Expert verifier verdict differs from its accepted teacher validation evidence")
+        candidate_id = row.get("candidate_request_id")
+        candidate_hash = row.get("candidate_response_sha256")
+        candidate_request = requests.get(candidate_id)
+        candidate = accepted.get((candidate_id, candidate_hash))
+        if (candidate_request is None or candidate is None or candidate_request.get("kind") != "candidate"
+            or request.get("candidate_request_id") != candidate_id
+            or request.get("candidate_response_sha256") != candidate_hash
+            or candidate_request.get("question_hash") != row["question_hash"]
+            or candidate_request.get("split") != row["split"] or candidate["response"]["text"] != row.get("candidate")):
+            raise ValueError("Expert verifier candidate does not match accepted teacher evidence")
+
+
+def _verify_supervision_config(config, manifest):
+    mode = config.get("expert_data_mode")
+    if mode == "teacher_synthetic" and manifest.get("supervision") != "teacher_synthetic":
+        raise ValueError("Configured teacher_synthetic training requires teacher-synthesized data")
+    if mode == "weak_debug" and manifest.get("supervision") == "teacher_synthetic":
+        raise ValueError("weak_debug is reserved for the explicit legacy weak-supervision ablation")
+    expected = config.get("expected_teacher")
+    if expected is not None:
+        actual = manifest.get("teacher")
+        if not isinstance(actual, dict) or any(actual.get(key) != value for key, value in expected.items()):
+            raise ValueError("Expert data teacher does not match the configured expected_teacher")
+
+
 def load_config(source):
     config = dict(source) if isinstance(source, dict) else json.loads(Path(source).read_text())
     for alias, name in (("lr", "learning_rate"), ("batch", "per_device_batch_size"),
@@ -40,6 +185,16 @@ def load_config(source):
     config = {**defaults, **config}
     if not isinstance(config.get("base_model"), str) or not config["base_model"]:
         raise ValueError("base_model is required")
+    if config.get("expert_data_mode") not in (None, "teacher_synthetic", "weak_debug"):
+        raise ValueError("expert_data_mode must be teacher_synthetic or weak_debug")
+    if "expected_teacher" in config:
+        teacher = config["expected_teacher"]
+        if (not isinstance(teacher, dict) or not teacher or set(teacher) - {"provider", "model", "revision"}
+            or any(not isinstance(value, str) or not value.strip() for key, value in teacher.items()
+                   if key != "revision" or value is not None)):
+            raise ValueError("expected_teacher requires named provider/model/revision constraints")
+        if config.get("expert_data_mode") == "weak_debug":
+            raise ValueError("weak_debug cannot require a teacher")
     base = Path(config["base_model"])
     if (base / "adapter_config.json").exists():
         raise ValueError("Each expert must start independently from the base, not an adapter")
@@ -87,9 +242,8 @@ def read_dataset(data_dir, role):
     if manifest.get("protocol_sha256") != protocol_hash:
         raise ValueError("Expert data advisor protocol differs from the current serving protocol")
     hashes = manifest.get("sha256", {})
-    for sidecar in ("references.jsonl", "exclusions.jsonl"):
-        if sidecar in hashes and digest(root / sidecar) != hashes[sidecar]:
-            raise ValueError(f"Expert sidecar fingerprint mismatch: {sidecar}")
+    _verified_files(root, hashes)
+    teacher_evidence = _teacher_evidence(root, manifest)
     all_rows = {}
     questions = {"train": set(), "dev": set()}
     source_ids = {"train": set(), "dev": set()}
@@ -125,6 +279,9 @@ def read_dataset(data_dir, role):
                     raise ValueError(f"Expert prompt does not follow the serving role protocol: {relative}")
                 if not isinstance(row.get("response"), str) or not row["response"].strip():
                     raise ValueError(f"Expert target must be nonempty assistant text: {relative}")
+                if "label_source" in row and (not isinstance(row["label_source"], str) or not row["label_source"].strip()):
+                    raise ValueError(f"Expert label_source must be nonempty text: {relative}")
+                _verify_teacher_row(row, teacher_evidence)
                 questions[split].add(row["question_hash"])
                 source_ids[split].add(str(row["source_id"]))
             all_rows[(kind, split)] = rows
@@ -137,7 +294,9 @@ def tokenize_rows(rows, tokenizer, max_seq_len):
     features, excluded = [], []
     report = {"input_rows": len(rows), "kept_rows": 0, "overlength_rows": 0,
               "empty_token_rows": 0, "input_tokens_per_epoch": 0,
-              "supervised_tokens_per_epoch": 0, "reviewed_rows": 0}
+              "supervised_tokens_per_epoch": 0, "reviewed_rows": 0,
+              "teacher_generated_rows": 0, "weak_supervision_rows": 0,
+              "other_supervision_rows": 0, "label_source_counts": {}}
     for index, row in enumerate(rows):
         prompt = render(tokenizer, row["prompt"])
         full = render(tokenizer, [*row["prompt"], {"role": "assistant", "content": row["response"]}], generation=False)
@@ -159,10 +318,15 @@ def tokenize_rows(rows, tokenizer, max_seq_len):
                          "labels": [-100] * len(prompt_ids) + target_ids})
         report["kept_rows"] += 1
         report["reviewed_rows"] += int(row.get("reviewed") is True)
+        source = row.get("label_source") or "unspecified"
+        report["label_source_counts"][source] = report["label_source_counts"].get(source, 0) + 1
+        supervision = ("teacher_generated" if source == "teacher_synthetic" else
+                       "weak_supervision" if source in _WEAK_LABEL_SOURCES else "other_supervision")
+        report[supervision + "_rows"] += 1
         report["input_tokens_per_epoch"] += size
         report["supervised_tokens_per_epoch"] += len(target_ids)
     report["dropped_rows"] = len(excluded)
-    report["weak_supervision_rows"] = report["kept_rows"] - report["reviewed_rows"]
+    report["unreviewed_rows"] = report["kept_rows"] - report["reviewed_rows"]
     return features, report, excluded
 
 
@@ -225,6 +389,7 @@ def train_expert(config, data_dir, role, output, resume=False):
         raise ValueError("Math expert SFT supports one training process per role")
     config = load_config(config)
     manifest, train_rows, dev_rows = read_dataset(data_dir, role)
+    _verify_supervision_config(config, manifest)
     root = Path(output)
     signature = {"schema_version": 1, "stage": "expert_sft", "role": role,
         "config": config, "base_identity": checkpoint_identity(config["base_model"]),
@@ -265,7 +430,12 @@ def train_expert(config, data_dir, role, output, resume=False):
             "template_sha256": manifest["template_sha256"], "protocol_sha256": manifest["protocol_sha256"],
             "data_manifest_sha256": signature["data_manifest_sha256"],
             "training_run_sha256": signature_hash, "resumed_checkpoint": checkpoint,
-            "optimizer_step_budget": config["max_steps"], "training_config": config}
+            "optimizer_step_budget": config["max_steps"], "training_config": config,
+            **supervision_metadata(manifest)}
+        if manifest.get("supervision") == "teacher_synthetic":
+            metadata.update(teacher_actual_models=sorted({row["teacher_actual_model"] for row in train_rows + dev_rows
+                                                        if row["teacher_actual_model"] is not None}),
+                teacher_actual_model_unknown_rows=sum(row["teacher_actual_model"] is None for row in train_rows + dev_rows))
         monitor.summary(metadata)
         try:
             result = _train(config, train_rows, dev_rows, role, root, checkpoint, signature_hash, monitor)

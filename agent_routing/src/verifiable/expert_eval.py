@@ -1,7 +1,7 @@
 """Optional dev comparison of prompt-only advisors and frozen role adapters.
 
-This is a role diagnostic, not an independent math benchmark. Extractor and
-reasoner quality requires human review; verifier labels cover local arithmetic.
+This is a role diagnostic, not an independent math benchmark. Teacher labels
+measure teacher agreement; only the explicit arithmetic control is executable.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import threading
 import time
 
 from .backend import HFBackend
-from .expert_train import read_dataset, digest
+from .expert_train import read_dataset, digest, supervision_metadata
 from .protocol import KINDS
 from .runner import checkpoint_identity
 from .serve import EXPERT_ADAPTERS, FrozenExpertBackend, generate_advisor_request, load_expert_bundle, expert_bundle_sha256
@@ -127,9 +127,43 @@ def _read_result(path, task, signature_hash, max_tokens, expected_identity):
     return value
 
 
+def _label_basis(row):
+    if row.get("label_source") == "teacher_synthetic":
+        return "teacher_label_agreement"
+    checks = row.get("quality_checks", {})
+    if checks.get("scope") == "local_arithmetic_step" and checks.get("arithmetic_verified") is True:
+        return "local_arithmetic_verification"
+    return "reference_label_agreement"
+
+
+def _verdict_stats(completed):
+    n = len(completed)
+    labels = [label for label in VERDICTS if any(row.get("verdict") == label for row, _ in completed)]
+    confusion = {truth: {pred: 0 for pred in (*VERDICTS, "unparsed")} for truth in labels}
+    for row, output in completed:
+        truth = row.get("verdict")
+        if truth not in VERDICTS:
+            raise ValueError("Verifier development row has no supported reference verdict")
+        confusion[truth][parse_verdict(output["text"]) or "unparsed"] += 1
+    f1 = {}
+    for label in labels:
+        tp = confusion[label][label]
+        fp = sum(counts[label] for truth, counts in confusion.items() if truth != label)
+        fn = sum(confusion[label].values()) - tp
+        f1[label] = 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0
+    return {"n": n, "labeled_classes": labels, "confusion": confusion, "class_f1": f1,
+            "macro_f1": sum(f1.values()) / len(f1) if f1 else None,
+            "accuracy": sum(confusion[label][label] for label in labels) / n if n else None}
+
+
 def build_report(selected, results):
+    bases = sorted({_label_basis(row) for row in selected.get("verifier", [])})
+    scopes = {"teacher_label_agreement": "teacher_label_agreement_not_independent_correctness",
+              "local_arithmetic_verification": "local_arithmetic_step_only_not_full_proof_verification",
+              "reference_label_agreement": "reference_label_agreement_not_independent_correctness"}
     report = {"evaluation_kind": "expert_dev_diagnostic", "independent_benchmark": False,
-              "verifier_scope": "local_arithmetic_step_only_not_full_proof_verification",
+              "verifier_scope": scopes[bases[0]] if len(bases) == 1 else "mixed_or_empty_label_sources",
+              "verifier_label_bases": bases,
               "manual_review_required": ["extractor", "reasoner", "verifier_error_localization"],
               "verdict_scoring": "explicit verdict only, including truncated outputs; incompleteness reported separately",
               "arms": {arm: {} for arm in ARMS}}
@@ -148,27 +182,23 @@ def build_report(selected, results):
                      "empty_count": sum(not r["text"].strip() for _, r in completed),
                      "truncated_count": sum(r["truncated"] for _, r in completed),
                      "context_budget_error_count": sum(r.get("error") == "context_budget_exceeded" for _, r in completed),
-                     "quality_assessed": role == "verifier"}
+                     "quality_assessed": role == "verifier" and bases == ["local_arithmetic_verification"],
+                     "quality_scope": "human_review_required"}
             if role == "verifier":
-                labels = [label for label in VERDICTS if any(row.get("verdict") == label for row, _ in completed)]
-                confusion = {truth: {pred: 0 for pred in (*VERDICTS, "unparsed")} for truth in labels}
-                for row, output in completed:
-                    truth = row.get("verdict")
-                    if truth not in VERDICTS:
-                        raise ValueError("Verifier development row has no supported ground-truth verdict")
-                    confusion[truth][parse_verdict(output["text"]) or "unparsed"] += 1
-                f1 = {}
-                for label in labels:
-                    tp = confusion[label][label]
-                    fp = sum(counts[label] for truth, counts in confusion.items() if truth != label)
-                    fn = sum(confusion[label].values()) - tp
-                    f1[label] = 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0
                 parsed = sum(parse_verdict(output["text"]) is not None for _, output in completed)
-                stats.update(labeled_classes=labels, confusion=confusion, class_f1=f1,
-                             macro_f1=sum(f1.values()) / len(f1) if f1 else None,
-                             parsed_count=parsed, unparsed_count=n-parsed, parse_rate=parsed / n if n else None,
-                             verdict_accuracy=sum(confusion[label][label] for label in labels) / n if n else None)
+                stats.update(parsed_count=parsed, unparsed_count=n-parsed, parse_rate=parsed / n if n else None,
+                             quality_scope=report["verifier_scope"])
+                # Separate pseudo-label agreement from executable control scores,
+                # including mixed datasets. A common accuracy would hide provenance.
+                for basis in bases:
+                    measured = _verdict_stats([(row, value) for row, value in completed if _label_basis(row) == basis])
+                    stats[basis] = measured
+                    if bases == ["local_arithmetic_verification"]:
+                        stats.update({k: v for k, v in measured.items() if k not in ("accuracy", "n")})
+                        stats["verdict_accuracy"] = measured["accuracy"]
             report["arms"][arm][role] = stats
+    if any(basis != "local_arithmetic_verification" for basis in bases):
+        report["manual_review_required"].append("verifier_correctness")
     return report
 
 
@@ -184,10 +214,14 @@ def write_review(root, selected, results, signature_hash):
                       "outputs": outputs, "run_sha256": signature_hash,
                       "human_review": {"status": "pending", "quality": None, "error_localization": None}}
             for key in ("source_id", "source_revision", "source_record_sha256", "reference_sha256",
-                        "label_source", "quality_checks", "verdict", "arithmetic_evidence", "corruption", "reviewed"):
+                        "label_source", "quality_checks", "verdict", "arithmetic_evidence", "corruption", "reviewed",
+                        "teacher_provider", "teacher_model", "teacher_revision", "teacher_actual_model",
+                        "teacher_request_id", "teacher_response_sha256", "teacher_prompt_sha256",
+                        "candidate_request_id", "candidate_response_sha256", "candidate_terminal_diagnostic"):
                 if key in row:
                     record[key] = row[key]
             if role == "verifier":
+                record["verdict_label_basis"] = _label_basis(row)
                 record["parsed_verdicts"] = {arm: parse_verdict(value["text"]) for arm, value in outputs.items()}
             records.append(record)
     path = Path(root) / "review.jsonl"
@@ -205,7 +239,7 @@ def evaluate(bundle_file, data_dir, output, limit=32, max_tokens=512, minutes=12
     bundle = load_expert_bundle(bundle_file)
     selected = {}
     for role in KINDS:
-        _, _, rows = read_dataset(data_dir, role)
+        data_manifest, _, rows = read_dataset(data_dir, role)
         selected[role] = rows[:limit]
         if role == "verifier" and any(row.get("verdict") not in VERDICTS for row in selected[role]):
             raise ValueError("Verifier development labels must be correct, incorrect or uncertain")
@@ -213,6 +247,7 @@ def evaluate(bundle_file, data_dir, output, limit=32, max_tokens=512, minutes=12
                  "expert_bundle_sha256": expert_bundle_sha256(bundle),
                  "base_identity": checkpoint_identity(bundle["base_model"]), "harness": harness_identity(),
                  "data_manifest_sha256": digest(Path(data_dir) / "manifest.json"),
+                 "data_supervision": supervision_metadata(data_manifest),
                  "selected_rows": {role: [_hash(row) for row in rows] for role, rows in selected.items()},
                  "config": {"limit": limit, "max_tokens": max_tokens, "minutes": minutes,
                             "max_context": max_context, "temperature": 0.0, "seed": 42}}

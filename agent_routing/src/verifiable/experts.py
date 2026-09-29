@@ -11,9 +11,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 
@@ -31,15 +33,92 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def build_plan(config, manager_data_dir, output, raw_jsonl=None):
+def data_mode(cfg):
+    mode = cfg.get('expert_data_mode', 'teacher_synthetic')
+    if mode not in ('teacher_synthetic', 'weak_debug'):
+        raise ValueError('expert_data_mode must be teacher_synthetic or explicit weak_debug')
+    return mode
+
+
+def check_teacher_data(source, manager_data_dir, cfg=None):
+    """Verify frozen teacher data and its exclusion pool before allocating a GPU."""
+    from .expert_data import _manager_snapshot, MANAGER_FILES
+    from .expert_train import read_dataset
+    from .expert_isolation import verify_manager_rows
+    from .data import load_rows
+    source = Path(source).resolve()
+    manifest, _, _ = read_dataset(source, KINDS[0])
+    if manifest.get('supervision') != 'teacher_synthetic':
+        raise ValueError('Default expert SFT requires completed teacher_synthetic data; use weak_debug only for an explicit ablation')
+    _, manager_snapshot = _manager_snapshot(Path(manager_data_dir))
+    if manifest.get('manager_exclusion') != manager_snapshot:
+        raise ValueError('Teacher data were prepared against a different Manager/test pool')
+    if cfg is not None:
+        expected = cfg.get('expected_teacher', {})
+        if any(manifest.get('teacher', {}).get(key) != value for key, value in expected.items()):
+            raise ValueError('Teacher identity differs from the expert training configuration')
+        for role in KINDS:
+            _, train, dev = read_dataset(source, role)
+            for split, rows in (('train', train), ('dev', dev)):
+                if len({row['question_hash'] for row in rows}) != cfg[f'{split}_size']:
+                    raise ValueError(f'{role} teacher {split} question count differs from configured pilot size')
+    rows = []
+    for filename in sorted(MANAGER_FILES):
+        rows.extend(load_rows(Path(manager_data_dir) / filename))
+    audit = verify_manager_rows({'expert_data_manifest': str(source / 'manifest.json'),
+        'expert_data_manifest_sha256': digest(source / 'manifest.json')}, rows)
+    return manifest, audit
+
+
+def prepare_data(source, output, manager_data_dir, config=None):
+    """Copy only a verified, completed teacher dataset into the SFT experiment."""
+    cfg = read(config) if config else None
+    manifest, _ = check_teacher_data(source, manager_data_dir, cfg)
+    source, output = Path(source).resolve(), Path(output).resolve()
+    source_hash = digest(source / 'manifest.json')
+    if output.exists() and any(output.iterdir()):
+        check_teacher_data(output, manager_data_dir, cfg)
+        if digest(output / 'manifest.json') != source_hash:
+            raise ValueError('Existing expert data differ from frozen teacher data; use a new output directory')
+        return manifest
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f'.{output.name}.copy-', dir=output.parent))
+    try:
+        for relative in (*manifest['sha256'], 'manifest.json'):
+            target = staging / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source / relative, target)
+        check_teacher_data(staging, manager_data_dir, cfg)
+        if digest(staging / 'manifest.json') != source_hash:
+            raise ValueError('Teacher manifest changed while copying')
+        if output.exists():
+            output.rmdir()
+        staging.replace(output)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    return manifest
+
+
+def build_plan(config, manager_data_dir, output, raw_jsonl=None, expert_data_dir=None):
     root = Path(output).resolve()
     cfg = read(config)
-    command = [sys.executable, '-m', 'src.verifiable.expert_data', '--out', str(root / 'data'),
-               '--manager-data-dir', str(Path(manager_data_dir).resolve()),
-               '--train-size', str(cfg.get('train_size', 128)), '--dev-size', str(cfg.get('dev_size', 32)),
-               '--scan-limit', str(cfg.get('scan_limit', 30000)), '--seed', str(cfg['seed'])]
-    if raw_jsonl:
-        command += ['--raw-jsonl', str(Path(raw_jsonl).resolve())]
+    if data_mode(cfg) == 'teacher_synthetic':
+        if raw_jsonl:
+            raise ValueError('Prepare raw Numina with expert_synthesis before starting teacher-based SFT')
+        source = expert_data_dir or '/workspace/margent-expert-teacher-01/data'
+        command = [sys.executable, '-m', 'src.verifiable.experts', 'prepare-data',
+            '--source', str(Path(source).resolve()), '--out', str(root / 'data'),
+            '--manager-data-dir', str(Path(manager_data_dir).resolve()), '--config', str(root / 'config.json')]
+    else:
+        if expert_data_dir:
+            raise ValueError('weak_debug uses its own rule-data builder, not --expert-data-dir')
+        command = [sys.executable, '-m', 'src.verifiable.expert_data', '--out', str(root / 'data'),
+                   '--manager-data-dir', str(Path(manager_data_dir).resolve()),
+                   '--train-size', str(cfg.get('train_size', 128)), '--dev-size', str(cfg.get('dev_size', 32)),
+                   '--scan-limit', str(cfg.get('scan_limit', 30000)), '--seed', str(cfg['seed'])]
+        if raw_jsonl:
+            command += ['--raw-jsonl', str(Path(raw_jsonl).resolve())]
     plan = [{'name': 'data', 'command': command}]
     for role in KINDS:
         plan.append({'name': 'sft_' + role, 'command': [sys.executable, '-m', 'src.verifiable.expert_train',
@@ -81,7 +160,8 @@ def run_child(step, root, deadline, monitor):
     if time.time() >= deadline:
         raise TimeoutError('Original two-hour expert budget expired; checkpoints retained')
     command = list(step['command'])
-    if step['name'] == 'data' and (root / 'data/manifest.json').exists():
+    if (step['name'] == 'data' and 'src.verifiable.expert_data' in command
+            and (root / 'data/manifest.json').exists()):
         command.append('--resume')
     with log.open('a') as stream:
         child = subprocess.Popen(command, cwd=PACKAGE, stdout=stream,
@@ -200,12 +280,19 @@ def run(args):
     cfg = read(args.config)
     if not 0 < args.minutes <= 120:
         raise ValueError('Expert pilot budget must be in (0, 120] minutes')
-    plan = build_plan(args.config, args.manager_data_dir, root, args.raw_jsonl)
+    source = getattr(args, 'expert_data_dir', None)
+    plan = build_plan(args.config, args.manager_data_dir, root, args.raw_jsonl, source)
+    teacher_source = None
+    if data_mode(cfg) == 'teacher_synthetic':
+        source = source or '/workspace/margent-expert-teacher-01/data'
+        manifest, isolation = check_teacher_data(source, args.manager_data_dir, cfg)
+        teacher_source = {'path': str(Path(source).resolve()), 'manifest_sha256': digest(Path(source) / 'manifest.json'),
+                          'teacher': manifest['teacher'], 'isolation': isolation}
     signature = {'schema_version': 1, 'purpose': 'expert_sft_before_manager', 'config': cfg,
         'manager_manifest': verify_manifest(args.manager_data_dir),
         'manager_config': read(args.manager_config), 'harness': harness_identity(),
         'raw_sha256': digest(args.raw_jsonl) if args.raw_jsonl else None,
-        'minutes': args.minutes, 'gpu': args.gpu, 'plan': plan}
+        'minutes': args.minutes, 'gpu': args.gpu, 'plan': plan, 'teacher_data_source': teacher_source}
     root.mkdir(parents=True, exist_ok=True)
     with (root / '.controller.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -249,10 +336,11 @@ def run(args):
                     return report
                 if time.time() >= deadline:
                     raise TimeoutError('Original expert budget expired; no automatic restart or budget extension')
-                atomic_json(root / 'gpu_preflight.json', gpu_preflight(args.gpu))
                 for step in plan:
                     stage = step['name']
                     monitor.summary({'current_stage': stage})
+                    if stage == 'sft_' + KINDS[0]:
+                        atomic_json(root / 'gpu_preflight.json', gpu_preflight(args.gpu))
                     if stage == 'reload_smoke':
                         export_bundle(root, cfg)
                     run_child(step, root, deadline, monitor)
@@ -265,7 +353,8 @@ def run(args):
                 report = {'experts_complete': True, 'controller_status': 'completed', 'current_stage': 'complete',
                     'failed_stage': None, 'roles': summaries, 'expert_bundle': str(root / 'experts.json'),
                     'manager_config': str(root / 'manager_config.json'), 'manager_started': False,
-                    'quality_validation': 'weak-supervision pilot; dev loss and reload checked; manual role review and downstream helpfulness still required',
+                    'supervision': data_mode(cfg), 'teacher': (teacher_source or {}).get('teacher'),
+                    'quality_validation': 'dev loss and reload checked; generated labels remain unreviewed; manual role review and downstream helpfulness still required',
                     'pod_billing_stopped': False}
                 atomic_json(root / 'expert_report.json', report)
                 atomic_json(root / 'expert_status.json', report)
@@ -289,8 +378,9 @@ def main():
         s.add_argument('--config', default=str(PACKAGE / 'configs/math_expert_sft_pilot.json'))
         s.add_argument('--manager-config', default=str(PACKAGE / 'configs/math_rsi_actions.json'))
         s.add_argument('--manager-data-dir', default='/workspace/margent-data-restart-20260925')
-        s.add_argument('--out', default='/workspace/margent-expert-sft-01')
+        s.add_argument('--out', default='/workspace/margent-expert-teacher-sft-01')
         s.add_argument('--raw-jsonl')
+        s.add_argument('--expert-data-dir', help='Completed expert_synthesis data directory; no teacher calls run on the SFT controller')
         s.add_argument('--minutes', type=float, default=120)
         s.add_argument('--gpu', default='0')
     s = sub.add_parser('smoke')
@@ -298,9 +388,16 @@ def main():
     s.add_argument('--out', required=True)
     s = sub.add_parser('serve')
     s.add_argument('--config', required=True)
+    s = sub.add_parser('prepare-data')
+    s.add_argument('--source', required=True)
+    s.add_argument('--out', required=True)
+    s.add_argument('--manager-data-dir', required=True)
+    s.add_argument('--config')
     args = p.parse_args()
     if args.operation == 'plan':
-        result = build_plan(args.config, args.manager_data_dir, args.out, args.raw_jsonl)
+        result = build_plan(args.config, args.manager_data_dir, args.out, args.raw_jsonl, args.expert_data_dir)
+    elif args.operation == 'prepare-data':
+        result = prepare_data(args.source, args.out, args.manager_data_dir, args.config)
     elif args.operation == 'smoke':
         result = smoke(args.bundle, args.out)
     elif args.operation == 'serve':

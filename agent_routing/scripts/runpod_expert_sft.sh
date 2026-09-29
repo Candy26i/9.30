@@ -2,12 +2,13 @@
 # Three independent math expert adapters; no Manager training or test evaluation.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-EXPERT_ROOT="${EXPERT_ROOT:-/workspace/margent-expert-sft-01}"
+EXPERT_ROOT="${EXPERT_ROOT:-/workspace/margent-expert-teacher-sft-01}"
 EXPERT_PYTHON="${EXPERT_PYTHON:-/workspace/margent-venv/bin/python}"
 EXPERT_CONFIG="${EXPERT_CONFIG:-configs/math_expert_sft_pilot.json}"
 EXPERT_SESSION="${EXPERT_SESSION:-margent-experts}"
 EXPERT_GPU="${EXPERT_GPU:-0}"
 EXPERT_MANAGER_DATA="${EXPERT_MANAGER_DATA:-/workspace/margent-data-restart-20260925}"
+EXPERT_DATA="${EXPERT_DATA:-}"
 export HF_HOME="${HF_HOME:-/workspace/hf-cache}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
@@ -33,6 +34,7 @@ case "$operation" in
     if [[ "$operation" == plan ]]; then action=plan; fi
     command=("$EXPERT_PYTHON" -u -m src.verifiable.experts "$action" --out "$EXPERT_ROOT"
       --config "$EXPERT_CONFIG" --manager-data-dir "$EXPERT_MANAGER_DATA" --gpu "$EXPERT_GPU" "$@")
+    if [[ -n "$EXPERT_DATA" ]]; then command+=(--expert-data-dir "$EXPERT_DATA"); fi
     if [[ "$operation" != start ]]; then exec "${command[@]}"; fi
     command -v tmux >/dev/null
     if tmux has-session -t "$EXPERT_SESSION" 2>/dev/null; then

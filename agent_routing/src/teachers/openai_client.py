@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from .base import TeacherClient, TeacherResponse
+from ._response_metadata import failure_message, response_metadata
 
 
 class OpenAITeacherClient(TeacherClient):
@@ -27,7 +28,7 @@ class OpenAITeacherClient(TeacherClient):
         key = api_key or os.environ.get("OPENAI_API_KEY", "")
         if not key:
             raise RuntimeError("OPENAI_API_KEY not set.")
-        kwargs = {"api_key": key, "timeout": self.timeout}
+        kwargs = {"api_key": key, "timeout": self.timeout, "max_retries": 0}
         if base_url:
             kwargs["base_url"] = base_url
         self._client = OpenAI(**kwargs)
@@ -40,6 +41,8 @@ class OpenAITeacherClient(TeacherClient):
         max_tokens: int = 2048,
     ) -> TeacherResponse:
         last_err: Optional[Exception] = None
+        started = time.perf_counter()
+        request_attempts = 0
         for attempt in range(self.max_retries + 1):
             try:
                 kwargs = dict(
@@ -52,24 +55,29 @@ class OpenAITeacherClient(TeacherClient):
                 else:
                     kwargs["max_tokens"] = int(max_tokens)
                 try:
+                    request_attempts += 1
                     resp = self._client.chat.completions.create(**kwargs)
                 except Exception as e:
                     msg = str(e)
-                    if "max_tokens" in msg and "max_completion_tokens" in msg:
+                    if (not self._use_max_completion_tokens and "max_tokens" in msg
+                            and "max_completion_tokens" in msg):
                         kwargs.pop("max_tokens", None)
                         kwargs["max_completion_tokens"] = int(max_tokens)
                         self._use_max_completion_tokens = True
+                        request_attempts += 1
                         resp = self._client.chat.completions.create(**kwargs)
                     else:
                         raise
                 text = (resp.choices[0].message.content or "").strip()
                 return TeacherResponse(
                     text=text, provider=self.provider, model=self.model,
-                    raw={"id": getattr(resp, "id", "")},
+                    raw=response_metadata(resp, finish_reason=getattr(resp.choices[0], "finish_reason", None),
+                                          latency_seconds=time.perf_counter() - started,
+                                          request_attempts=request_attempts),
                 )
             except Exception as e:
                 last_err = e
                 if attempt < self.max_retries:
                     time.sleep(min(2 ** attempt, 8))
                 continue
-        raise RuntimeError(f"OpenAI chat failed after retries: {last_err}")
+        raise RuntimeError(failure_message("OpenAI", last_err, request_attempts)) from None
