@@ -1,8 +1,10 @@
 # MARGENT Agent RSI：完整实验计划
 
-设计日期：2026-09-26；2026-09-29更新为专家优先执行，参见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
+设计日期：2026-09-26；2026-09-29更新为teacher合成数据、专家优先执行（本次 Codex / gpt-6-luna，保留 GPT-4o API 路径），参见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
 
 本文是执行和论文分析计划，不是已完成的实验报告。新增计划不会自动启动 RunPod。数学 subagent 的详细训练规范见 [SUBAGENT_TRAINING_PLAN.md](SUBAGENT_TRAINING_PLAN.md)；已有运行入口见 [RSI_RUNPOD.md](RSI_RUNPOD.md)。
+
+本次重新冻结 Manager 与专家题池，并保留完整 Codex 原始批次证据，具体来源限制和启动配置见 [CODEX_LUNA_TEACHER_DATA.md](CODEX_LUNA_TEACHER_DATA.md)。
 
 ## 1. 要回答的问题
 
@@ -24,7 +26,7 @@
 | Manager LoRA、GRPO 逐步日志、checkpoint 延续 | 有实现；GPU 小测试完成一次 SFT、一次 GRPO、再一次 SFT |
 | 当前数学 advisor | 一个冻结 Qwen3.5-9B，通过三个角色提示提供 extractor/reasoner/verifier；不是三个已训练专家 |
 | 旧 subagent SFT | src/subagents/train.py 有训练器；不能据此声称数学专家训练与服务集成已完成 |
-| 数学三角色独立 adapter、数据质检、角色评测、W&B | 数据/训练/服务/日志已实现，本地小模型验证；9B GPU与人工质量待验证 |
+| Teacher 数学数据合成、三角色独立 adapter、角色评测、W&B | API / Codex 数据、训练、服务、日志已接入；数据包完成以 manifest 为准，9B GPU和独立质量仍需验证 |
 | AIME2026 全量基线 | 已启动但失败，不能算完成 |
 | 完整两轮 benchmark 前后提升 | 尚无结果 |
 | Manager 与 subagent 同时演化 | 仅作为后续扩展设计，当前无此流水线 |
@@ -46,7 +48,9 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 
 ### 完整主线
 
-    准备并锁定数据
+    准备并锁定 Numina 专家题池，与 Manager 和外部 test 隔离
+        ↓
+    Teacher 合成 E/R、两条完整候选及各自的 V 审查 → 检查并发布数据
         ↓
     [首先执行] 分别训练 extractor / reasoner / verifier → 评估 → 冻结专家
         ↓
@@ -82,7 +86,7 @@ AIME 失败记录：[父运行](https://wandb.ai/yuningyangaillm/MATH_rsi/runs/f
 - AIME2026：d2de22f3c656b4f56cf8981212186377d1e23bc3。
 - BeyondAIME：c705198ae1043810b1e1693bd879250b51a7a523。
 
-沿用现有筛选：文本题、可校验最终答案；Numina 问题/解答有效标记均为 Yes，排除证明、选择题和需要图片的题。冻结题目 ID、原始来源、文件 sha256、筛选与排除计数。新增expert_data构建器单独保存solution sidecar、监督依据、排除清单；运行时输入仍只包含白名单字段。
+沿用现有筛选：文本题、可校验最终答案；Numina 问题/解答有效标记均为 Yes，排除证明、选择题和需要图片的题。冻结题目 ID、原始来源、文件 sha256、筛选与排除计数。expert_synthesis 构建器单独保存 solution sidecar、teacher 请求/响应、监督来源和排除清单；teacher 和运行时输入都只包含白名单字段，不暴露 gold/reference。旧 expert_data 只用于显式 weak_debug 消融。
 
 去重先于划分，当前代码覆盖 NFKC、大小写和空白归一化后的完全相同题目；不等于语义去污染。专家构建器已增加词法近重复排查、保留排除清单，但不宣称消除了模型预训练污染。新数据池不能覆盖已有目录。
 
@@ -153,7 +157,8 @@ Manager 标注/评测 temperature=0；独立答案和修订各最多 2,048 token
 |---|---|---|
 | 历史评测故障跟踪（不阻挡专家SFT） | 定位已有 AIME traceback；在 dev 复现、修复、恢复测试，再跑锁定30题 baseline | 新任务最多2小时；已有失败运行目录及原时限保留，不抹掉后复跑 |
 | 后续A0消融 | 16 train / 16 dev，D/S/U，各2轮，每轮 SFT8步 + GRPO8步，seed42 | 整体最多24小时，含采集与评测；到时保存并报告已完成范围 |
-| 第一步：subagent pilot | 每角色128 train题 / 32 dev题，先16步SFT，做质量与服务检查 | 独立持久化预算最多2小时，含数据构建/训练/重载；dev对照另行启动 |
+| 首先：teacher 合成 | 本次 Codex/gpt-6-luna，128 train题 / 32 dev题，每题6任务，共960任务；另保留 GPT-4o API 配置 | 生成阶段；最多1,920次任务尝试，非美元预算；Codex实际采样、token用量未知，不编造成本 |
+| 第一步：subagent pilot | 三角色使用上述 teacher 数据，各16步SFT，做质量与服务检查 | 独立持久化预算最多2小时，含数据检查/训练/重载，不含teacher API；dev对照另行启动 |
 | 第二步：训练专家后的A1 | 通过专家质量检查后，固定专家，跑Manager三组 | 单独申请/锁定计算预算，不包含在P1的24小时内 |
 | P4：正式证据 | 128 train / 64 dev，至少3轮，训练seed 42/43/44；AIME30、BeyondAIME100 | 新配置每轮SFT32步/GRPO32步作为预注册起点，先做吞吐测量再确定时限；尚未实现自动总控 |
 
@@ -191,6 +196,7 @@ Manager pilot 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRP
 |---|---|---|
 | Manager SFT | step、loss、grad norm、lr、监督tokens、checkpoint | 已有 callback/Monitor；小测试只有少量点 |
 | Manager GRPO | reward mean/std、优势绝对值、零优势比例、mixed groups、合法率、loss/KL、调用数 | 已有逐步/轨迹记录；需要多步训练才有曲线 |
+| teacher synthesis | requested/actual model、任务/响应 hash、接受/拒绝、尝试数、token用量、完整证据 | 已接入；未知用量保留为空，teacher标签不等于人工验证 |
 | subagent SFT | 每角色train/dev loss、质量指标、step、checkpoint | 新增数学expert_train已接Monitor；自动指标与待人工质量审核分开记录 |
 | 总控 | 当前阶段、子进程退出码、最近心跳、完成题数、预算剩余、总完成标记 | AIME及专家父总控已有；正式扩展矩阵仍需单独预算 |
 | 失败诊断 | traceback尾部、failed_stage、状态文件、日志artifact | 新代码会上传完整异常/日志artifact；旧缺失日志不会被追溯补造 |
@@ -209,7 +215,7 @@ Manager pilot 每个组共16步SFT、16步GRPO，三组总计48步SFT、48步GRP
 - [ ] 验证当前GPU环境的一题端到端路径及中断恢复，不只跑CPU单测。
 - [ ] 对齐 finite_actions_v1 配置；pilot shell默认使用专家生成的manager_config.json，保留finite_actions_v1。
 - [ ] 生成三组执行计划，确认第二轮加载本组GRPO1权重。
-- [ ] 完成专家数据、训练与多adapter服务的实现/验证后才进入A1。
+- [ ] 完成 teacher 合成、专家 SFT、独立质量检查与多adapter服务GPU验证后才进入A1。
 - [ ] 在看外部测试结果前锁定评测预算、比较对象和完成标准。
 - [ ] 保存W&B链接、run manifest、逐题结果、配对统计和失败清单。
 

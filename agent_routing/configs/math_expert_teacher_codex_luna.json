@@ -1,0 +1,23 @@
+{
+  "provider": "openai",
+  "model": "gpt-6-luna",
+  "teacher_revision": null,
+  "temperature": 0.2,
+  "candidate_temperature": 0.7,
+  "max_tokens": {
+    "extractor": 1024,
+    "reasoner": 2048,
+    "candidate": 4096,
+    "verifier": 1536
+  },
+  "candidates_per_question": 2,
+  "train_size": 128,
+  "dev_size": 32,
+  "scan_limit": 30000,
+  "source_revision": "1b05109f9e5c1ad06c0663519502416c30b300f8",
+  "seed": 42,
+  "max_retries": 1,
+  "max_calls": 1920,
+  "timeout": 120,
+  "generation_surface": "codex_subagent"
+}

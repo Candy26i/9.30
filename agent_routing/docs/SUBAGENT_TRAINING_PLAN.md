@@ -1,19 +1,21 @@
 # 数学 Subagent 训练与冻结计划
 
-日期：2026-09-26。配套 [MARGENT_RSI_EXPERIMENT_PLAN.md](MARGENT_RSI_EXPERIMENT_PLAN.md)。
+设计日期：2026-09-26；teacher 接入更新：2026-09-29。配套 [MARGENT_RSI_EXPERIMENT_PLAN.md](MARGENT_RSI_EXPERIMENT_PLAN.md)。
 
 ## 1. 范围和现状
 
 目标是训练三个独立角色 adapter：extractor、reasoner、verifier，并检验它们能否给 Manager 提供更有用、更可靠的帮助。
 
-2026-09-29 实现更新：已新增 expert_data.py、expert_train.py、expert_eval.py、experts.py，支持数据构建、独立角色LoRA、dev对照、重载冻结及一个base切换三套adapter。执行说明与实际标签边界见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。当前是弱监督pilot；代码和本地小模型验证不等于已完成9B GPU训练。
+2026-09-29 实现更新：本次按用户最新选择使用 Codex / gpt-6-luna teacher 合成；另保留 OpenAI / gpt-4o API 路径。`expert_synthesis.py` 先锁定 Numina 独立题池，生成三个角色监督、完整候选推导及审查标签，完成后才交给 `expert_train.py` 做三套独立 LoRA。数据、断点、服务、W&B 接入和本地小模型验证不等于已完成真实 API 合成或 9B GPU 训练。执行说明见 [EXPERT_SFT_RUNPOD.md](EXPERT_SFT_RUNPOD.md)。
 
-下文保留完整研究目标。当前首版Extractor为题面词法提取、Reasoner为未经独立证明校验的Numina参考、Verifier为可执行的正确/错误局部算术步骤；uncertain=0。完整推导审核、自然错误、人工质量验证仍待补充，不据此声称三类覆盖或能力提升。
+旧 `expert_data.py` 的题面词法提取、参考压缩和局部算术扰动保留为 `weak_debug` 调试/消融。它不能替代 teacher 主实验，也不能冒充已有完整推导审核。Teacher 标签默认未经人工审核；自动完成不证明专家能力提升。
 
 ## 2. 先训练专家，再冻结训练 Manager
 
 主实验采用：
 
+    Numina 独立题池 → Teacher 合成 E/R/候选/V 数据 → 格式与来源检查
+                ↓
     同一个 pinned base
        ├─ extractor SFT → E*
        ├─ reasoner SFT  → R*
@@ -25,7 +27,7 @@
 
 三套 LoRA 都从相同 base 独立开始，不按 E→R→V 串行继承 adapter。可以按顺序占用同一张 GPU 训练，节省显存。主实验不对专家做 GRPO，不在 Manager 两轮之间改变专家权重。
 
-模型为 Qwen/Qwen3.5-9B，revision c202236235762e1c871ad0ccb60c8ee5ba337b9a。参考解答用于离线构造监督目标；运行时专家只能看到允许的题目/候选，不能看到 gold 或参考解答。
+模型为 Qwen/Qwen3.5-9B，revision c202236235762e1c871ad0ccb60c8ee5ba337b9a。导出的 teacher 请求与运行时专家输入都只包含允许的题目/候选，不包含 gold 或参考解答。Codex 的完整系统上下文不可独立鉴证，限定声明见 [Codex 数据指南](CODEX_LUNA_TEACHER_DATA.md)。Numina solution 仅保存到 sidecar，供事后审计和候选终值诊断。
 
 ## 3. 数据池、规模和隔离
 
@@ -34,11 +36,11 @@
 - pilot：128个train题、32个dev题，先做每角色16步更新。
 - 扩展：1,024个train题、128个dev题；pilot题按所属split包含其中，不能从dev移入train。
 - 三角色可使用相同题目池，但按题目分组切分。一个题目的正确候选、错误候选、多个改写必须留在同一split。
-- 全部排除 Manager train128/dev64、AIME2026、BeyondAIME；任何同题或近重复排除都记录。
+- 全部排除冻结的完整 Manager train/dev、AIME2026、BeyondAIME；本次为新冻结 Manager 128/64 划分，不代表原 RunPod 数据；以完整 manifest 和文件为准，不能用 smoke 子集代替。任何同题或近重复排除都记录。
 - 保留原始solution sidecar、来源ID、question hash、教师版本、模板hash、标签依据、人工审核字段。
-- 现有 prepare 不导出完整参考solution给专家训练，现由expert_data.py单独构建references.jsonl，不修改旧数据文件。
+- expert_synthesis 的 prepare 单独构建 references.jsonl；prompt 使用白名单，不修改旧 Manager 数据文件。
 
-扩展池1,024题不等于每角色必有1,024条合格监督。若质检后不足，报告实际数量；按预定hash顺序补充新题时保持角色/split规则，不按下游test成绩选题。
+扩展规模属于新配置/新题池。当前固定题池内失败生成会保留并报告，不能换题或退回规则答案；所有固定任务有合格响应后才发布。合格仅指工程检查通过，数学质量仍需独立审核。
 
 ## 4. 三角色分别学什么
 
@@ -52,42 +54,42 @@
 
 ### 4.1 Extractor 标签
 
-离线从题目和参考解答整理候选事实清单，逐条标注是否可由题面支持；参考解答只能帮助标注者理解题目，不能给运行时prompt注入答案。用变量覆盖、数值/范围一致性、无新增假设和人工抽查过滤。
+Teacher 根据题面生成条件、变量、约束和目标，使用与服务端相同的 `advisor_messages`，不接收 reference solution。检查非空、完成状态、长度和协议；事实覆盖、无新增假设仍需独立抽查。
 
 ### 4.2 Reasoner 标签
 
-优先压缩已有有效参考解答，保留可独立理解的关键步骤。可用本地冻结模型辅助压缩，但最终答案校验只证明终局一致，不能认证全部推理；需要针对定理使用、关键等式、边界条件的人工或可执行检查。
+Teacher 从题目独立生成解题建议和关键推导，不直接复制 Numina reference。保留 teacher 原始输出和完整调用证据。终局答案匹配不能认证所有推理；定理使用、关键等式和边界条件需要人工或可执行检查。
 
-长度超限的目标不能截掉后直接训练。记录并重新编写简洁目标，或在dev上确定新预算后统一重建。
+长度超限不静默裁掉后训练：API 已知截断会作为失败保存并按预算重试；学生 tokenizer 的序列超限会整条排除并报告实际监督数。
 
 ### 4.3 Verifier 标签
 
-每个题目构造“正确、明确错误、不确定”三类候选，每题至多各1条；扩展目标最多3,072条train / 384条dev。可不足但须报告，不能伪造类别凑数。
+每个题目由 teacher 在分开的请求中生成两条完整候选解，再对每条候选单独调用 verifier teacher，输出 `Verdict / Evidence / Correction`。每次审查绑定具体候选响应 hash。候选与标签均由 teacher 生成，不预先指示正确/错误，也不强行按 gold 匹配改 verdict。
 
-- correct：参考推导或经审核的正确候选，标明检查依据。
-- incorrect：对已知正确步骤做可定位的符号、算术、条件或逻辑扰动；记录被修改步骤及其错误证据。错误候选即使偶然得到正确终值，也不能标correct。
-- uncertain：关键步骤无法从可见信息验证且审核者也不能确定；不能把“最终答案不匹配”自动改成uncertain，也不能把所有短答案都当不确定。
+pilot 预期 Verifier 为256 train / 64 dev条，但只有128/32个独立题目。允许 correct、incorrect、uncertain，保存实际类别计数和候选重复数；不保证三类都有、不按比例伪造标签。自然错误不够或类别严重偏斜时，先报告，在新版本数据计划中增加独立候选来源或经人工审核的错误，不能修改已冻结数据。
 
-来自 Manager 的自然错误可补充，但 gold不匹配只用于筛选候选，必须检查具体错误后才能生成推导级标签。至少人工抽查每角色32条train；verifier覆盖三类及正确答案错误推理的陷阱。dev尽量全量审核；未审核部分标明弱监督。审核规则固定后保留排除计数，不能只保留看起来有利的结果。
+相同 teacher 生成并审核可能共享错误。至少抽查每角色32条train；Verifier 抽查覆盖实际出现的类别与“终值对但推导错”的陷阱。dev尽量全量审核，未审核标签明确标为 teacher pseudo-label。人工审阅集与合成原始集分版本保存。
 
 ## 5. 生成教师与训练样本格式
 
-首版不依赖新增付费API。使用数据集参考解答、确定性扰动、本地冻结模型辅助标注，并记录其确切revision。自生成质量不足时停止扩大规模，不能靠同一模型“自信地说正确”放行。若后续用外部教师，单独记录型号、提示、预算、输出来源；本提交不授权调用付费服务。
+本次 teacher 为用户选定的 Codex / `gpt-6-luna`，使用 [math_expert_teacher_codex_luna.json](../configs/math_expert_teacher_codex_luna.json)，按 [Codex 数据指南](CODEX_LUNA_TEACHER_DATA.md) 保存批次上下文与来源证据。实际 API model、用量、采样参数未知时均为空；任务消息复用运行时模板不等于完整有效 prompt 相同。原 OpenAI / gpt-4o API 路径保留 [math_expert_teacher.json](../configs/math_expert_teacher.json)，复用旧 benchmark 的 TeacherClient；数学 prompt 与旧选择题 schema 分开，记录 API 实际返回的 model 和 system fingerprint。
+
+每题 E、R、两条候选、两次 V 审核，共6个任务；160题为960任务，允许每任务一次重试，总上限1,920次任务尝试。该限制不是 wire 请求数或美元上限；失败和未知调用保留计数，缺失 token 用量不能写成零。API 路径只在显式执行 `generate` 时调用 API；Codex 路径由实际子任务生成后导入，并拒绝误用 API `generate`。预览和 SFT 入口不会调用 API。
 
 每条数据至少包含：
 
 | 字段 | 内容 |
 |---|---|
 | question_hash / source_id / split | 分组、溯源与防泄漏依据 |
-| role | extractor、reasoner或verifier |
-| prompt | 与实际角色输入一致的system/user消息 |
-| response | 该角色assistant目标文本 |
-| label_source / teacher_revision | reference、local生成、controlled_corruption或人工标注来源 |
-| quality_checks / reviewed | 校验结果、审核状态和排除原因 |
-| candidate_hash / verdict / corruption | verifier额外的候选与错误依据 |
+| role / prompt / response | 角色、实际运行时消息、teacher 原始监督文本 |
+| label_source | 主线为 teacher_synthetic；旧规则单独标记 |
+| teacher_provider / teacher_model / teacher_actual_model / teacher_revision | 请求和实际来源，未知字段保留 null |
+| teacher_request_id / teacher_prompt_sha256 / teacher_response_sha256 | 连接完整请求、原始响应及调用记录 |
+| reviewed | 默认 false，不自动声称人工审核 |
+| candidate_request_id / candidate_response_sha256 / candidate_hash / verdict | Verifier 的具体候选、审查标签和来源绑定 |
 | schema_version / template_sha256 | 数据协议和模板指纹 |
 
-gold与参考解答放在独立质检字段/sidecar；构造模型prompt用显式字段白名单。loss只覆盖本角色response token，题目、候选和其他agent回复均mask。
+原始参考保存在独立 sidecar；loss 只覆盖本角色 response token，题目、候选和其他 agent 回复均 mask。prepare/generate/finalize 的恢复核对数据、请求、模型、配置和代码，已成功任务不重新付费请求。
 
 ## 6. SFT 参数和选模
 
@@ -118,6 +120,8 @@ gold与参考解答放在独立质检字段/sidecar；构造模型prompt用显�
 | reasoner | 关键步骤通过率、答案一致率、无效/截断率 | 同上；并报告原本错题救回率 |
 | verifier | 三类macro-F1、正确推导误报率、错误定位正确率、无依据纠正率 | 原本正确题被改错率，以及错误题修复率 |
 
+上表是研究目标。当前 teacher dev 的 Verifier 自动结果仅为 `teacher_label_agreement`；Extractor/Reasoner 不伪造自动质量分数。没有独立审核时 `quality_assessed=false`，不能用 teacher 标签一致性代替数学正确率。
+
 角色质量的分母、人工rubric、审核者一致性应随报告保存。所有角色再记录响应时间、tokens、异常率。
 
 不能仅因loss下降就晋级。出现不可重载adapter、角色串用、非有限loss、候选/gold泄漏立即停止。pilot中若正向帮助没有改善或误导增加，完整报告，不宣称专家已变强；样本小导致结论不确定时先扩展dev验证，不动外部test。
@@ -130,7 +134,7 @@ gold与参考解答放在独立质检字段/sidecar；构造模型prompt用显�
 
 当前 serve.py 已支持此功能，实现和待GPU验证清单：
 
-- [x] 数学专家数据构建器、solution sidecar和分组去重manifest。
+- [x] API / Codex 数学角色合成、完整候选审查、solution sidecar、逐次调用证据和分组去重 manifest。
 - [x] 兼容Qwen3.5及固定revision/模板的训练入口；拒绝静默截断或零监督目标。
 - [x] 支持按role加载/切换adapter，并在health/result中返回各role fingerprint。
 - [x] HTTPAdvisors客户端与服务端统一校验三个fingerprint，Manager重启不能接上另一个专家版本。
@@ -143,11 +147,11 @@ gold与参考解答放在独立质检字段/sidecar；构造模型prompt用显�
 
 ## 9. 日志、产物与算力预算
 
-W&B沿用MATH_rsi，父expert_sft_controller与三个expert_sft子运行、expert_reload共用group，记录角色、train/dev loss、optimizer steps、输入/监督token、梯度/学习率、模型/数据/模板/adapter指纹、恢复、GPU及异常。expert_eval单独输出dev对照和人工审阅材料。完整证明质量、manager_rescue/harm_rate仍需独立质量与Manager dev配对评估。
+W&B沿用MATH_rsi。Teacher synthesis 单独记录合成来源、接受/拒绝、用量与完整请求/响应证据，通过数据 manifest 指纹关联 SFT。父expert_sft_controller与三个expert_sft子运行、expert_reload共用group，记录角色、train/dev loss、optimizer steps、输入/监督token、梯度/学习率、模型/数据/模板/adapter指纹、恢复、GPU及异常。expert_eval单独输出dev对照和人工审阅材料。完整证明质量、manager_rescue/harm_rate仍需独立质量与Manager dev配对评估。
 
-实际输出 /workspace/margent-expert-sft-01，三个角色在training/<role>，顶层experts.json、manager_config.json、expert_report.json；参考sidecar和排除表在data/。文件格式、W&B文本开关、证据artifact和启动命令以执行指南为准。
+实际输出 /workspace/margent-expert-teacher-sft-01，三个角色在training/<role>，顶层experts.json、manager_config.json、expert_report.json；参考sidecar和排除表在data/。文件格式、W&B文本开关、证据artifact和启动命令以执行指南为准。
 
-本轮专家总控持久化上限2小时，包含数据构建、训练和重载；角色dev对照另行显式启动、最多2小时。新正式规模需先测吞吐，再锁定预算。所有长进程在tmux，不与Manager抢占GPU；截止终止自身子进程，不自动停止Pod计费。
+Teacher API 合成先在 CPU 环境单独执行并核算；本轮专家总控持久化上限2小时，包含完成数据复制检查、训练和重载；角色dev对照另行显式启动、最多2小时。新正式规模需先测吞吐，再锁定预算。所有长进程在tmux，不与Manager抢占GPU；截止终止自身子进程，不自动停止Pod计费。
 
 ## 10. 后续可选：Manager 与专家共同演化
 

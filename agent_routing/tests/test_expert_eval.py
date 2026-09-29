@@ -27,7 +27,8 @@ def rows_for(role):
              "context": "", "candidate": "1+1=2" if role == "verifier" else "",
              "prompt": [{"role": "user", "content": f"{role} q{index}"}],
              "response": "SECRET_REFERENCE_ONLY_FOR_HUMANS", "verdict": label,
-             "quality_checks": {"scope": "local_arithmetic_step"}, "source_id": f"id{index}"}
+             "quality_checks": {"scope": "local_arithmetic_step", "arithmetic_verified": True},
+             "source_id": f"id{index}"}
             for index, label in enumerate(("correct", "incorrect"))]
 
 
@@ -52,6 +53,47 @@ def test_report_keeps_unparsed_in_denominator_and_scores_only_observed_truth_cla
     assert not report["arms"]["trained"]["extractor"]["quality_assessed"]
     assert report["completed_generations"] == 4 and report["expected_generations"] == 12
     assert not report["evaluation_complete"] and not report["independent_benchmark"]
+
+
+def test_teacher_verdict_scores_are_agreement_not_independent_correctness():
+    rows = rows_for("verifier")
+    for row in rows:
+        row.update(label_source="teacher_synthetic", quality_checks={"teacher_response_format": True})
+    values = {("trained", "verifier", 0): result("Verdict: correct"),
+              ("trained", "verifier", 1): result("No verdict", truncated=True)}
+    report = build_report({"verifier": rows}, values)
+    stats = report["arms"]["trained"]["verifier"]
+    assert stats["teacher_label_agreement"]["accuracy"] == .5
+    assert stats["teacher_label_agreement"]["macro_f1"] == .5
+    assert stats["teacher_label_agreement"]["labeled_classes"] == ["correct", "incorrect"]
+    assert "macro_f1" not in stats and "verdict_accuracy" not in stats
+    assert "local_arithmetic_verification" not in stats
+    assert not stats["quality_assessed"] and not report["independent_benchmark"]
+    assert stats["quality_scope"] == "teacher_label_agreement_not_independent_correctness"
+    assert "verifier_correctness" in report["manual_review_required"]
+
+
+def test_mixed_label_origins_are_never_combined_into_one_accuracy():
+    rows = rows_for("verifier")
+    rows[0]["label_source"] = "teacher_synthetic"
+    values = {("trained", "verifier", 0): result("Verdict: correct"),
+              ("trained", "verifier", 1): result("Verdict: correct")}
+    report = build_report({"verifier": rows}, values)
+    stats = report["arms"]["trained"]["verifier"]
+    assert stats["teacher_label_agreement"]["accuracy"] == 1
+    assert stats["local_arithmetic_verification"]["accuracy"] == 0
+    assert "macro_f1" not in stats and "verdict_accuracy" not in stats
+    assert not stats["quality_assessed"]
+
+
+def test_unspecified_verifier_reference_does_not_claim_arithmetic_verification():
+    rows = rows_for("verifier")
+    for row in rows:
+        row["quality_checks"] = {}
+    report = build_report({"verifier": rows}, {("trained", "verifier", 0): result("Verdict: correct")})
+    stats = report["arms"]["trained"]["verifier"]
+    assert stats["reference_label_agreement"]["accuracy"] == 1
+    assert not stats["quality_assessed"]
 
 
 def setup_eval(tmp_path, monkeypatch, fail_at=None):
@@ -103,6 +145,29 @@ def test_eval_pairs_outputs_releases_base_before_experts_and_resumes_without_inf
     assert again["evaluation_complete"] and len(calls) == 12 and len(loaded) == 2
     with pytest.raises(ValueError, match="configuration/data/bundle changed"):
         evaluate(bundle, data, out, limit=1, minutes=1)
+
+
+def test_teacher_eval_archives_agreement_scope_and_review_provenance(tmp_path, monkeypatch):
+    bundle, data, _, _ = setup_eval(tmp_path, monkeypatch)
+    teacher = {"provider": "openai", "model": "gpt-4o", "revision": None}
+    def dataset(root, role):
+        rows = rows_for(role)
+        for row in rows:
+            row.update(label_source="teacher_synthetic", quality_checks={}, teacher_provider="openai",
+                       teacher_model="gpt-4o", teacher_actual_model="actual-version",
+                       teacher_request_id="synthetic-request-hash", teacher_response_sha256="response-hash",
+                       candidate_terminal_diagnostic={"terminal_correct": True, "used_for_teacher_verdict": False})
+        return {"supervision": "teacher_synthetic", "teacher": teacher}, [], rows
+    monkeypatch.setattr("src.verifiable.expert_eval.read_dataset", dataset)
+    out = tmp_path / "evaluation"
+    report = evaluate(bundle, data, out, limit=2, minutes=1)
+    assert report["provenance"]["data_supervision"]["teacher"] == teacher
+    assert report["arms"]["trained"]["verifier"]["teacher_label_agreement"]["accuracy"] == .5
+    records = [json.loads(line) for line in (out / "review.jsonl").read_text().splitlines()]
+    verifier = next(row for row in records if row["role"] == "verifier")
+    assert verifier["verdict_label_basis"] == "teacher_label_agreement"
+    assert verifier["teacher_actual_model"] == "actual-version"
+    assert not verifier["candidate_terminal_diagnostic"]["used_for_teacher_verdict"]
 
 
 def test_failed_attempt_retains_completed_shards_and_partial_review(tmp_path, monkeypatch):

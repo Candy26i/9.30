@@ -20,7 +20,7 @@ def setup_run(tmp_path):
     manager = manager_data(tmp_path)
     raw = tmp_path / 'raw.jsonl'
     write_jsonl(raw, [record(i) for i in range(120)])
-    cfg = dict(base_model=str(base), base_model_revision=None, seed=42, train_size=3,
+    cfg = dict(expert_data_mode='weak_debug', base_model=str(base), base_model_revision=None, seed=42, train_size=3,
                dev_size=2, scan_limit=120, max_steps=1, save_steps=1, max_seq_len=1024,
                gradient_accumulation_steps=1, lora_rank=2, lora_alpha=4,
                lora_dropout=.05, bf16=False)
@@ -76,8 +76,9 @@ def completed_run(tmp_path, monkeypatch, tiny_cpu):
 
 def test_plan_trains_all_experts_before_reload_without_starting_manager_or_test(tmp_path):
     config = Path(__file__).parents[1] / 'configs/math_expert_sft_pilot.json'
-    steps = experts.build_plan(config, tmp_path / 'manager-data', tmp_path / 'out', tmp_path / 'raw.jsonl')
+    steps = experts.build_plan(config, tmp_path / 'manager-data', tmp_path / 'out', expert_data_dir=tmp_path / 'teacher/data')
     assert [step['name'] for step in steps] == ['data', 'sft_extractor', 'sft_reasoner', 'sft_verifier', 'reload_smoke']
+    assert 'prepare-data' in steps[0]['command']
     assert '--resume' not in steps[0]['command']
     for role, step in zip(KINDS, steps[1:4]):
         command = step['command']
@@ -85,7 +86,7 @@ def test_plan_trains_all_experts_before_reload_without_starting_manager_or_test(
         assert command[command.index('--role') + 1] == role
         assert Path(command[command.index('--output') + 1]).name == role
     modules = {s['command'][s['command'].index('-m') + 1] for s in steps}
-    assert modules == {'src.verifiable.expert_data', 'src.verifiable.expert_train', 'src.verifiable.experts'}
+    assert modules == {'src.verifiable.expert_train', 'src.verifiable.experts'}
     assert not any(token in {'evaluate', 'aime2026', '--checkpoint'} for s in steps for token in s['command'])
 
 
@@ -93,7 +94,7 @@ def test_data_child_gets_resume_only_after_published_manifest(tmp_path):
     (tmp_path / 'logs').mkdir()
     monitor = SimpleNamespace(update=lambda **kwargs: None)
     step = {'name': 'data', 'command': [sys.executable, '-c',
-        "import sys; print('resume=' + str('--resume' in sys.argv))"]}
+        "import sys; print('resume=' + str('--resume' in sys.argv))", 'src.verifiable.expert_data']}
     experts.run_child(step, tmp_path, time.time() + 20, monitor)
     (tmp_path / 'data').mkdir()
     write_json(tmp_path / 'data/manifest.json', {'published': True})
