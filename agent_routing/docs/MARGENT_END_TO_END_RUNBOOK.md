@@ -2,6 +2,8 @@
 
 Updated: 2026-09-30. Runtime baseline: main commit `17c5da8e0cbe4c0e672208816c9a76f7c7a9f1b2`, including the published Luna data. Subsequent documentation commits do not change the training algorithm. The commands below are intended for execution on RunPod.
 
+**Fork note (Candy26i/9.30):** this repository changes the `finite_actions_v1` decision grammar so every Manager SFT decision target is a legal action, while the compact call form shown in the system prompt stays legal. Use this repository's commit instead of `17c5da8` and adjust the section 3 clone command accordingly. Decision/policy results produced with earlier code, including any early M0 AIME baseline, are not comparable with runs on this code, and `harness_identity` refuses to resume them. `doctor` (section 7) now also checks the grammar against the real tokenizer.
+
 **Follow sections 3–10 for a first run; use section 11 for monitoring and section 12 for recovery.** The default is a small mechanism pilot, not a final paper-scale experiment. Start every new terminal with the environment file in section 3. Use fresh experiment directories instead of reusing failed runs or historical default paths.
 
 - [Architecture and source map](../README.md)

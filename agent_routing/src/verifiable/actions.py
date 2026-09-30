@@ -2,9 +2,12 @@
 
 Restricts syntax and repeated tool use only. It never reads answers/rewards or
 changes the stored solution. Revisions remain unconstrained language generation.
-Legal actions are the exact assistant text the fixed chat template renders, so
-the grammar admits the same tokens that Manager SFT supervises.
+Each legal call has two surface forms: the exact text the fixed chat template
+renders, which Manager SFT supervises, and the compact form the template's system
+text instructs, which an untrained Manager follows. Both parse to the same call.
 """
+import json
+
 from .protocol import COMMIT, KINDS, call_message
 
 
@@ -54,9 +57,13 @@ def decision_paths(tokenizer, messages, tools, budget):
             continue
         for call in message.get("tool_calls", []):
             used.add(call["function"]["name"])
+    unused = sorted(names - used)
     responses = [{"role": "assistant", "content": COMMIT}] + [
-        call_message(name.removesuffix("_tool"), None, "call") for name in sorted(names - used)]
+        call_message(name.removesuffix("_tool"), None, "call") for name in unused]
     actions = [rendered_action(tokenizer, messages, tools, response) for response in responses]
+    actions += ['<tool_call>' + json.dumps({"name": name, "arguments": {}}, separators=(",", ":"))
+                + '</tool_call>' for name in unused]
+    actions = list(dict.fromkeys(actions))
     paths = []
     for action in actions:
         ids = tokenizer(action, add_special_tokens=False)["input_ids"]
