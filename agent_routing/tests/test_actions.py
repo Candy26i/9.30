@@ -3,7 +3,8 @@ import string
 import pytest
 
 from src.verifiable.actions import ActionTrie, decision_paths
-from src.verifiable.protocol import parse_calls, tool_schemas
+from src.verifiable.protocol import COMMIT, call_message, parse_calls, tool_schemas
+from src.verifiable.training import tokenize_turn
 
 
 def character_tokenizer():
@@ -31,11 +32,29 @@ def test_grammar_requires_closure_and_excludes_repeated_advisor():
     for text in texts:
         parse_calls(text)
     trie = ActionTrie(paths)
-    path = next(p for p in paths if tok.decode(p[:-1]).startswith("<tool_call>"))
+    path = next(p for p in paths if tok.decode(p[:-1]).lstrip("\n").startswith("<tool_call>"))
     assert tok.eos_token_id not in trie.allowed(path[:10])
     assert trie.allowed(path[:-1]) == [tok.eos_token_id]
     with pytest.raises(ValueError, match="budget"):
-        decision_paths(tok, [], tool_schemas(), 2)
+        decision_paths(tok, [{"role": "user", "content": "Q"}], tool_schemas(), 2)
+
+
+def test_grammar_admits_exactly_the_supervised_sft_decision_targets():
+    tok = character_tokenizer()
+    history = [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"}]
+    paths = decision_paths(tok, history, tool_schemas(), 128)
+    newline = tok("\n", add_special_tokens=False)["input_ids"]
+    responses = [{"role": "assistant", "content": COMMIT}] + [
+        call_message(kind, "draft", "call_" + kind) for kind in ("extractor", "reasoner", "verifier")]
+    for response in responses:
+        decision_type = "call" if response.get("tool_calls") else "commit"
+        row = {"prompt": history, "response": [response], "decision_type": decision_type}
+        encoded = tokenize_turn(row, tok, 4096)
+        target = [t for t, label in zip(encoded["input_ids"], encoded["labels"]) if label != -100]
+        # The ChatML newline after EOS is supervised but never generated.
+        assert target[-len(newline):] == newline
+        assert target[:-len(newline)] in paths
+    assert len(paths) == len(responses)
 
 
 def test_real_constrained_sampling_and_scoring_are_identical():

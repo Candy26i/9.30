@@ -2,10 +2,10 @@
 
 Restricts syntax and repeated tool use only. It never reads answers/rewards or
 changes the stored solution. Revisions remain unconstrained language generation.
+Legal actions are the exact assistant text the fixed chat template renders, so
+the grammar admits the same tokens that Manager SFT supervises.
 """
-import json
-
-from .protocol import COMMIT, KINDS
+from .protocol import COMMIT, KINDS, call_message
 
 
 class ActionTrie:
@@ -28,6 +28,22 @@ class ActionTrie:
         return {"prefix_allowed_tokens_fn": lambda batch, ids: self.allowed(ids[prompt_length:].tolist())}
 
 
+def rendered_action(tokenizer, messages, tools, response):
+    """Assistant text rendered for one decision turn, without its ChatML ending.
+
+    SFT targets come from the same rendering (training.tokenize_turn). A tool call
+    renders as a leading newline plus default-separator JSON; a hand-built compact
+    string would make that supervised first token unreachable at decode time.
+    """
+    from .backend import render
+    prompt = render(tokenizer, messages, tools)
+    full = render(tokenizer, messages + [response], tools, generation=False)
+    ending = tokenizer.eos_token + "\n"
+    if not full.startswith(prompt) or not full.endswith(ending) or len(full) == len(prompt) + len(ending):
+        raise ValueError("Chat template does not render a prefix-preserving decision turn")
+    return full[len(prompt):-len(ending)]
+
+
 def decision_paths(tokenizer, messages, tools, budget):
     names = {tool["function"]["name"] for tool in tools}
     if not names <= {kind + "_tool" for kind in KINDS}:
@@ -38,8 +54,9 @@ def decision_paths(tokenizer, messages, tools, budget):
             continue
         for call in message.get("tool_calls", []):
             used.add(call["function"]["name"])
-    actions = [COMMIT] + ['<tool_call>' + json.dumps({"name": name, "arguments": {}},
-                 separators=(",", ":")) + '</tool_call>' for name in sorted(names - used)]
+    responses = [{"role": "assistant", "content": COMMIT}] + [
+        call_message(name.removesuffix("_tool"), None, "call") for name in sorted(names - used)]
+    actions = [rendered_action(tokenizer, messages, tools, response) for response in responses]
     paths = []
     for action in actions:
         ids = tokenizer(action, add_special_tokens=False)["input_ids"]
