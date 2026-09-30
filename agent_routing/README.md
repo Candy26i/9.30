@@ -102,7 +102,7 @@ The default pilot uses eight question groups per GRPO stage. It takes the first 
 
 Each question records both the Manager's independent answer and the final tool-assisted policy answer. Report independent/policy correctness, n, validity/truncation, call counts, rescues and harms. Within-checkpoint policy-minus-independent gain is different from independent-accuracy growth across checkpoints.
 
-AIME2026 (30 questions) and BeyondAIME (100 questions) are held-out tests. Freeze comparisons before seeing test scores. The default matrix compares M0 with the three final round_2/grpo Managers using the same frozen experts and budgets. A second-round SFT checkpoint has prior GRPO ancestry and is not a pure SFT baseline.
+AIME2026 (30 questions) is the only held-out test; BeyondAIME (100 questions) is split into Manager RSI train/dev data (`data/manager_beyond_rsi_20260930`) and is never reported as held-out. Freeze comparisons before seeing test scores. The default matrix compares M0 with each final round_2/grpo Manager using the same frozen experts and budgets (`scripts/evaluate_aime_matrix.sh`). A second-round SFT checkpoint has prior GRPO ancestry and is not a pure SFT baseline.
 
 ## 6. Execution, persistence and observability
 

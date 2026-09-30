@@ -4,6 +4,8 @@ Updated: 2026-09-30. Runtime baseline: main commit `17c5da8e0cbe4c0e672208816c9a
 
 **Fork note (Candy26i/9.30):** this repository changes the `finite_actions_v1` decision grammar so every Manager SFT decision target is a legal action, while the compact call form shown in the system prompt stays legal. Use this repository's commit instead of `17c5da8` and adjust the section 3 clone command accordingly. Decision/policy results produced with earlier code, including any early M0 AIME baseline, are not comparable with runs on this code, and `harness_identity` refuses to resume them. `doctor` (section 7) now also checks the grammar against the real tokenizer.
 
+**Fork note: Manager RSI on BeyondAIME.** The experts still train on the Numina Luna data and stay bound to the original `manager/` pool. Manager RSI (collection, SFT, GRPO and the dev assessments inside RSI) now runs on `data/manager_beyond_rsi_20260930/`: the 100 BeyondAIME questions split 64 train / 36 dev by `scripts/build_beyond_rsi_pool.py`, with AIME2026 as the **only** held-out test. BeyondAIME numbers are train/dev results and must never be reported as held-out. Run the M0 probe in section 8.0 before any RSI launch, and use `scripts/evaluate_aime_matrix.sh` / `scripts/verify_aime_matrix.py` for section 10. Where older text below mentions the Numina Manager pool or a BeyondAIME test cell, these notes take precedence.
+
 **Follow sections 3–10 for a first run; use section 11 for monitoring and section 12 for recovery.** The default is a small mechanism pilot, not a final paper-scale experiment. Start every new terminal with the environment file in section 3. Use fresh experiment directories instead of reusing failed runs or historical default paths.
 
 - [Architecture and source map](../README.md)
@@ -130,12 +132,16 @@ export EXPERT_GPU=0
 export RSI_PYTHON="$EXPERT_PYTHON"
 export RSI_EXPERT_ROOT="$EXPERT_ROOT"
 export RSI_CONFIG="$EXPERT_ROOT/manager_config.json"
-export RSI_DATA="$EXPERT_MANAGER_DATA"
-export RSI_SUBSET=/workspace/margent-luna-manager-data-16-01
-export RSI_OUTPUT=/workspace/margent-luna-manager-pilot-01
+export RSI_DATA="$MARGENT_CODE/data/manager_beyond_rsi_20260930"
+export RSI_TRAIN_N=16
+export RSI_DEV_N=16
+export RSI_ARMS="dynamic static success"
+export RSI_HOURS=24
+export RSI_SUBSET=/workspace/margent-luna-beyond-subset-16-16-01
+export RSI_OUTPUT=/workspace/margent-luna-beyond-rsi-01
 export RSI_ADVISOR_GPU=0
 export RSI_MANAGER_GPU=1
-export EVAL_ROOT=/workspace/margent-luna-tests-01
+export EVAL_ROOT=/workspace/margent-luna-aime-tests-01
 export WANDB_ENTITY=yuningyangaillm
 export WANDB_PROJECT=MATH_rsi
 export MARGENT_WANDB_MODE=online
@@ -282,9 +288,25 @@ CUDA_VISIBLE_DEVICES="$RSI_MANAGER_GPU" "$RSI_PYTHON" -m src.verifiable doctor \
 
 ## 8. Run the Manager RSI pilot
 
+### 8.0 M0 feasibility probe on the BeyondAIME train subset
+
+BeyondAIME is much harder than Numina, and the Manager decodes non-thinking with a 2048-token cap; truncated answers are invalid. Measure before spending the persistent 24-hour budget. With the advisor serving (section 7) and GPU 1 free:
+
+```bash
+export PROBE=/workspace/margent-luna-beyond-m0-probe-01
+bash scripts/runpod_rsi_pilot.sh plan > /workspace/margent-luna-beyond-plan-01.txt
+"$RSI_PYTHON" scripts/probe_m0_subset.py prepare --subset "$RSI_SUBSET" --out "$PROBE"
+CUDA_VISIBLE_DEVICES="$RSI_MANAGER_GPU" "$RSI_PYTHON" -u -m src.verifiable.rsi stage assess \
+  --config "$RSI_CONFIG" --checkpoint Qwen/Qwen3.5-9B \
+  --data "$PROBE/train_as_dev.jsonl" --out "$PROBE/train" > "$PROBE/train.log" 2>&1
+"$RSI_PYTHON" scripts/probe_m0_subset.py summarize --subset "$RSI_SUBSET" --out "$PROBE" --config "$RSI_CONFIG"
+```
+
+The probe runs M0 on exactly the train questions that `initial_collection` will use, so `independent_correct_n` is the gate's commit count. It also reports truncation, output length, real tokens/s and how many of GRPO's fixed `rl_max_steps` questions M0 can solve at all. Decide train size, arms, hours and token budget from these numbers **before** the RSI launch and before any AIME2026 evaluation; never calibrate on AIME2026. A changed setting needs a new `RSI_SUBSET`/`RSI_OUTPUT` (and, for `max_new_tokens`, a copied config).
+
 ### 8.1 Prepare the 16 / 16 subset and inspect the plan
 
-The shared environment explicitly sets `RSI_DATA="$LUNA_DATA/manager"`, overriding the wrapper's historical default.
+The shared environment sets `RSI_DATA` to the BeyondAIME pool, and `RSI_TRAIN_N`, `RSI_DEV_N`, `RSI_ARMS` and `RSI_HOURS` override the wrapper's defaults (16, 16, all three arms, 24).
 
 ```bash
 bash scripts/runpod_rsi_pilot.sh plan > /workspace/margent-luna-manager-plan-01.txt
@@ -389,182 +411,41 @@ The second SFT explicitly takes GRPO weights. This dynamic-arm example does not 
 
 ### 10.1 Freeze comparisons before inspecting test results
 
-The primary matrix contains M0 and each arm's `round_2/grpo`, all using **the same trained frozen experts**, generation budgets, seed and grader. Evaluate all 30 AIME2026 and all 100 BeyondAIME questions: four Managers × two benchmarks = eight cells. One `evaluate` invocation returns both independent and policy scores.
+AIME2026 (30 questions) is the only held-out test. BeyondAIME supplied the RSI train/dev questions and must not be scored as a held-out benchmark. The primary matrix contains M0 and each arm in `RSI_ARMS` at `round_2/grpo`, all using **the same trained frozen experts**, generation budgets, seed and grader. One `evaluate` invocation returns both independent and policy scores.
 
 To study first-round SFT versus GRPO, predeclare additional `dynamic/round_1/sft` and `dynamic/round_1/grpo` cells before test inspection. `round_2/sft` inherits earlier GRPO and is not a pure SFT baseline. Isolating expert improvement requires a separate fixed-Manager comparison of prompt-only versus trained experts.
 
-Reuse the ready advisor from section 7. Wait for Manager training to exit, GPU 1 to become free, and all three arms to complete. Report unfinished arms as incomplete instead of substituting earlier checkpoints for prespecified final models.
+Reuse the ready advisor from section 7 and wait for the RSI controller to exit and GPU 1 to become free. An arm that did not finish is reported as incomplete; never substitute an earlier checkpoint for a prespecified final model.
 
-`evaluate-suite` / `paper-check` target the historical SFT `loop.json`, not the current RSI `rsi_run.json`. Use the explicit `evaluate --resume` commands below.
+`evaluate-suite` / `paper-check` target the historical SFT `loop.json`, not the current RSI `rsi_run.json`. Use the scripts below.
 
-### 10.2 Create the evaluation command file
+### 10.2 Run the AIME2026 matrix
 
-This shell file runs the eight cells sequentially without changing training code. Each cell receives a **persistent absolute 120-minute deadline on first launch**; restarting does not extend it. Budget records live outside stage directories to preserve empty-directory/signature checks. At expiry, the wrapper interrupts the Manager evaluation process group, allows up to 60 seconds for cleanup, then forces termination if needed. Question shards remain; the advisor and Pod remain under your control. Eight times 120 minutes is a maximum allocation, not an ETA.
+`scripts/evaluate_aime_matrix.sh` runs the cells sequentially without changing training code:
 
-Create and inspect the file before launching it:
-
-```bash
-cat > /workspace/margent-luna-evaluate-01.sh <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-source /workspace/margent-luna-env.sh
-cd "$MARGENT_CODE"
-mkdir -p "$EVAL_ROOT/budgets" "$EVAL_ROOT/logs"
-# Linux flock prevents duplicate matrix launches; do not run individual cells concurrently.
-exec 9>"$EVAL_ROOT/.matrix.lock"
-flock -n 9 || { echo 'This test matrix already has a running process' >&2; exit 1; }
-
-"$RSI_PYTHON" - <<'PY'
-import json, os
-from pathlib import Path
-p = Path(os.environ['RSI_OUTPUT'])
-report = json.loads((p/'pilot_report.json').read_text())
-summary = json.loads((p/'run_summary.json').read_text())
-assert report['complete'] and report['completed_stages'] == report['planned_stages'] == 31
-assert summary['pilot_complete'] and summary['controller_status'] == 'completed'
-for arm in ('dynamic', 'static', 'success'):
-    out = p/arm/'round_2/grpo'
-    assert (out/'.rsi_complete.json').is_file() and (out/'adapter_config.json').is_file()
-    assert (out/'training_metrics.json').is_file()
-PY
-
-run_eval() {
-  local label="$1" checkpoint="$2" benchmark="$3" remaining
-  # Same label must keep the same inputs. Core evaluate additionally checks
-  # checkpoint contents, code/harness, advisor identity and full run manifest.
-  remaining=$("$RSI_PYTHON" - "$EVAL_ROOT/budgets/$label-$benchmark.json" \
-    "$RSI_CONFIG" "$LUNA_DATA/manager/$benchmark.jsonl" "$checkpoint" <<'PY'
-import hashlib, json, math, sys, time
-from pathlib import Path
-target, config, data, checkpoint = sys.argv[1:]
-digest = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
-signature = {'config_sha256': digest(config), 'data_sha256': digest(data),
-             'checkpoint': checkpoint, 'minutes': 120}
-p = Path(target)
-if p.exists():
-    budget = json.loads(p.read_text())
-    if budget['signature'] != signature:
-        raise SystemExit('Budget inputs changed; use a new experiment directory')
-else:
-    budget = {'signature': signature, 'deadline_unix': time.time() + 120*60}
-    with p.open('x') as f:
-        json.dump(budget, f, indent=2)
-left = math.floor(budget['deadline_unix'] - time.time())
-if left <= 0:
-    raise SystemExit('Original evaluation deadline exhausted; retain incomplete evidence')
-print(left)
-PY
-  )
-  timeout --signal=INT --kill-after=60s "${remaining}s" \
-    env CUDA_VISIBLE_DEVICES="$RSI_MANAGER_GPU" "$RSI_PYTHON" -u -m src.verifiable evaluate \
-    --config "$RSI_CONFIG" --checkpoint "$checkpoint" \
-    --data "$LUNA_DATA/manager/$benchmark.jsonl" \
-    --out "$EVAL_ROOT/$label/$benchmark" --resume \
-    >> "$EVAL_ROOT/logs/$label-$benchmark.log" 2>&1
-}
-
-for label in base dynamic_final static_final success_final; do
-  case "$label" in
-    base) checkpoint=Qwen/Qwen3.5-9B ;;
-    dynamic_final) checkpoint="$RSI_OUTPUT/dynamic/round_2/grpo" ;;
-    static_final) checkpoint="$RSI_OUTPUT/static/round_2/grpo" ;;
-    success_final) checkpoint="$RSI_OUTPUT/success/round_2/grpo" ;;
-  esac
-  for benchmark in aime2026 beyondaime; do
-    # Completed outputs are still checked by the verification command below.
-    if "$RSI_PYTHON" - "$EVAL_ROOT/$label/$benchmark" "$benchmark" <<'PY'
-import json, sys
-from pathlib import Path
-p, benchmark = Path(sys.argv[1]), sys.argv[2]
-try:
-    summary = json.loads((p/'summary.json').read_text())
-    status = json.loads((p/'status.json').read_text())
-    ok = status['status'] == 'completed' and summary['n'] == {'aime2026':30,'beyondaime':100}[benchmark]
-except (OSError, ValueError, KeyError):
-    ok = False
-raise SystemExit(0 if ok else 1)
-PY
-    then
-      echo "Already recorded: $label / $benchmark; verify all IDs before reporting"
-      continue
-    fi
-    echo "Evaluating: $label / $benchmark"
-    run_eval "$label" "$checkpoint" "$benchmark"
-  done
-done
-SH
-cat /workspace/margent-luna-evaluate-01.sh
-```
-
-
-This wrapper creates no W&B parent controller or `baseline_complete` flag. Each cell's evaluate run and files are the evidence. It stops on the first failure. Timeout exit code 124, or 137 after forced termination, is not zero accuracy. Cells after an unfinished cell have not run.
-
-### 10.3 Launch and verify the complete matrix
+- It first checks that the RSI controller has exited and that every RSI train/dev question is a BeyondAIME question disjoint from AIME2026.
+- Each cell gets a **persistent absolute deadline** of `EVAL_CELL_MINUTES` (default 120) on first launch; restarting does not extend it. At expiry the Manager evaluation receives SIGINT, then SIGKILL after 60 seconds.
+- A failed, timed-out or exhausted cell is recorded in `$EVAL_ROOT/matrix_attempts.jsonl` and **later cells still run**. An exhausted cell is skipped, never started with `timeout 0s` (which means no limit).
+- Completed cells are skipped on rerun; incomplete cells resume with `evaluate --resume`. `flock` prevents duplicate launches.
 
 ```bash
-tmux new-session -d -s margent-luna-tests-01 \
-  bash -lc 'bash /workspace/margent-luna-evaluate-01.sh >> /workspace/margent-luna-tests-01.controller.log 2>&1'
-tail -n 60 /workspace/margent-luna-tests-01.controller.log
+tmux new-session -d -s margent-luna-aime-tests-01 \
+  bash -lc 'bash "$MARGENT_CODE/scripts/evaluate_aime_matrix.sh" >> /workspace/margent-luna-aime-tests-01.controller.log 2>&1'
+tail -n 60 /workspace/margent-luna-aime-tests-01.controller.log
 tail -n 60 "$EVAL_ROOT/logs/base-aime2026.log"
 ```
 
+Exit code 0 means every cell completed; 1 means at least one cell is incomplete. Timeout exit code 124, or 137 after forced termination, is not zero accuracy.
 
-After completion, run this **CPU-only** validation and score export. It checks actual question IDs, shards, counts and completion state, and rejects any missing cell:
+### 10.3 Verify and export scores
+
+After the matrix ends, run the **CPU-only** verification. It checks actual question IDs, shards, counts, config, checkpoint, data hash, harness and advisor identity for every completed cell, recomputes the summaries, lists incomplete cells, and writes `$EVAL_ROOT/scores.csv`:
 
 ```bash
-"$RSI_PYTHON" - <<'PY'
-import csv, hashlib, json, os
-from pathlib import Path
-from src.verifiable.data import identity, load_rows, verify_manifest
-from src.verifiable.runner import load_config, checkpoint_identity, validate_resume_records
-from src.verifiable.provenance import harness_identity
-from src.verifiable.experiment import summary as summarize
-from src.verifiable.serve import load_expert_bundle, expert_bundle_sha256
-root, data = Path(os.environ['EVAL_ROOT']), Path(os.environ['LUNA_DATA'])/'manager'
-cfg = load_config(os.environ['RSI_CONFIG'])
-verify_manifest(str(data))
-bundle = load_expert_bundle(cfg['advisor_expert_bundle'], cfg['base_model'], cfg['base_model_revision'])
-bundle_hash = expert_bundle_sha256(bundle)
-advisor = json.loads((Path(os.environ['RSI_OUTPUT'])/'advisor_identity.json').read_text())
-assert advisor['expert_bundle'] == bundle and advisor['expert_bundle_sha256'] == bundle_hash
-rows = []
-for label in ('base','dynamic_final','static_final','success_final'):
-    checkpoint = 'Qwen/Qwen3.5-9B' if label == 'base' else str(Path(os.environ['RSI_OUTPUT'])/label.removesuffix('_final')/'round_2/grpo')
-    for benchmark, expected_n in (('aime2026',30),('beyondaime',100)):
-        p = root/label/benchmark
-        source = [json.loads(x) for x in (data/f'{benchmark}.jsonl').read_text().splitlines() if x.strip()]
-        expected = {identity(x['question']) for x in source}
-        records = [json.loads(x) for x in (p/'records.jsonl').read_text().splitlines() if x.strip()]
-        summary = json.loads((p/'summary.json').read_text())
-        status = json.loads((p/'status.json').read_text())
-        run = json.loads((p/'run.json').read_text())
-        assert len(source) == len(expected) == len(records) == summary['n'] == expected_n
-        assert {x['question_hash'] for x in records} == expected
-        assert status['status'] == 'completed' and run['config'] == cfg
-        assert run['checkpoint'] == checkpoint_identity(checkpoint)
-        assert json.loads((p/'advisor_identity.json').read_text()) == advisor
-        assert run['data_sha256'] == hashlib.sha256((data/f'{benchmark}.jsonl').read_bytes()).hexdigest()
-        assert run['mode'] == 'evaluate' and run['limit'] == 0 and run['harness'] == harness_identity()
-        validate_resume_records(records, load_rows(str(data/f'{benchmark}.jsonl'), required_split='test'), 'evaluate')
-        observed = summarize(records)
-        for key in ('n','independent_correct_n','policy_correct_n','independent_accuracy','policy_accuracy','mean_calls'):
-            assert summary[key] == observed[key]
-        shards = {x.stem:json.loads(x.read_text()) for x in (p/'questions').glob('*.json')}
-        assert set(shards) == expected and all(shards[x['question_hash']] == x for x in records)
-        rows.append({'checkpoint':label,'benchmark':benchmark,'n':expected_n,
-                     'independent_correct_n':summary['independent_correct_n'],
-                     'policy_correct_n':summary['policy_correct_n'],
-                     'independent_accuracy':summary['independent_accuracy'],
-                     'policy_accuracy':summary['policy_accuracy'],
-                     'mean_calls':summary['mean_calls']})
-with (root/'scores.csv').open('w', newline='') as f:
-    writer=csv.DictWriter(f,fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
-print(json.dumps({'verified_cells':len(rows),'scores':rows},ensure_ascii=False,indent=2))
-PY
+"$RSI_PYTHON" scripts/verify_aime_matrix.py
 ```
 
-
-`scores.csv` contains counts and point estimates, not paired intervals, seed variance or causal conclusions. Preserve question records for paired wrong-to-correct / correct-to-wrong analysis and uncertainty estimates.
+`scores.csv` contains counts and point estimates, not paired intervals, seed variance or causal conclusions. With n=30, one question is 3.33 percentage points. Preserve question records for paired wrong-to-correct / correct-to-wrong analysis and uncertainty estimates.
 
 ### 10.4 Optional early M0 AIME baseline
 
@@ -607,7 +488,7 @@ PY
 | Expert training | `expert_sft` | `config.expert_role`; `stage_path=training/ROLE` |
 | Adapter reload | `expert_reload` | `stage_path=reload_smoke` |
 | Expert dev comparison | `expert_eval` | `dev_comparison` in the expert group for these paths |
-| Manager parent | `rsi_controller` | Group starts with `margent-luna-manager-pilot-01-` |
+| Manager parent | `rsi_controller` | Group starts with `margent-luna-beyond-rsi-01-` |
 | Manager collection | `collect` | initial_collection or ARM/round_N/collection |
 | Manager SFT | `sft` | `config.arm`, `config.round`, stage_path |
 | Manager GRPO | `rsi_grpo` | Same arm/round fields |
@@ -683,7 +564,7 @@ Confirm the previous process has ended. Never run two Manager controllers agains
 | Expert SFT | Repeat `bash scripts/runpod_expert_sft.sh start --minutes 120`; there is no `--resume` flag | Validated complete roles are skipped; unfinished roles resume valid Trainer checkpoints |
 | Expert dev | Repeat section 6 after the old session exits | Reuses committed generations and original budget |
 | Manager controller | Recreate the same section 8 tmux command after exit | collect/assess question shards, SFT Trainer state, atomically committed GRPO adapter/optimizer |
-| External test | Repeat the section 10 command file | Complete cells skipped; incomplete cells use `evaluate --resume` with the original deadline |
+| External test | Repeat `scripts/evaluate_aime_matrix.sh` | Complete cells skipped; incomplete cells use `evaluate --resume` with the original deadline; exhausted cells are recorded and skipped |
 | Optional M0 AIME | Repeat section 10.4 | Original two-hour deadline, question shards and interruption evidence |
 
 Expired runs remain incomplete; do not delete `budget.json` to extend them. Uncommitted work after the last checkpoint may repeat and must count toward cost. Starting the next SFT from preceding GRPO weights uses a new optimizer; resuming the same training stage restores its saved optimizer.
@@ -694,24 +575,24 @@ Budgets stop only the processes they manage. After all work ends, stop your advi
 
 ## 13. Larger pools, multiple seeds and paper-scale experiments
 
-After the mechanism pilot, prepare the full frozen 128/64 Manager pool in a **new directory**:
+After the mechanism pilot, prepare the full BeyondAIME pool (64 train / 36 dev) in a **new directory**:
 
 ```bash
 "$RSI_PYTHON" -m src.verifiable.rsi prepare \
-  --data-dir "$LUNA_DATA/manager" --out /workspace/margent-luna-manager-data-128-01 \
-  --train-n 128 --dev-n 64
+  --data-dir "$RSI_DATA" --out /workspace/margent-luna-beyond-subset-64-36-01 \
+  --train-n 64 --dev-n 36
 CUDA_VISIBLE_DEVICES=1 "$RSI_PYTHON" -m src.verifiable.rsi run \
-  --config "$RSI_CONFIG" --data-dir /workspace/margent-luna-manager-data-128-01 \
-  --out /workspace/margent-luna-manager-full-01 --rounds 2 --hours 24 \
+  --config "$RSI_CONFIG" --data-dir /workspace/margent-luna-beyond-subset-64-36-01 \
+  --out /workspace/margent-luna-beyond-rsi-full-01 --rounds 2 --hours 24 \
   --arms dynamic static success --dry-run
 ```
 
 
-This is a dry run. The wrapper remains fixed at 16/16; changing its output name does not enlarge the pool. The same configuration still has eight SFT updates and eight GRPO groups. Increasing pool size does not automatically train on all 128 questions. Use dev throughput/cost to predeclare new steps, rounds, seeds such as 42/43/44, and matched arm budgets. The existing controller still caps each experiment at 24 hours; cross-budget scheduling and a one-command paper matrix are not implemented here.
+This is a dry run. The wrapper takes its sizes from `RSI_TRAIN_N`/`RSI_DEV_N`; changing only its output name does not enlarge the pool. The same configuration still has eight SFT updates and eight GRPO groups, so a larger pool does not automatically train on every question, while every collect and assess stage processes all of them. Use dev throughput/cost to predeclare new steps, rounds, seeds such as 42/43/44, and matched arm budgets. The existing controller still caps each experiment at 24 hours; cross-budget scheduling and a one-command paper matrix are not implemented here.
 
 A small pilot tests execution, within-group learning signal and changes on a fixed small dev set. Effectiveness claims need multiple training seeds, prespecified comparisons, independent tests, paired analysis and additional controls. Report dynamic−static, dynamic−success and each arm versus M0 separately, with expert and Manager training costs separated.
 
-Always retain integer k/n. One question is 6.25 percentage points on dev16, about 3.33 on AIME30 and 1 on BeyondAIME100. Question bootstrap intervals do not estimate training-seed variance. Four rollouts of one question are not four independent test questions. Do not pool the two benchmarks into an unexplained single accuracy. Training-set rescued-to-direct changes are mechanism diagnostics; generalization is measured on independent dev/test.
+Always retain integer k/n. One question is 6.25 percentage points on dev16 and about 3.33 on AIME2026's 30 held-out questions. Question bootstrap intervals do not estimate training-seed variance. Four rollouts of one question are not four independent test questions. BeyondAIME accuracies come from RSI train/dev questions and are not held-out results. Training-set rescued-to-direct changes are mechanism diagnostics; generalization is measured on independent dev/test.
 
 ## 14. Paper evidence and backup
 
@@ -728,15 +609,15 @@ After GPU work ends and while the Pod remains accessible, create a backup and co
 
 ```bash
 df -h /workspace
-tar -czf /workspace/margent-luna-results-01.tar.gz -C /workspace \
-  margent-luna-experts-01 margent-luna-manager-pilot-01 \
-  margent-luna-manager-data-16-01 margent-luna-tests-01 \
-  margent-luna-setup-01 margent-luna-env.sh margent-luna-evaluate-01.sh
+tar --format=posix -czf /workspace/margent-luna-results-01.tar.gz -C /workspace \
+  "$(basename "$EXPERT_ROOT")" "$(basename "$RSI_OUTPUT")" "$(basename "$RSI_SUBSET")" \
+  "$(basename "$EVAL_ROOT")" margent-luna-setup-01 margent-luna-env.sh \
+  "$(basename "$EXPERT_ROOT").log" "$(basename "$RSI_OUTPUT").controller.log"
 sha256sum /workspace/margent-luna-results-01.tar.gz
 ```
 
 
-Archive only existing paths; omit unexecuted test paths and record that status. W&B curves do not back up weights. Verify that the archive exists outside the Pod before shutting it down.
+Archive only existing paths; omit unexecuted test paths and record that status. `--format=posix` keeps sub-second modification times: expert fingerprints include `training_args.bin`'s nanosecond mtime, so a default-format archive restores experts that fail `load_expert_bundle`. W&B curves do not back up weights. Verify that the archive exists outside the Pod before shutting it down.
 
 ## 15. Source reference
 
