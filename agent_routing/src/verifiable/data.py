@@ -191,8 +191,8 @@ def verify_manifest(data_dir):
             raise ValueError(f"Data changed after preparation: {filename}")
     # A derived pool may lock fewer held-out sets, e.g. when BeyondAIME becomes train/dev.
     tests = manifest.get("test_sets", ["aime2026", "beyondaime"])
-    if type(tests) is not list or not tests or len(set(tests)) != len(tests) or set(tests) - {"aime2026", "beyondaime"}:
-        raise ValueError("test_sets must be a nonempty subset of aime2026/beyondaime")
+    if type(tests) is not list or "aime2026" not in tests or len(set(tests)) != len(tests) or set(tests) - {"aime2026", "beyondaime"}:
+        raise ValueError("test_sets must lock aime2026 and may add only beyondaime")
     expected = {"train.jsonl", "dev.jsonl"} if manifest.get("smoke_only") else {"train.jsonl", "dev.jsonl", *(t + ".jsonl" for t in tests)}
     if set(manifest["sha256"]) != expected:
         raise ValueError("Manifest must include exactly the required split files")

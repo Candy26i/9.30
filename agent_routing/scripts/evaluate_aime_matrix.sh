@@ -11,20 +11,33 @@ mkdir -p "$EVAL_ROOT/budgets" "$EVAL_ROOT/logs"
 exec 9>"$EVAL_ROOT/.matrix.lock"
 flock -n 9 || { echo 'This test matrix already has a running process' >&2; exit 1; }
 
-# Fatal precheck: the RSI controller has exited, and every RSI train/dev question is a BeyondAIME
-# question disjoint from AIME2026 (normalized identity check, not a filename check).
+# Fatal precheck: the RSI controller has exited (or every stage has its marker), the subset in the env file
+# is the data that RSI run actually recorded, and every RSI train/dev question is a BeyondAIME question
+# disjoint from AIME2026 (normalized identity check, not a filename check). Explicit checks, not asserts.
 "$RSI_PYTHON" - <<'PY' || exit 1
-import json, os
+import hashlib, json, os
 from pathlib import Path
 from src.verifiable.data import identity, load_rows
 out, sub, pool = Path(os.environ['RSI_OUTPUT']), Path(os.environ['RSI_SUBSET']), Path(os.environ['LUNA_DATA'])/'manager'
+def require(ok, message):
+    if not ok:
+        raise SystemExit(message)
 status = json.loads((out/'run_summary.json').read_text()).get('controller_status')
-assert status in {'completed', 'failed', 'interrupted'}, f'RSI controller not finished: {status}'
+report = out/'pilot_report.json'
+all_markers = report.exists() and json.loads(report.read_text()).get('complete') is True
+require(status in {'completed', 'failed', 'interrupted'} or all_markers, f'RSI controller not finished: {status}')
+recorded = json.loads((out/'rsi_run.json').read_text())['data']['sha256']
+for name in ('train.jsonl', 'dev.jsonl'):
+    require(hashlib.sha256((sub/name).read_bytes()).hexdigest() == recorded[name],
+            f'RSI_SUBSET/{name} is not the data recorded in RSI_OUTPUT/rsi_run.json')
 ids = lambda f, s: {identity(r.question) for r in load_rows(f, required_split=s)}
 aime, beyond = ids(pool/'aime2026.jsonl', 'test'), ids(pool/'beyondaime.jsonl', 'test')
 used = ids(sub/'train.jsonl', 'train') | ids(sub/'dev.jsonl', 'dev')
-assert len(aime) == 30 and not used & aime and used <= beyond, 'RSI data not disjoint from AIME2026 / not BeyondAIME'
-print(json.dumps({'rsi_controller_status': status, 'rsi_questions': len(used), 'aime_overlap': 0}))
+require(len(aime) == 30, 'AIME2026 must have 30 questions')
+require(not used & aime, 'RSI train/dev overlaps AIME2026')
+require(used <= beyond, 'RSI train/dev contains non-BeyondAIME questions')
+print(json.dumps({'rsi_controller_status': status, 'all_stage_markers': all_markers,
+                  'rsi_questions': len(used), 'aime_overlap': 0}))
 PY
 
 cell_done() {  # exit 0 only for a completed cell with exactly EXPECTED_N records
@@ -65,15 +78,19 @@ PY
 note() { printf '{"cell":"%s","state":"%s","rc":%s,"unix":%s}\n' "$1" "$2" "$3" "$(date +%s)" >> "$EVAL_ROOT/matrix_attempts.jsonl"; echo "$1: $2 (rc=$3)"; }
 
 incomplete=0
-for label in base ${RSI_ARMS:-dynamic static success}; do
-  case "$label" in
-    base) checkpoint=Qwen/Qwen3.5-9B ;;
-    *) checkpoint="$RSI_OUTPUT/$label/round_2/grpo"; label="${label}_final" ;;
-  esac
+for arm in base ${RSI_ARMS:-dynamic static success}; do
+  if [[ "$arm" == base ]]; then
+    label=base; checkpoint=Qwen/Qwen3.5-9B
+  else
+    label="${arm}_final"; checkpoint="$RSI_OUTPUT/$arm/round_2/grpo"
+  fi
   out="$EVAL_ROOT/$label/$BENCH"
   if cell_done "$out"; then note "$label" already_complete 0; continue; fi
-  if [[ "$label" != base && ! ( -f "$checkpoint/.rsi_complete.json" && -f "$checkpoint/adapter_config.json" ) ]]; then
-    note "$label" arm_incomplete_not_evaluated 0; incomplete=1; continue   # never substitute an earlier checkpoint
+  # An arm is final only when its last dev assessment ran; a round_2/grpo stage that failed the
+  # controller's mixed-reward gate still has a marker but no grpo_dev. Never substitute a checkpoint.
+  if [[ "$arm" != base && ! ( -f "$checkpoint/.rsi_complete.json" && -f "$checkpoint/adapter_config.json"
+        && -f "$RSI_OUTPUT/$arm/round_2/grpo_dev/.rsi_complete.json" ) ]]; then
+    note "$label" arm_incomplete_not_evaluated 0; incomplete=1; continue
   fi
   if ! left=$(budget_left "$label" "$checkpoint"); then note "$label" budget_inputs_changed 2; incomplete=1; continue; fi
   if (( left < MIN_START_SECONDS )); then

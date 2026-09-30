@@ -15,7 +15,9 @@ def harness_identity():
     for path in files:
         digest.update(str(path.relative_to(root.parent)).encode() + b"\0" + path.read_bytes())
     packages = {}
-    for name in ("torch", "transformers", "trl", "peft", "datasets", "math-verify", "numpy"):
+    # flash-linear-attention and causal-conv1d switch Qwen3.5's linear-attention kernels when importable.
+    for name in ("torch", "transformers", "trl", "peft", "datasets", "math-verify", "numpy",
+                 "flash-linear-attention", "causal-conv1d"):
         try:
             packages[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

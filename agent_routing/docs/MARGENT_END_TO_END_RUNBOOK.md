@@ -31,7 +31,7 @@ flowchart TD
   H --> I[Updated Manager recollects D1]
   I --> J[Continue weights: SFT2 -> dev -> GRPO2 -> dev]
   J --> K[Lock configuration and final checkpoints]
-  K --> L[M0 and final arms: AIME2026 / BeyondAIME]
+  K --> L[M0 and final arms: AIME2026 held-out test]
 ```
 
 All four roles use `Qwen/Qwen3.5-9B`, pinned to revision `c202236235762e1c871ad0ccb60c8ee5ba337b9a`.
@@ -60,7 +60,7 @@ Use the published [`data/math_luna_codex_pilot_20260929/`](../data/math_luna_cod
 | Verifier examples | 208 | 64 | Two candidate audits per question; 272 rows |
 | Frozen Manager Numina pool | 128 | 64 dev | Separate pool; this pilot selects 16 / 16 by question hash |
 | AIME2026 | None | 30 test | Independent external evaluation of M0 and trained Managers |
-| BeyondAIME | None | 100 test | Second external evaluation after configuration is locked |
+| BeyondAIME | 64 | 36 dev | Manager RSI train/dev pool (`data/manager_beyond_rsi_20260930`); never a held-out result |
 
 The expert bundle contains **136 questions and 544 role examples: 416 train + 128 dev**. The original 160-question generation completed 960 tasks. A mechanical control-character filter excluded 24 train questions and their 96 supervised rows; retained content was not rewritten. Two Verifier candidates are not two independent questions.
 
@@ -77,7 +77,7 @@ The expert bundle contains **136 questions and 544 role examples: 416 train + 12
 | Manager pilot | 16 train / 16 dev; dynamic/static/success, two rounds each | At most 24 hours shared by all arms and stages |
 | Manager SFT per round | 8 optimizer updates; batch 1, accumulation 2, lr 2e-5, rank 16 | Included in the 24-hour budget |
 | Manager GRPO per round | 8 question groups × 4 rollouts; lr 1e-6, temperature .8, clip .2, KL beta .01 | Included above; completed groups and optimizer updates are separate counters |
-| External test | M0 + three round_2/grpo models; AIME 30 and BeyondAIME 100 each | Section 10 allocates 120 minutes per model/benchmark cell; completion is not guaranteed |
+| External test | M0 + each arm's round_2/grpo model on AIME2026 (30) | Section 10 allocates `EVAL_CELL_MINUTES` (default 120) per cell; completion is not guaranteed |
 
 Manager collection/evaluation temperature is 0. Independent solution and revision each allow 2048 tokens; decision allows 128; advisor allows 2048; context/SFT sequence limit is 32768. Maximum call depth is 2 with `finite_actions_v1` decisions. These values come from `configs/math_rsi_actions.json`, the template used to generate `manager_config.json`. Changed settings require a new configuration, directory and comparable baseline.
 
@@ -89,9 +89,9 @@ Use a CUDA PyTorch RunPod image; the original environment used torch 2.8.0. The 
 
 ```bash
 cd /workspace
-git clone --branch main https://github.com/Jeremyyny/7.98.git /workspace/7.98
+git clone --branch main https://github.com/Candy26i/9.30.git /workspace/9.30
 cd /workspace/7.98/agent_routing
-git checkout --detach 17c5da8e0cbe4c0e672208816c9a76f7c7a9f1b2
+git checkout --detach <commit on main that contains data/manager_beyond_rsi_20260930>
 git rev-parse HEAD
 nvidia-smi
 command -v tmux
@@ -142,6 +142,7 @@ export RSI_OUTPUT=/workspace/margent-luna-beyond-rsi-01
 export RSI_ADVISOR_GPU=0
 export RSI_MANAGER_GPU=1
 export EVAL_ROOT=/workspace/margent-luna-aime-tests-01
+export PROBE=/workspace/margent-luna-beyond-m0-probe-01
 export WANDB_ENTITY=yuningyangaillm
 export WANDB_PROJECT=MATH_rsi
 export MARGENT_WANDB_MODE=online
@@ -154,6 +155,17 @@ bash scripts/runpod_math_setup.sh
 "$EXPERT_PYTHON" -m pip check
 ```
 
+
+Then install the Qwen3.5 linear-attention fast path **before any GPU stage** (expert SFT, advisor, probe, RSI). Without it transformers falls back to a slower torch implementation; `harness_identity` records both package versions, so installing them mid-experiment makes resumes refuse. Pin the existing packages so nothing else moves:
+
+```bash
+source /workspace/margent-luna-env.sh
+"$EXPERT_PYTHON" -m pip freeze | grep -iE '^(torch|torchaudio|torchvision|transformers|trl|peft|datasets|math-verify|numpy|triton|accelerate|tokenizers|safetensors|huggingface-hub)==' > /workspace/margent-pins.txt
+"$EXPERT_PYTHON" -m pip install -c /workspace/margent-pins.txt ninja packaging einops
+CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH "$EXPERT_PYTHON" -m pip install -c /workspace/margent-pins.txt --no-build-isolation causal-conv1d
+"$EXPERT_PYTHON" -m pip install -c /workspace/margent-pins.txt flash-linear-attention
+"$EXPERT_PYTHON" -m pip check
+```
 
 Setup inherits the image's CUDA torch rather than reinstalling it. It installs `requirements-math.txt`, including Transformers 5.3.0, TRL 0.29.0, PEFT 0.18.1 and W&B 0.30.0, runs the listed tests, and saves `environment.lock.txt` / `nvidia-smi.txt`. A compatible existing venv can be reused. Keep dependencies and source fixed during an experiment.
 
@@ -293,7 +305,6 @@ CUDA_VISIBLE_DEVICES="$RSI_MANAGER_GPU" "$RSI_PYTHON" -m src.verifiable doctor \
 BeyondAIME is much harder than Numina, and the Manager decodes non-thinking with a 2048-token cap; truncated answers are invalid. Measure before spending the persistent 24-hour budget. With the advisor serving (section 7) and GPU 1 free:
 
 ```bash
-export PROBE=/workspace/margent-luna-beyond-m0-probe-01
 bash scripts/runpod_rsi_pilot.sh plan > /workspace/margent-luna-beyond-plan-01.txt
 "$RSI_PYTHON" scripts/probe_m0_subset.py prepare --subset "$RSI_SUBSET" --out "$PROBE"
 CUDA_VISIBLE_DEVICES="$RSI_MANAGER_GPU" "$RSI_PYTHON" -u -m src.verifiable.rsi stage assess \
@@ -315,7 +326,7 @@ cat /workspace/margent-luna-manager-plan-01.txt
 ```
 
 
-The plan selects 16 train / 16 dev questions from the frozen 128/64 pool in normalized-question-hash order. It prints 31 stages: shared initial_dev and initial_collection; two rounds of SFT/dev/GRPO/dev per arm; round-two recollection per arm; and selection in each success-arm round. Preparation reads the complete source manifest, including test files, to verify hashes/isolation. It does not run inference, create labels or train on external tests.
+The plan selects `RSI_TRAIN_N` / `RSI_DEV_N` (default 16 / 16) questions from the frozen BeyondAIME 64/36 pool in normalized-question-hash order. It prints 31 stages: shared initial_dev and initial_collection; two rounds of SFT/dev/GRPO/dev per arm; round-two recollection per arm; and selection in each success-arm round. Preparation reads the complete source manifest, including test files, to verify hashes/isolation. It does not run inference, create labels or train on external tests.
 
 ### 8.2 Start one controller
 
@@ -423,19 +434,20 @@ Reuse the ready advisor from section 7 and wait for the RSI controller to exit a
 
 `scripts/evaluate_aime_matrix.sh` runs the cells sequentially without changing training code:
 
-- It first checks that the RSI controller has exited and that every RSI train/dev question is a BeyondAIME question disjoint from AIME2026.
+- It first checks that the RSI controller has exited (or every stage has its marker), that `RSI_SUBSET` is the data recorded in `RSI_OUTPUT/rsi_run.json`, and that every RSI train/dev question is a BeyondAIME question disjoint from AIME2026.
+- An arm is evaluated only if its `round_2/grpo_dev` stage completed; a `round_2/grpo` that failed the mixed-reward gate is reported as incomplete.
 - Each cell gets a **persistent absolute deadline** of `EVAL_CELL_MINUTES` (default 120) on first launch; restarting does not extend it. At expiry the Manager evaluation receives SIGINT, then SIGKILL after 60 seconds.
 - A failed, timed-out or exhausted cell is recorded in `$EVAL_ROOT/matrix_attempts.jsonl` and **later cells still run**. An exhausted cell is skipped, never started with `timeout 0s` (which means no limit).
 - Completed cells are skipped on rerun; incomplete cells resume with `evaluate --resume`. `flock` prevents duplicate launches.
 
 ```bash
 tmux new-session -d -s margent-luna-aime-tests-01 \
-  bash -lc 'bash "$MARGENT_CODE/scripts/evaluate_aime_matrix.sh" >> /workspace/margent-luna-aime-tests-01.controller.log 2>&1'
+  bash -lc 'set -e; source /workspace/margent-luna-env.sh; cd "$MARGENT_CODE"; bash scripts/evaluate_aime_matrix.sh >> /workspace/margent-luna-aime-tests-01.controller.log 2>&1'
 tail -n 60 /workspace/margent-luna-aime-tests-01.controller.log
 tail -n 60 "$EVAL_ROOT/logs/base-aime2026.log"
 ```
 
-Exit code 0 means every cell completed; 1 means at least one cell is incomplete. Timeout exit code 124, or 137 after forced termination, is not zero accuracy.
+Exit code 0 means every cell completed; 1 means at least one cell is incomplete. `verify_aime_matrix.py` uses the same rule and also exits 1 on incomplete cells. Timeout exit code 124, or 137 after forced termination, is not zero accuracy.
 
 ### 10.3 Verify and export scores
 
@@ -612,7 +624,8 @@ df -h /workspace
 tar --format=posix -czf /workspace/margent-luna-results-01.tar.gz -C /workspace \
   "$(basename "$EXPERT_ROOT")" "$(basename "$RSI_OUTPUT")" "$(basename "$RSI_SUBSET")" \
   "$(basename "$EVAL_ROOT")" margent-luna-setup-01 margent-luna-env.sh \
-  "$(basename "$EXPERT_ROOT").log" "$(basename "$RSI_OUTPUT").controller.log"
+  "$(basename "$EXPERT_ROOT").log" "$(basename "$RSI_OUTPUT").controller.log" \
+  "$(basename "$PROBE")" margent-luna-beyond-plan-01.txt margent-luna-aime-tests-01.controller.log
 sha256sum /workspace/margent-luna-results-01.tar.gz
 ```
 

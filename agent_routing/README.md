@@ -66,7 +66,7 @@ flowchart LR
   S2 --> G2[GRPO round 2]
 ```
 
-Manager training uses a separate frozen Numina pool, not the expert teacher targets. The default pilot selects 16 train / 16 dev from its available 128/64 pool by normalized-question hash. Test data is checked for isolation but never used for training targets or checkpoint selection.
+Manager training uses a separate frozen pool, not the expert teacher targets: BeyondAIME split 64 train / 36 dev (`data/manager_beyond_rsi_20260930`). The default pilot selects 16 train / 16 dev by normalized-question hash. AIME2026, the only held-out test, is checked for isolation but never used for training targets or checkpoint selection.
 
 For each training question, counterfactual collection evaluates direct commitment and non-repeating expert sequences up to depth two. The external grader identifies successful outcomes. The main selector favors direct commitment when already correct, otherwise shortest successful routes. It writes Manager assistant messages into `sft.jsonl`; expert replies and prompt history remain context with no supervised loss. Configured question-only distillation adds successful solutions as additional Manager targets.
 

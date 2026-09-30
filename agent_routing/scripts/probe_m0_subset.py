@@ -40,16 +40,21 @@ def summarize(args):
     out, cfg = Path(args.out) / "train", json.loads(Path(args.config).read_text())
     records = {r["question_hash"]: r for r in (json.loads(x) for x in (out / "records.jsonl").read_text().splitlines() if x.strip())}
     summary = json.loads((out / "summary.json").read_text())
-    usage = [json.loads(x) for x in (out / "usage.jsonl").read_text().splitlines() if x.strip()]
-    manager = [u for u in usage if u["role"] == "manager" and u.get("seconds")]
-    advisor = [u for u in usage if u["role"] == "advisor" and not u.get("cache_hit") and u.get("seconds")]
-    tokens = lambda xs: sum(u.get("completion_tokens", 0) for u in xs)
-    seconds = lambda xs: sum(u["seconds"] for u in xs)
+    gens = [json.loads(x) for x in (out / "generations.jsonl").read_text().splitlines() if x.strip()]
+    live = [g for g in gens if g.get("seconds") and not g.get("cache_hit")]
+    answers = [g for g in live if g["role"] == "manager" and g.get("operation") == "answer"]
+    roots = [g for g in answers if g.get("phase") == "independent"]
+    decisions = [g for g in live if g["role"] == "manager" and g.get("operation") == "decision"]
+    advice = [g for g in live if g["role"] == "advisor"]
+    tokens = lambda xs: sum(g.get("completion_tokens", 0) for g in xs)
+    seconds = lambda xs: sum(g["seconds"] for g in xs)
+    mean = lambda xs: round(tokens(xs) / len(xs)) if xs else None
     # GRPO trains on rows sorted by question identity, visited in a seed-shuffled order (rsi_grpo.train_grpo).
     rows = sorted(load_rows(str(Path(args.subset) / "train.jsonl"), required_split="train"), key=lambda r: identity(r.question))
     order = list(range(len(rows)))
     random.Random(cfg["seed"]).shuffle(order)
-    grpo = [records[identity(rows[order[step % len(order)]].question)] for step in range(cfg["rl_max_steps"])]
+    grpo = [identity(rows[order[step % len(order)]].question) for step in range(cfg["rl_max_steps"])]
+    grpo_unique = sorted(set(grpo))
     commits = summary["independent_correct_n"]
     result = {
         "n": summary["n"],
@@ -59,11 +64,17 @@ def summarize(args):
         "direct_truncated_rate": summary.get("direct_truncated_rate"),
         "direct_valid_rate": summary.get("direct_valid_rate"),
         "mean_calls": summary.get("mean_calls"),
-        "manager_mean_completion_tokens": round(tokens(manager) / max(1, len(manager))),
-        "manager_tokens_per_second": round(tokens(manager) / max(1e-9, seconds(manager)), 1),
-        "advisor_mean_completion_tokens": round(tokens(advisor) / max(1, len(advisor))),
-        "manager_plus_advisor_seconds_per_question": round((seconds(manager) + seconds(advisor)) / summary["n"]),
-        "grpo_questions_any_correct": sum(bool(r["direct_correct"] or r["policy"]["correct"]) for r in grpo),
+        "root_answer_mean_tokens": mean(roots),
+        "root_answers_at_cap": sum(g.get("completion_tokens", 0) >= cfg["max_new_tokens"] for g in roots),
+        "revision_mean_tokens": mean([g for g in answers if g.get("phase") != "independent"]),
+        "decision_mean_tokens": mean(decisions),
+        "advisor_mean_tokens": mean(advice),
+        "answer_tokens_per_second": round(tokens(answers) / seconds(answers), 1) if answers else None,
+        "generation_seconds_per_question": round(seconds(live) / summary["n"]),
+        "grpo_steps": len(grpo),
+        "grpo_unique_questions": len(grpo_unique),
+        "grpo_unique_questions_any_correct": sum(bool(records[h]["direct_correct"] or records[h]["policy"]["correct"])
+                                                 for h in grpo_unique),
         "initial_gate_commits_needed": cfg["pilot_min_commits"],
         "initial_gate_commit_half_passes": commits >= cfg["pilot_min_commits"],
         "note": "Rescues in initial_collection search all 9 branches; policy_rescued_n is one greedy route only.",

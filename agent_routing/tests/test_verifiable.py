@@ -208,7 +208,7 @@ class DataTest(unittest.TestCase):
             write()  # Default still requires both locked test sets.
             with self.assertRaisesRegex(ValueError, "required split files"):
                 verify_manifest(root)
-            for bad in ([], ["numina"], ["aime2026", "aime2026"], "aime2026"):
+            for bad in ([], ["numina"], ["beyondaime"], ["aime2026", "aime2026"], "aime2026"):
                 write(test_sets=bad)
                 with self.assertRaisesRegex(ValueError, "test_sets"):
                     verify_manifest(root)
