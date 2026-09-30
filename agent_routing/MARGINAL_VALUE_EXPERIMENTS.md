@@ -1,5 +1,7 @@
 # Draft-conditioned marginal-value routing: experiment plan
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 This is the main protocol for the current paper. It uses a binary terminal
 correctness reward for GRPO. ADC, CCR, additive per-call penalties, and generic
 tool-use bonuses are not part of the main method.

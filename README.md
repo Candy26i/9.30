@@ -1,44 +1,51 @@
-# research_0703 — Learning When to Commit
+# MARGENT — Learning When to Delegate
 
-**Current 9B math experiment:** [完整 RunPod 操作手册：三专家 SFT → Manager SFT/GRPO/RSI → AIME/BeyondAIME → W&B 监控](agent_routing/docs/MARGENT_END_TO_END_RUNBOOK.md). Includes the published Luna dataset, exact commands, checkpoint handoffs, completion checks, recovery, and paper evidence. The 8B/MCQ description below documents the historical system.
+MARGENT trains a Manager language model to solve a problem independently, decide whether an expert can help, and commit to a final answer. The current math workflow first trains three specialist adapters, freezes them, then alternates Manager counterfactual data collection, supervised fine-tuning (SFT), and group-relative policy optimization (GRPO).
 
-Training an 8B orchestrator that learns the **delegate-or-commit** decision:
-at every step, either delegate a cognitive subtask to one of three frozen
-specialist advisors (extractor / reasoner / verifier) or commit to an answer.
-The manager exposes a `DRAFT_ANSWER`, learns routing from paired
-counterfactual branches, and is then optimized with GRPO using only **binary
-final correctness**. Among successful branches, the counterfactual cold start
-prefers the shortest one; wrong/no-call trajectories receive no artificial
-advantage.
+## Start here
 
-- **System and pipeline**: [`agent_routing/README.md`](agent_routing/README.md)
-- **Free-response math and RunPod iteration**: [`agent_routing/MATH_RUNPOD.md`](agent_routing/MATH_RUNPOD.md)
-- **Current full experiment plan (data budgets, gates, every command)**:
-  [`agent_routing/MARGINAL_VALUE_EXPERIMENTS.md`](agent_routing/MARGINAL_VALUE_EXPERIMENTS.md)
-- **Historical ADC ablation plan**:
-  [`agent_routing/EXPERIMENTS.md`](agent_routing/EXPERIMENTS.md)
+| Document | Use it for |
+|---|---|
+| **[Experiment runbook](agent_routing/docs/MARGENT_END_TO_END_RUNBOOK.md)** | Complete RunPod commands: setup → expert SFT → Manager SFT/GRPO → AIME2026/BeyondAIME → W&B → recovery and backup |
+| **[Architecture](agent_routing/README.md)** | Model roles, decision protocol, training objectives, data flow and source map |
+| [Dataset card](agent_routing/data/math_luna_codex_pilot_20260929/README.md) | Published Numina/Codex Luna examples, JSON/JSONL layout, provenance and quality limits |
 
-Snapshot lineage: forked from `research_6.8` (rule_applier era); synced to the
-2026-07-03 codebase. See the migration table at the top of EXPERIMENTS.md
-before reusing any artifacts produced by the old snapshot.
+The runbook is the single operational reference for the current math experiment. It defines the shared environment, exact code/model revisions, output paths, budgets, completion checks and monitoring fields. Execute its setup first; isolated commands copied from historical benchmark guides use different assumptions.
 
-## RSI math pilot
+## Current math experiment
 
-The `main` branch includes a bounded two-round
-collect → SFT → GRPO pilot with dynamic MARGENT, static-data, and
-successful-trajectory controls. This uses `python -m src.verifiable.rsi`;
-the historical SFT-only loop and disabled legacy RL entry point are unchanged.
+- **Student model:** `Qwen/Qwen3.5-9B`, pinned revision; three independent expert LoRAs and a separate Manager LoRA.
+- **Experts:** Extractor, Reasoner and Verifier. Train them on the published 544 role examples, evaluate/review them, then freeze them for Manager training.
+- **Manager data:** a separate frozen Numina pool of 128 train / 64 dev questions; the default mechanism pilot uses 16 / 16.
+- **Manager cold start:** successful routes collected from the initial Manager with the frozen experts. Expert teacher answers are not copied directly into the Manager SFT set.
+- **Iterative comparison:** dynamic, static and success arms; two SFT/GRPO rounds and 31 controller stages in the default pilot.
+- **External tests:** all 30 AIME2026 and all 100 BeyondAIME questions, with independent and tool-assisted policy accuracy reported separately.
+- **Tracking:** [W&B project](https://wandb.ai/yuningyangaillm/MATH_rsi), local question records, configuration/checkpoint identities, heartbeats and evidence artifacts.
 
-- [RunPod setup and commands](agent_routing/docs/RSI_RUNPOD.md)
-- [Literature review and experiment design](agent_routing/docs/RSI_RESEARCH_DESIGN.md)
-- [Validation and GPU limitations](agent_routing/docs/RSI_VALIDATION.md)
-- [Main audit fixes and paper logging contract](agent_routing/docs/AUDIT_AND_PAPER_LOGGING.md)
+This is a bounded iterative parameter-training experiment. A completed smoke test or increasing training reward does not establish benchmark improvement. The default pilot is small, the synthetic expert labels are not mathematically certified, and documentation/CPU checks are not 9B CUDA validation.
 
-## MARGENT RSI full experiment plan
+## Repository layout
 
-- [Complete experiment plan (Chinese): training stages, benchmarks, controls, budgets, and current status](agent_routing/docs/MARGENT_RSI_EXPERIMENT_PLAN.md)
-- [Subagent training plan (Chinese): role data, LoRA SFT, validation, frozen serving, and implementation gaps](agent_routing/docs/SUBAGENT_TRAINING_PLAN.md)
+```text
+agent_routing/
+  README.md                         Architecture and implementation map
+  docs/MARGENT_END_TO_END_RUNBOOK.md Current math experiment instructions
+  docs/legacy/BENCHMARK_RUNBOOK.md   Historical structured/MCQ walkthroughs
+  data/math_luna_codex_pilot_20260929/
+                                    Expert data and frozen Manager/test pools
+  configs/                          Experiment configurations
+  scripts/                          Setup, controllers and utility entry points
+  src/verifiable/                   Free-response math, expert SFT and Manager RSI
+  src/{benchmarks,subagents,manager,pipeline,teachers,utils}/
+                                    Shared and historical benchmark components
+  tests/                            Unit, protocol and optional CPU integration tests
+  outputs/                          Preserved historical artifacts
+```
 
-The math workflow starts with teacher synthesis on an isolated Numina question pool, then trains three independent role SFT adapters and freezes them for Manager training. It supports the OpenAI/gpt-4o API path and the current [Codex/gpt-6-luna path](agent_routing/docs/CODEX_LUNA_TEACHER_DATA.md), with separate provenance and configuration. Teacher generation, data isolation, resumable SFT, role serving and W&B evidence are connected. Dataset completion is established by each bundle's manifest and validation report; 9B GPU execution and independent role-quality evaluation remain to be performed. Rule-based labels are an explicit debug ablation only.
+## Other benchmark workflows
 
-- [Expert-first RunPod entry point and supervision limits](agent_routing/docs/EXPERT_SFT_RUNPOD.md)
+The repository also retains MedQA, LegalBench, MMLU-Pro, GPQA, AQuA-RAT and ARC-Challenge workflows. Their structured outputs and training entry points differ from the current math protocol. Start with the [historical benchmark walkthrough](agent_routing/docs/legacy/BENCHMARK_RUNBOOK.md), [MCQ marginal-value experiments](agent_routing/MARGINAL_VALUE_EXPERIMENTS.md), or [AQuA/ARC instructions](agent_routing/AQUA_ARC_BENCHMARKS.md). Additional historical plans are indexed in the architecture document.
+
+## License and data attribution
+
+See the [code license](agent_routing/LICENSE). Dataset licenses and pinned upstream attribution are listed separately in [source notices](agent_routing/data/math_luna_codex_pilot_20260929/source_notices/NOTICE.md); the code license does not replace their terms.

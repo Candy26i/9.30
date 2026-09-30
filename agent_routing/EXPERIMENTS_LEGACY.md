@@ -1,5 +1,7 @@
 # Experiment Plan: 0.6B / 4B / 8B on MedQA and LegalBench
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 Six experiments: three model sizes × two benchmarks.
 
 ---

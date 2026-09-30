@@ -1,5 +1,7 @@
 # AQuA-RAT and ARC-Challenge pipeline
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 This guide adds two independent benchmark runs to the existing routing
 pipeline. It does not mix domains: each benchmark gets its own normalized
 cache, advisor checkpoints, marginal-value data, manager checkpoint, and

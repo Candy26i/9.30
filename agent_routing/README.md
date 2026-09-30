@@ -1,310 +1,166 @@
-# Agent Routing — Learning When to Commit
+# MARGENT Architecture
 
-**当前 9B 数学实验入口：** [从三专家 SFT 到 Manager RSI 的完整 RunPod 操作手册](docs/MARGENT_END_TO_END_RUNBOOK.md)。包含 Luna 数据、每一步命令、权重交接、独立评测、W&B 指标与异常恢复。下文的 8B/MCQ 说明属于历史实验，不能直接代替当前数学流程。
+MARGENT learns when to commit to a stored solution and when to request specialist help. The current free-response math experiment trains three experts first, freezes them, and updates a separate Manager through repeated collection, SFT and GRPO.
 
-A pipeline for training a manager LLM (Qwen3-8B) that learns **when to stop
-delegating and commit to an answer**. At every step the manager faces four
-actions:
+For installation and executable commands, use the **[complete experiment runbook](docs/MARGENT_END_TO_END_RUNBOOK.md)**. This page describes the implementation and its boundaries; the [repository homepage](../README.md) provides the short project overview.
 
-```
-delegate(extractor) | delegate(reasoner) | delegate(verifier) | COMMIT
-```
+## 1. Components and parameter ownership
 
-The three advisors are frozen, schema-constrained specialists that provide
-*signals, never answers*; the manager is the sole authority on the final
-`ANSWER_<TOKEN>` line and states a `DRAFT_ANSWER_<TOKEN>` (its current belief)
-in every delegating turn. The stopping policy is trained with GRPO under an
-ordinary **binary final-correctness reward**. A counterfactual cold start uses
-the explicit draft to compare `COMMIT` with forced advisor branches and
-imitates a shortest trajectory only when it actually reaches the correct
-answer.
+| Component | Responsibility | Trainable parameters |
+|---|---|---|
+| Extractor | Extract givens, variables, constraints and useful formulations | Independent expert LoRA during expert SFT only |
+| Reasoner | Develop an approach and intermediate mathematical deductions | Separate expert LoRA during expert SFT only |
+| Verifier | Audit the stored derivation using Verdict / Evidence / Correction | Separate expert LoRA during expert SFT only |
+| Manager | Produce an independent solution, choose COMMIT or an unused expert, revise after advice | Its own LoRA during Manager SFT/GRPO |
+| Environment and grader | Bind candidates to calls, enforce the protocol and grade final answers | None |
 
-Benchmarks: **MedQA-USMLE**, **LegalBench**, **MMLU-Pro**, **GPQA**,
-**AQuA-RAT**, and **ARC-Challenge**.
+All roles initialize from the same pinned `Qwen/Qwen3.5-9B` base revision. The experts do not train sequentially into one shared adapter. Their serving process loads one frozen base and switches among three independently trained role adapters. The Manager is a separate model instance and does not initialize from an expert adapter.
 
-> Current step-by-step protocol: **[MARGINAL_VALUE_EXPERIMENTS.md](MARGINAL_VALUE_EXPERIMENTS.md)**.
-> The older ADC experiment matrix is retained in `EXPERIMENTS.md` for history.
-> This README covers the system + one end-to-end walkthrough per benchmark.
-> AQuA-RAT and ARC-Challenge commands: **[AQUA_ARC_BENCHMARKS.md](AQUA_ARC_BENCHMARKS.md)**.
-> Subagent prompt entry points, version changes, and math measurement coverage: **[SUBAGENT_PROMPTS.md](SUBAGENT_PROMPTS.md)**.
-> Teacher synthesis followed by three independent math expert SFTs: **[EXPERT_SFT_RUNPOD.md](docs/EXPERT_SFT_RUNPOD.md)**. Current Codex / gpt-6-luna data provenance and RunPod instructions: **[CODEX_LUNA_TEACHER_DATA.md](docs/CODEX_LUNA_TEACHER_DATA.md)**.
-> Math RSI bug fixes, W&B evidence, and paper reporting scope: **[AUDIT_AND_PAPER_LOGGING.md](docs/AUDIT_AND_PAPER_LOGGING.md)**.
+The RunPod layout uses GPU 0 for the frozen expert service and GPU 1 for Manager work. Expert training and expert dev comparison run before that persistent service starts. Hardware requirements, checks and resource budgets are in the runbook.
 
----
+## 2. Inference protocol
 
-## Architecture
-
-```
-                       ┌─────────────────────────────┐
-                       │   Manager (Qwen3-8B)        │
-                       │ counterfactual SFT + binary │
-                       │ GRPO; drafts route/commit   │
-                       └────┬────────┬───────┬───────┘
-                            │        │       │ current_draft
-              ┌─────────────┘        │       └──────────────┐
-              ▼                      ▼                      ▼
-   ┌──────────────────┐   ┌─────────────────┐   ┌──────────────────────┐
-   │  ExtractorAgent  │   │  ReasonerAgent  │   │  VerifierAgent       │
-   │  (frozen, LoRA)  │   │ (frozen, LoRA)  │   │  (frozen, LoRA;      │
-   │  key signals     │   │ neutral scaffold│   │  audits the draft)   │
-   └────────┬─────────┘   └────────┬────────┘   └──────────┬───────────┘
-            │                      │                       │
-            └──────────────────────┼───────────────────────┘
-                                   │
-                   ┌───────────────▼───────────────┐
-                   │  Teacher (GPT / Claude /      │
-                   │  DeepSeek) — schema-gated     │
-                   │  synthesis of advisor SFT data│
-                   └───────────────────────────────┘
+```mermaid
+flowchart TD
+  Q[Question and optional context] --> D[Manager independent candidate]
+  D --> A{Decision: finite_actions_v1}
+  A -->|COMMIT| F[Submit stored candidate unchanged]
+  A -->|Unused expert| E[Frozen expert response]
+  E --> R[Manager writes complete revised candidate]
+  R --> B{Call budget reached?}
+  B -->|Yes| F
+  B -->|No| A
+  F --> G[External final-answer grading]
 ```
 
-**Hard invariants**
-- Advisors never produce the final answer (pydantic schemas + leakage audit at
-  synthesis; `--synth_symmetric_leakage` audits all choice texts).
-- Advisors are frozen, greedy-decoded, and cached per (kind, question) — the
-  marginal value of every consultation is deterministic, which makes the
-  per-question stopping oracle enumerable (`eval_manager_forced`).
-- Each advisor is callable at most once per episode.
+1. The Manager first writes an independent solution ending in `FINAL_ANSWER: \boxed{...}`.
+2. At a decision turn it emits exactly `COMMIT` or one expert tool call with empty arguments. `finite_actions_v1` constrains legal action syntax and prevents repeated expert use; it does not inspect answer keys or choose the best action.
+3. `COMMIT` submits the stored candidate unchanged. A decision turn cannot secretly replace the answer.
+4. The environment provides the actual stored derivation to Verifier; the Manager cannot pass a different candidate through tool arguments. Extractor and Reasoner receive the question/context under their role contracts.
+5. After an expert response, the Manager writes a complete self-contained revision. Only the revision phase changes the candidate. The current pilot allows at most two calls, with each role used at most once.
+6. At the call limit the environment submits the current candidate. The external grader checks answer correctness and protocol validity. Expert self-reported judgments are never ground-truth rewards.
 
-**The reward**
+Runtime prompts allowlist question/context rather than exposing labels or source solutions. Experts are fallible models and their mathematical advice may include solution content. The historical structured/MCQ rule that specialists provide signals under a different answer-disclosure contract is not the math protocol.
 
-```
-R = 1[final answer correct]
-```
+## 3. Expert data and training
 
-Binary reward alone cannot prefer a shorter trajectory when both trajectories
-are correct. That tie is resolved in counterfactual SFT: correct beats
-incorrect; among correct branches, fewer calls win; wrong/wrong pairs provide
-no no-call supervision. This avoids a global cost that can make never calling
-an absorbing shortcut.
+The [published dataset card](data/math_luna_codex_pilot_20260929/README.md) is the source of truth for counts, file formats and provenance. The retained expert pool has 104 train and 32 dev questions, isolated from the complete Manager and external test pools. Each question provides one Extractor target, one Reasoner target and two Verifier candidate audits: 544 supervised rows in total.
 
-## Install
+Questions come from NuminaMath-1.5. The role targets were generated through Codex subagents with selected model `gpt-6-luna`; independently unobserved backend identity, token usage and sampling parameters remain unknown. Teacher request/response evidence is retained. A mechanical encoding filter removed whole questions consistently across roles; this is not correctness-based selection.
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt accelerate deepspeed
-# separate env for the advisor server (8B multi-GPU runs)
-conda create -n vllm_env python=3.11 -y && conda activate vllm_env && pip install vllm
-export OPENAI_API_KEY=...        # or ANTHROPIC_API_KEY / DEEPSEEK_API_KEY
-export PYTHONUTF8=1
-```
+Each role receives assistant-only supervised loss in its own LoRA. The controller validates data/provenance, freezes a local data copy, trains all roles, reloads/switches adapters and exports `experts.json` plus a Manager configuration binding that bundle. A separate dev comparison evaluates prompt-only versus trained experts. Verifier label agreement is teacher agreement, not an independent quality certificate. All published synthetic labels remain `reviewed=false` until reviewed.
 
-Multi-GPU layout for 8B (single GPU works for 0.6B/4B without the server):
+The expert bundle is frozen throughout Manager RSI. Jointly evolving experts and Manager is not implemented by this experiment.
 
-```
-GPU 0  →  vLLM: base + 3 LoRA advisors     bash scripts/start_subagent_server.sh <base> <teacher_id>
-GPU 1-3 → DeepSpeed manager training       bash scripts/train_manager_grpo_multigpu.sh <teacher_id> [flags]
+## 4. Manager cold start and iterative data flow
+
+```mermaid
+flowchart LR
+  M0[Base Manager M0] --> C0[Counterfactual collection on train pool]
+  C0 --> D0[Selected Manager SFT targets D0]
+  D0 --> S1[SFT round 1]
+  S1 --> G1[GRPO round 1]
+  G1 --> C1[Recollect with updated Manager]
+  C1 --> D1[Refreshed targets or static D0]
+  D1 --> S2[SFT round 2 from own GRPO1 weights]
+  S2 --> G2[GRPO round 2]
 ```
 
----
+Manager training uses a separate frozen Numina pool, not the expert teacher targets. The default pilot selects 16 train / 16 dev from its available 128/64 pool by normalized-question hash. Test data is checked for isolation but never used for training targets or checkpoint selection.
 
-# End-to-end walkthroughs, one per benchmark
+For each training question, counterfactual collection evaluates direct commitment and non-repeating expert sequences up to depth two. The external grader identifies successful outcomes. The main selector favors direct commitment when already correct, otherwise shortest successful routes. It writes Manager assistant messages into `sft.jsonl`; expert replies and prompt history remain context with no supervised loss. Configured question-only distillation adds successful solutions as additional Manager targets.
 
-Common shape of every pipeline: **load → synthesize advisor data ×3 → SFT
-advisors ×3 → gate → manager cold start → GRPO → eval**. Only the data flags
-and budgets change. `--teacher_id` namespaces all outputs, so runs never
-collide.
+For a candidate state s and expert action a, the mechanism compares final correctness after expert advice and Manager revision against committing s unchanged. This is a paired result under the fixed decoding setup, not an unbiased estimate over all possible generations. Recollection asks whether that value and the useful route change as Manager weights change.
 
-## 1. MedQA (primary training domain — full pipeline)
+### Experimental arms
 
-```bash
-export BASE_MODEL=Qwen/Qwen3-8B
-export TEACHER_ID=commit_gpt_8b
-export PROVIDER=openai MODEL=gpt-4o
-export MEDQA_CACHE=outputs/data/medqa_us4_normalized.jsonl
-export TASK_DESC="You are a manager agent solving multiple-choice questions."
-export SPLIT="--train_size 1400 --dev_size 200 --test_size 500"
+| Arm | SFT targets after the first round | Purpose |
+|---|---|---|
+| dynamic | Refresh counterfactual trees with the updated Manager and reselect direct/shortest-success routes | Test refreshed experience |
+| static | Reuse the original selected targets; collect a shadow tree for diagnostics only | Control for refreshing SFT experience |
+| success | Select successful trajectories from the current tree after matching coverage and commit/rescue mixture | Compare shortest-route selection with ordinary successful-route distillation |
 
-# 1) data
-python -m src.pipeline.cli load_medqa --base_model "$BASE_MODEL" \
-    --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT
+All arms share the initial tree and nominal question, depth, seed and update budgets. Static still runs on-policy GRPO; it does not freeze all learning experience. Its shadow collection cost is retained, so report actual execution cost separately from the cost a deployed static variant could save. Matched update counts do not imply identical tokens or FLOPs.
 
-# 2) synthesize advisor SFT data (500 each; verifier also samples audit candidates)
-for KIND in extractor reasoner verifier; do
-  python -m src.pipeline.cli synth_subagent \
-      --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-      --teacher_provider "$PROVIDER" --teacher_model "$MODEL" \
-      --agent_kind "$KIND" --n_samples 500 --synth_symmetric_leakage \
-      --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT \
-      --task_description "$TASK_DESC"
-done
+Round-two SFT initializes from the same arm's round-one GRPO weights and creates a new optimizer. Resuming an interrupted stage instead restores saved stage state. The controller uses a shared initial assessment/collection, per-arm two-round training/dev stages, recollection and success selection: 31 stages in the default plan.
 
-# 3) SFT the three advisors
-for KIND in extractor reasoner verifier; do
-  python -m src.pipeline.cli train_subagent \
-      --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" --agent_kind "$KIND" \
-      --sft_epochs 3 --sft_lr 5e-5 --sft_bs 1 --sft_grad_accum 8
-done
+## 5. Optimization and evaluation contracts
 
-# 4) gate (json_ok_rate & schema_ok_rate > 0.9)
-python -m src.pipeline.cli eval_subagents \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT --eval_n_samples 50
+### SFT
 
-# 5) terminal A: start the advisor server on GPU 0 (keep it running)
-conda activate vllm_env
-bash scripts/start_subagent_server.sh "$BASE_MODEL" "$TEACHER_ID"
-export SUBAGENT_SERVER_URL="http://localhost:8000"
+Only Manager assistant targets receive loss. Role messages and expert responses remain conditioning context. Model/template/configuration identities and dataset fingerprints bind a run to its inputs. Checkpoint inheritance is explicit; a later round does not silently reset to base.
 
-# 6) terminal B: build counterfactual marginal-value routing data on another GPU
-export CUDA_VISIBLE_DEVICES=1
-python -m src.pipeline.cli build_marginal_sft \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT \
-    --mv_manager_dir "$BASE_MODEL" --mv_n_samples 400 --mv_max_depth 1 \
-    --mv_max_commit_rescue_ratio 1.0 \
-    --subagent_server_url "$SUBAGENT_SERVER_URL" \
-    --task_description "$TASK_DESC"
+### GRPO
 
-# 7) SFT the manager on verified shortest-success decisions
-python -m src.pipeline.cli train_manager_sft \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --manager_sft_train_jsonl "outputs/manager/${TEACHER_ID}/marginal_value/manager_sft_marginal.jsonl" \
-    --manager_sft_output_dir "outputs/manager/${TEACHER_ID}/sft_marginal" \
-    --manager_sft_epochs 1 --manager_sft_lr 1e-5
+A question group shares one independently generated draft and samples four decision/revision trajectories. The initial draft and expert replies have no RL gradient. Reward is binary valid terminal correctness: correct and protocol-valid = 1, otherwise 0. There is no call penalty or Verifier-verdict reward.
 
-# 8) GRPO — terminal B: binary final correctness only
-EXCL="--exclude_sft_example_ids outputs/sft_data/${TEACHER_ID}/extractor_sft.jsonl \
-      --exclude_sft_example_ids outputs/sft_data/${TEACHER_ID}/reasoner_sft.jsonl \
-      --exclude_sft_example_ids outputs/sft_data/${TEACHER_ID}/verifier_sft.jsonl \
-      --exclude_sft_example_ids outputs/manager/${TEACHER_ID}/marginal_value/counterfactual_records.jsonl"
-bash scripts/train_manager_grpo_multigpu.sh "$TEACHER_ID" \
-    --base_model "$BASE_MODEL" \
-    --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT $EXCL \
-    --mgr_init_adapter "outputs/manager/${TEACHER_ID}/sft_marginal" \
-    --mgr_output_dir "outputs/manager/${TEACHER_ID}/grpo_binary_marginal" \
-    --mgr_routing_efficiency_bonus 0 --mgr_tool_use_bonus 0 \
-    --mgr_grpo_beta 0.05 --mgr_clip_epsilon_high 0.28 --mgr_max_steps 100 \
-    --subagent_server_url "$SUBAGENT_SERVER_URL" \
-    --mgr_use_wandb --wandb_project agent_routing \
-    --wandb_run_name "${TEACHER_ID}_binary_marginal" \
-    --task_description "$TASK_DESC"
+Group-relative advantages, clipped policy ratios and a KL term compare the policy to that round's fixed SFT reference. Sampling and scoring use compatible temperature/action support. Constant-reward groups have zero outcome advantage; the KL term can still contribute when applicable. `completed_groups` and `optimizer_steps` are distinct: a group without sampled Manager tokens need not produce an optimizer update.
 
-# 9) eval (learned delegate-or-commit loop, 500 held-out)
-python -m src.pipeline.cli eval_manager_tools \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --medqa_normalized_cache "$MEDQA_CACHE" $SPLIT --eval_n_samples 500 \
-    --eval_manager_dir "outputs/manager/${TEACHER_ID}/grpo_binary_marginal" \
-    --subagent_server_url "$SUBAGENT_SERVER_URL" \
-    --task_description "$TASK_DESC"
-```
+The default pilot uses eight question groups per GRPO stage. It takes the first eight questions of the deterministic shuffled train16 pool and reuses that seeded ordering in later stages; it does not automatically cover the complete pool. The initial rescue/commit and mixed-reward stage gates are specified in the runbook.
 
-## 2. LegalBench
+### Independent evaluation
 
-**Recommended use: zero-shot probe of a MedQA-trained manager** (the 5-task
-pool is only ~380 rows — an honest in-domain pipeline barely fits):
+Each question records both the Manager's independent answer and the final tool-assisted policy answer. Report independent/policy correctness, n, validity/truncation, call counts, rescues and harms. Within-checkpoint policy-minus-independent gain is different from independent-accuracy growth across checkpoints.
 
-```bash
-python -m src.pipeline.cli eval_manager_tools \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --legalbench_configs "abercrombie,hearsay,personal_jurisdiction,proa,successor_liability" \
-    --legalbench_normalized_cache outputs/data/legalbench_5tasks.jsonl \
-    --train_size 0 --dev_size 0 --test_size 400 --eval_n_samples 400 \
-    --eval_manager_dir "outputs/manager/${TEACHER_ID}/grpo_binary_marginal" \
-    --task_description "You are a manager agent solving LegalBench legal classification tasks."
-# report per task: filter the eval jsonl by task_subtype
-```
+AIME2026 (30 questions) and BeyondAIME (100 questions) are held-out tests. Freeze comparisons before seeing test scores. The default matrix compares M0 with the three final round_2/grpo Managers using the same frozen experts and budgets. A second-round SFT checkpoint has prior GRPO ancestry and is not a pure SFT baseline.
 
-**Optional in-domain training** — the same seven steps as MedQA with scaled
-budgets. Add more configs to enlarge the pool if you can; with 5 tasks use:
+## 6. Execution, persistence and observability
 
-```bash
-export LB_ID=commit_gpt_lb_8b
-export LB="--legalbench_configs abercrombie,hearsay,personal_jurisdiction,proa,successor_liability \
-           --legalbench_normalized_cache outputs/data/legalbench_5tasks.jsonl"
-export LB_SPLIT="--train_size 240 --dev_size 50 --test_size 95"
-export LB_DESC="You are a manager agent solving LegalBench legal classification tasks."
-# step 2: --n_samples 120        (per advisor)
-# step 5: --mv_n_samples 60 --mv_max_depth 1
-# step 7: --mgr_max_steps 60 --mgr_grpo_beta 0.05   (tiny GRPO pool; watch for overfit)
-# steps otherwise identical to MedQA with $LB $LB_SPLIT --teacher_id $LB_ID --task_description "$LB_DESC"
-```
+Controllers record configuration, data, code/harness, checkpoint and advisor identities. Local stage records include status, summaries, events, generations, usage and errors. Collection/evaluation preserve per-question shards. SFT uses Trainer checkpoints; GRPO commits adapter/optimizer/step state atomically and resumes from the recorded committed step.
 
-## 3. MMLU-Pro
+Budgets persist across restart. The expert controller, Manager controller and optional AIME controller have different completion markers. A Finished W&B child does not prove parent completion or full benchmark coverage. Use `experts_complete`, `pilot_complete`, `baseline_complete`, evaluation counts and real artifacts as documented in the runbook.
 
-**Recommended use: zero-shot probe** (the community compares on the full test
-split; training on any part of it breaks comparability):
+W&B mirrors measurements and selected evidence, while local files retain full operational detail. Evidence artifacts have allowlists and size limits; they do not automatically back up model weights or complete optimizer state. Incomplete usage accounting supports a lower bound, not a zero-cost claim. The current Manager controller lacks a directory concurrency lock, so run only one controller per output directory.
 
-```bash
-python -m src.pipeline.cli load_mmlu_pro --base_model "$BASE_MODEL" \
-    --mmlu_pro_normalized_cache outputs/data/mmlu_pro_normalized.jsonl \
-    --mmlu_pro_splits test --train_size 0 --dev_size 0 --test_size 500
+## 7. Source map
 
-python -m src.pipeline.cli eval_manager_tools \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --mmlu_pro_normalized_cache outputs/data/mmlu_pro_normalized.jsonl \
-    --train_size 0 --dev_size 0 --test_size 500 --eval_n_samples 500 \
-    --eval_manager_dir "outputs/manager/${TEACHER_ID}/grpo_binary_marginal" \
-    --task_description "You are a manager agent solving multiple-choice questions across diverse academic subjects. Each question has 10 options (A-J)."
-```
+All paths below are relative to `agent_routing/`.
 
-**Optional in-domain training** (accepting the comparability caveat): identical
-seven steps to MedQA with `--mmlu_pro_normalized_cache ... --train_size 1800
---dev_size 200 --test_size 500`, `--n_samples 500`, `--mv_n_samples 400`,
-`--mgr_max_steps 300`, under a fresh `--teacher_id`.
+| Layer | Entry points | Responsibility |
+|---|---|---|
+| Runtime configuration | [math_rsi_actions.json](configs/math_rsi_actions.json), [expert config](data/math_luna_codex_pilot_20260929/configs/expert_sft_text_clean.json) | Pinned model and experiment defaults |
+| Data normalization/isolation | [data.py](src/verifiable/data.py), [expert_data.py](src/verifiable/expert_data.py), [expert_isolation.py](src/verifiable/expert_isolation.py) | Splits, hashes, exclusions and expert/Manager separation |
+| Teacher workflow | [expert_synthesis.py](src/verifiable/expert_synthesis.py) | Export, generation/import and provenance for role targets |
+| Expert training/service | [experts.py](src/verifiable/experts.py), [expert_train.py](src/verifiable/expert_train.py), [expert_eval.py](src/verifiable/expert_eval.py) | Controller, role LoRAs, bundle/reload, serving and dev comparison |
+| Math protocol | [protocol.py](src/verifiable/protocol.py), [actions.py](src/verifiable/actions.py), [chat_template.jinja](src/verifiable/chat_template.jinja) | Runtime prompts, immutable COMMIT, finite actions and template |
+| Inference and grading | [backend.py](src/verifiable/backend.py), [answers.py](src/verifiable/answers.py) | Generation/model loading, final-answer parsing and grading |
+| Counterfactual targets | [experiment.py](src/verifiable/experiment.py) | Candidate trees, branch selection and Manager SFT targets |
+| Manager SFT/GRPO | [training.py](src/verifiable/training.py), [rsi_grpo.py](src/verifiable/rsi_grpo.py) | Assistant-token SFT and rollout-based optimization |
+| RSI planning/control | [rsi.py](src/verifiable/rsi.py) | Three-arm plans, stages, budgets, gates and timeline |
+| Stage evaluation | [runner.py](src/verifiable/runner.py), [analysis.py](src/verifiable/analysis.py) | Collection/assessment/evaluation records and diagnostics |
+| Evidence | [provenance.py](src/verifiable/provenance.py), [telemetry.py](src/verifiable/telemetry.py), [wandb_tracking.py](src/verifiable/wandb_tracking.py) | Identity, heartbeats, local logging, W&B tables/artifacts |
+| RunPod wrappers | [expert SFT](scripts/runpod_expert_sft.sh), [RSI pilot](scripts/runpod_rsi_pilot.sh), [AIME controller](scripts/runpod_aime_baseline.py) | Operational entry points used by the runbook |
+| Validation | [tests/](tests/) | Data, protocol, reward, resume, reporting and optional CPU integration checks |
 
-## 4. GPQA
+`src.verifiable.rsi` is the current math SFT/GRPO controller. Historical `src.verifiable loop` is SFT-only; the old `rl` entry point is disabled for this protocol. Historical `evaluate-suite` / `paper-check` expects `loop.json` and is not the current RSI matrix exporter.
 
-One-time: accept the dataset terms on HuggingFace, then `huggingface-cli login`.
+## 8. Historical benchmark modules
 
-**Zero-shot probe on Diamond (all 198 questions):**
+The repository retains a separate structured/MCQ workflow:
 
-```bash
-python -m src.pipeline.cli load_gpqa --base_model "$BASE_MODEL" \
-    --gpqa_subsets gpqa_diamond \
-    --gpqa_normalized_cache outputs/data/gpqa_diamond_normalized.jsonl \
-    --train_size 0 --dev_size 0 --test_size 198
-
-python -m src.pipeline.cli eval_manager_tools \
-    --base_model "$BASE_MODEL" --teacher_id "$TEACHER_ID" \
-    --gpqa_normalized_cache outputs/data/gpqa_diamond_normalized.jsonl \
-    --train_size 0 --dev_size 0 --test_size 198 --eval_n_samples 198 \
-    --eval_manager_dir "outputs/manager/${TEACHER_ID}/grpo_binary_marginal" \
-    --task_description "You are a manager agent solving expert-level graduate science multiple-choice questions."
-```
-
-**In-domain training** — GPQA is 546 questions total (nested subsets), so the
-split is built once by a script: eval = 100 held-out diamond questions, train
-pool = 446 (98 leftover diamond + 348 non-diamond, hash-disjoint):
-
-```bash
-python scripts/build_gpqa_splits.py --eval_n 100 --seed 42
-# -> outputs/data/gpqa_diamond_eval100.jsonl  (eval, never trained on)
-# -> outputs/data/gpqa_train446.jsonl         (advisor SFT 160 + cold start 50 + dev 40 + GRPO ~196)
-```
-
-Then run the same seven steps as MedQA with
-`--gpqa_normalized_cache outputs/data/gpqa_train446.jsonl --train_size 0
---dev_size 40 --test_size 0`, budgets 160/50, `--mgr_max_steps 120
---mgr_grpo_beta 0.02`, and evaluate ONLY on `gpqa_diamond_eval100.jsonl`.
-Full copy-paste commands: EXPERIMENTS.md §8.4.
-
-## 5. AQuA-RAT and ARC-Challenge
-
-Both benchmarks preserve their official splits and use the common
-`StandardRow` pipeline. AQuA gold rationales are excluded from runtime caches;
-ARC source choice labels are explicitly mapped to canonical answer keys.
-Complete data, advisor-SFT, marginal-SFT, optional anchored-GRPO, and evaluation
-commands are in [AQUA_ARC_BENCHMARKS.md](AQUA_ARC_BENCHMARKS.md).
-
----
-
-## Pipeline stages (reference)
-
-| Stage | What it does |
+| Module | Role |
 |---|---|
-| `load_medqa` / `load_gpqa` / `load_mmlu_pro` / `load_aqua_rat` / `load_arc_challenge` | download + normalize (GPQA: `--gpqa_exclude_subsets` for nested-subset dedup) |
-| `synth_subagent` | teacher synthesis, four quality gates (JSON → schema → coverage → leakage) |
-| `export_deepseek_jsonl` / `import_deepseek_jsonl` | offline-teacher alternative to synth |
-| `train_subagent` | LoRA-SFT one advisor |
-| `eval_subagents` | JSON/schema validity gate |
-| `build_marginal_sft` | enumerate draft-conditioned counterfactual branches and select shortest successful routing traces |
-| `manager_coldstart_sft` | legacy heuristic/teacher-sequence cold start (baseline only) |
-| `train_manager_grpo` | GRPO; main protocol uses binary correctness with all auxiliary reward flags at zero |
-| `evolve_build_sft` / `train_manager_sft` / `evolve_round` | failure-recycling SFT loop |
-| `eval_manager` | no-tools probe; `--eval_sc_k K` = self-consistency baseline |
-| `eval_manager_tools` | full delegate-or-commit loop (the learned policy) |
-| `eval_manager_forced` | fixed delegation subsets → fixed-k baselines + stopping oracle |
+| `src/benchmarks/` | Benchmark loaders and normalized data contracts |
+| `src/subagents/` | Structured advisor schemas, prompts and local/remote clients |
+| `src/teachers/` | Teacher providers for structured synthesis |
+| `src/manager/` | Structured Manager prompting/training/evaluation |
+| `src/pipeline/` | Historical benchmark CLI orchestration |
+| `src/utils/` | Shared helpers |
 
-Full current protocol and failure gates:
-**[MARGINAL_VALUE_EXPERIMENTS.md](MARGINAL_VALUE_EXPERIMENTS.md)**.
+Structured teacher prompts live in `src/subagents/prompts/{extractor,reasoner,verifier}.py`; shared structured runtime prompts are in `runtime_prompts.py`. Free-response math uses `src/verifiable/protocol.py` instead. Stored teacher requests replay their original prompts; changing prompt code does not rewrite existing datasets/adapters or migrate old runs. Record prompt/source versions and use new experiment directories after changes.
+
+Historical instructions, preserved for their own domains:
+
+- [Benchmark walkthrough](docs/legacy/BENCHMARK_RUNBOOK.md): MedQA, LegalBench, MMLU-Pro and GPQA.
+- [AQuA-RAT / ARC-Challenge](AQUA_ARC_BENCHMARKS.md).
+- [MCQ marginal-value protocol](MARGINAL_VALUE_EXPERIMENTS.md).
+- [SFT replay / routing-anchor experiments](SFT_RL_ROUTING_EXPERIMENTS.md).
+- [Historical ADC plan](EXPERIMENTS.md), [earlier model-size plan](EXPERIMENTS_LEGACY.md), [historical paper-readiness notes](PAPER_READINESS.md).
+
+These documents do not override the current math runbook. Old run artifacts under `outputs/` and paper-figure source materials remain preserved for traceability.
+
+## 9. Research and validation boundaries
+
+Here RSI means a bounded loop in which updated Manager parameters generate the next round's experience under a fixed training program. It does not mean autonomous algorithm invention or demonstrated recursive acceleration.
+
+The intended questions are whether refreshed targets improve on static ones, whether useful advice becomes independent held-out capability, and whether delegation remains selective at comparable accuracy. Answering them requires full independent tests, paired question analysis, multiple training seeds and disclosed costs. Passing CPU protocol/resume tests, a smoke run or a lower SFT loss does not answer those research questions or establish 9B CUDA throughput.
