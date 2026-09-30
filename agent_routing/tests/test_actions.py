@@ -3,7 +3,8 @@ import string
 import pytest
 
 from src.verifiable.actions import ActionTrie, decision_paths
-from src.verifiable.protocol import parse_calls, tool_schemas
+from src.verifiable.protocol import COMMIT, call_message, parse_calls, tool_schemas
+from src.verifiable.training import tokenize_turn
 
 
 def character_tokenizer():
@@ -26,16 +27,50 @@ def test_grammar_requires_closure_and_excludes_repeated_advisor():
         {"function": {"name": "reasoner_tool", "arguments": {}}}]}]
     paths = decision_paths(tok, history, tool_schemas(), 128)
     texts = [tok.decode(p[:-1]) for p in paths]
-    assert len(texts) == 3 and "COMMIT" in texts
+    # COMMIT plus two surface forms for each of the two unused tools.
+    assert len(texts) == 5 and "COMMIT" in texts
     assert not any("reasoner_tool" in text for text in texts)
     for text in texts:
         parse_calls(text)
     trie = ActionTrie(paths)
-    path = next(p for p in paths if tok.decode(p[:-1]).startswith("<tool_call>"))
+    path = next(p for p in paths if tok.decode(p[:-1]).lstrip("\n").startswith("<tool_call>"))
     assert tok.eos_token_id not in trie.allowed(path[:10])
     assert trie.allowed(path[:-1]) == [tok.eos_token_id]
     with pytest.raises(ValueError, match="budget"):
-        decision_paths(tok, [], tool_schemas(), 2)
+        decision_paths(tok, [{"role": "user", "content": "Q"}], tool_schemas(), 2)
+
+
+def _supervised_decision_ids(tok, history, response):
+    decision_type = "call" if response.get("tool_calls") else "commit"
+    encoded = tokenize_turn({"prompt": history, "response": [response], "decision_type": decision_type}, tok, 4096)
+    target = [t for t, label in zip(encoded["input_ids"], encoded["labels"]) if label != -100]
+    newline = tok("\n", add_special_tokens=False)["input_ids"]
+    # The ChatML newline after EOS is supervised but never generated.
+    assert target[-len(newline):] == newline
+    return target[:-len(newline)]
+
+
+def test_grammar_admits_supervised_sft_targets_and_instructed_compact_calls():
+    tok = character_tokenizer()
+    depth1 = [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"},
+              {"role": "assistant", "content": "CANDIDATE_ANSWER: 1"}, {"role": "user", "content": "Decide."}]
+    depth2 = depth1 + [call_message("reasoner", "draft", "call_reasoner"),
+                       {"role": "tool", "tool_call_id": "call_reasoner", "name": "reasoner_tool", "content": "Advice."},
+                       {"role": "user", "content": "Revise."},
+                       {"role": "assistant", "content": "CANDIDATE_ANSWER: 2"}, {"role": "user", "content": "Decide."}]
+    for history, kinds in ((depth1, ("extractor", "reasoner", "verifier")), (depth2, ("extractor", "verifier"))):
+        paths = decision_paths(tok, history, tool_schemas(), 128)
+        assert len(paths) == 1 + 2 * len(kinds)
+        responses = [{"role": "assistant", "content": COMMIT}] + [
+            call_message(kind, "draft", "call_" + kind) for kind in kinds]
+        for response in responses:
+            assert _supervised_decision_ids(tok, history, response) in paths
+        for kind in kinds:
+            compact = '<tool_call>{"name":"%s_tool","arguments":{}}</tool_call>' % kind
+            assert tok(compact, add_special_tokens=False)["input_ids"] + [tok.eos_token_id] in paths
+        decoded = [tok.decode(path[:-1]) for path in paths]
+        assert all(parse_calls(text)[1] or text == COMMIT for text in decoded)
+        assert {call["name"] for text in decoded for call in parse_calls(text)[1]} == {k + "_tool" for k in kinds}
 
 
 def test_real_constrained_sampling_and_scoring_are_identical():

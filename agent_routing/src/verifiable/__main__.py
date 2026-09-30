@@ -41,6 +41,24 @@ def doctor(config, output):
     parsed = tok.parse_response('<tool_call>{"name":"reasoner_tool","arguments":{}}</tool_call><|im_end|>')
     if parsed["tool_calls"][0]["function"]["name"] != "reasoner_tool":
         raise RuntimeError("Native tool parsing failed")
+    grammar = None
+    if config.get("decision_constraint") == "finite_actions_v1":
+        # Check the real tokenizer before any GPU budget starts: every Manager SFT
+        # decision target must be a legal constrained action.
+        from .actions import decision_paths
+        from .protocol import COMMIT, DECIDE, KINDS, call_message
+        from .training import tokenize_turn
+        history = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": "Compute 1+1."},
+                   {"role": "assistant", "content": "CANDIDATE_ANSWER: 2"}, {"role": "user", "content": DECIDE}]
+        paths = decision_paths(tok, history, tool_schemas(), config["decision_max_tokens"])
+        for response in [{"role": "assistant", "content": COMMIT}] + [call_message(k, None, "call_" + k) for k in KINDS]:
+            row = {"prompt": history, "response": [response],
+                   "decision_type": "call" if response.get("tool_calls") else "commit"}
+            encoded = tokenize_turn(row, tok, config["max_seq_len"])
+            target = [t for t, label in zip(encoded["input_ids"], encoded["labels"]) if label != -100]
+            if not any(target[:len(path)] == path for path in paths):
+                raise RuntimeError("Manager SFT decision target is outside the finite action grammar")
+        grammar = {"paths": len(paths), "max_path_tokens": max(map(len, paths))}
     health = requests.get(config["advisor_url"].rstrip("/") + "/health", timeout=15)
     health.raise_for_status()
     try:
@@ -54,6 +72,7 @@ def doctor(config, output):
               "gpu": torch.cuda.get_device_name(0),
               "vram_gib": torch.cuda.get_device_properties(0).total_memory / 2 ** 30,
               "model_type": model_cfg.model_type,
+              "decision_grammar": grammar,
               "advisor": advisor,
               "note": "API and template preflight only; run the GPU smoke test before the main experiment"}
     write_json(output, result)
