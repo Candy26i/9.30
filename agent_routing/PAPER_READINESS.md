@@ -1,5 +1,7 @@
 # Paper Readiness: Learning When to Commit
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 This document records the proposed paper narrative, the claims that the current
 system can support, the code-paper alignment issues that must be resolved, and
 the experiments required before the main paper is written.

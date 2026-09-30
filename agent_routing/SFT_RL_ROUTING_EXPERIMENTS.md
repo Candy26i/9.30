@@ -1,5 +1,7 @@
 # SFT + GRPO routing-anchor experiments
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 This file covers the two experiments added for the MedQA 9B selective-routing study.  They are designed to reuse the existing marginal counterfactual data and the existing selective SFT checkpoint.  Do **not** recollect marginal branches, rerun the old pure-GRPO arm, or add a call-cost reward.
 
 The task reward remains the existing binary terminal correctness reward in both experiments:

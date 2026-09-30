@@ -1,8 +1,10 @@
 # Experiment Plan — Learning When to Commit (8B, 4× GPU cluster)
 
+Historical structured/MCQ documentation. For the current 9B math experiment, use the [math runbook](docs/MARGENT_END_TO_END_RUNBOOK.md) and [architecture](README.md). This document applies only to its stated benchmark/protocol.
+
 > **Historical ADC plan.** The current main method uses counterfactual
 > marginal-value SFT followed by binary-outcome GRPO. Follow
-> [MARGINAL_VALUE_EXPERIMENTS.md](MARGINAL_VALUE_EXPERIMENTS.md) for all new
+> [MARGINAL_VALUE_EXPERIMENTS.md](MARGINAL_VALUE_EXPERIMENTS.md) for structured/MCQ marginal-value
 > runs. Keep the ADC commands below only for failure-analysis ablations.
 
 Full execution plan for the three research questions:
@@ -11,8 +13,8 @@ Full execution plan for the three research questions:
 - **RQ2** Is the learned policy a genuine stopping policy? (Pareto / regret-vs-oracle / zero-shot difficulty adaptation)
 - **RQ3** Is incentive compatibility necessary? (reward ablation arms + sandbagging curve)
 
-> **This file supersedes README.md and EXPERIMENTS_LEGACY.md** (both describe
-> the old `rule_applier` pipeline). The `src/` tree here is the 2026-07-03
+> **Historical scope:** this plan superseded the earlier
+> `rule_applier` plan; it does not supersede the current architecture or math runbook. The `src/` tree here is the 2026-07-03
 > sync: verifier rename, anytime ADC reward + ablation variants, draft-aware
 > cold start, verifier `current_draft` chain, GPQA dedup, `question_hash`
 > exclusion, forced-sequence eval (`eval_manager_forced`), self-consistency
