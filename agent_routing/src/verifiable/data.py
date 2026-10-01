@@ -189,7 +189,11 @@ def verify_manifest(data_dir):
     for filename, expected in manifest["sha256"].items():
         if hashlib.sha256((root / filename).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Data changed after preparation: {filename}")
-    expected = {"train.jsonl", "dev.jsonl"} if manifest.get("smoke_only") else {"train.jsonl", "dev.jsonl", "aime2026.jsonl", "beyondaime.jsonl"}
+    # A derived pool may lock fewer held-out sets, e.g. when BeyondAIME becomes train/dev.
+    tests = manifest.get("test_sets", ["aime2026", "beyondaime"])
+    if type(tests) is not list or "aime2026" not in tests or len(set(tests)) != len(tests) or set(tests) - {"aime2026", "beyondaime"}:
+        raise ValueError("test_sets must lock aime2026 and may add only beyondaime")
+    expected = {"train.jsonl", "dev.jsonl"} if manifest.get("smoke_only") else {"train.jsonl", "dev.jsonl", *(t + ".jsonl" for t in tests)}
     if set(manifest["sha256"]) != expected:
         raise ValueError("Manifest must include exactly the required split files")
     seen = set()

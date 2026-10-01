@@ -66,7 +66,7 @@ flowchart LR
   S2 --> G2[GRPO round 2]
 ```
 
-Manager training uses a separate frozen Numina pool, not the expert teacher targets. The default pilot selects 16 train / 16 dev from its available 128/64 pool by normalized-question hash. Test data is checked for isolation but never used for training targets or checkpoint selection.
+Manager training uses a separate frozen pool, not the expert teacher targets: BeyondAIME split 64 train / 36 dev (`data/manager_beyond_rsi_20260930`). The default pilot selects 16 train / 16 dev by normalized-question hash. AIME2026, the only held-out test, is checked for isolation but never used for training targets or checkpoint selection.
 
 For each training question, counterfactual collection evaluates direct commitment and non-repeating expert sequences up to depth two. The external grader identifies successful outcomes. The main selector favors direct commitment when already correct, otherwise shortest successful routes. It writes Manager assistant messages into `sft.jsonl`; expert replies and prompt history remain context with no supervised loss. Configured question-only distillation adds successful solutions as additional Manager targets.
 
@@ -102,7 +102,7 @@ The default pilot uses eight question groups per GRPO stage. It takes the first 
 
 Each question records both the Manager's independent answer and the final tool-assisted policy answer. Report independent/policy correctness, n, validity/truncation, call counts, rescues and harms. Within-checkpoint policy-minus-independent gain is different from independent-accuracy growth across checkpoints.
 
-AIME2026 (30 questions) and BeyondAIME (100 questions) are held-out tests. Freeze comparisons before seeing test scores. The default matrix compares M0 with the three final round_2/grpo Managers using the same frozen experts and budgets. A second-round SFT checkpoint has prior GRPO ancestry and is not a pure SFT baseline.
+AIME2026 (30 questions) is the only held-out test; BeyondAIME (100 questions) is split into Manager RSI train/dev data (`data/manager_beyond_rsi_20260930`) and is never reported as held-out. Freeze comparisons before seeing test scores. The default matrix compares M0 with each final round_2/grpo Manager using the same frozen experts and budgets (`scripts/evaluate_aime_matrix.sh`). A second-round SFT checkpoint has prior GRPO ancestry and is not a pure SFT baseline.
 
 ## 6. Execution, persistence and observability
 

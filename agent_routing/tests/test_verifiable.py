@@ -1,4 +1,5 @@
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -188,6 +189,34 @@ class DataTest(unittest.TestCase):
             (out / "train.jsonl").write_text("corrupted")
             with self.assertRaises(ValueError):
                 verify_manifest(out)
+
+    def test_manifest_can_lock_only_aime_as_held_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("train", "dev", "aime2026"):
+                split = name if name in {"train", "dev"} else "test"
+                write_jsonl(str(root / f"{name}.jsonl"), [row(i, split=split).to_dict() | {
+                    "question": f"{name} question {i}"} for i in range(3)])
+            sha = {f: hashlib.sha256((root / f).read_bytes()).hexdigest()
+                   for f in ("train.jsonl", "dev.jsonl", "aime2026.jsonl")}
+
+            def write(**manifest):
+                (root / "manifest.json").write_text(json.dumps({"sha256": sha, **manifest}))
+
+            write(test_sets=["aime2026"], counts={"train": 3, "dev": 3, "aime2026": 3})
+            self.assertEqual(verify_manifest(root)["test_sets"], ["aime2026"])
+            write()  # Default still requires both locked test sets.
+            with self.assertRaisesRegex(ValueError, "required split files"):
+                verify_manifest(root)
+            for bad in ([], ["numina"], ["beyondaime"], ["aime2026", "aime2026"], "aime2026"):
+                write(test_sets=bad)
+                with self.assertRaisesRegex(ValueError, "test_sets"):
+                    verify_manifest(root)
+            write_jsonl(str(root / "aime2026.jsonl"), [row(0, split="test").to_dict() | {"question": "train question 0"}])
+            sha["aime2026.jsonl"] = hashlib.sha256((root / "aime2026.jsonl").read_bytes()).hexdigest()
+            write(test_sets=["aime2026"])
+            with self.assertRaisesRegex(ValueError, "overlap"):
+                verify_manifest(root)
 
 
 class CounterfactualTest(unittest.TestCase):

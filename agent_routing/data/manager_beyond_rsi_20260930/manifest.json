@@ -1,0 +1,52 @@
+{
+  "test_sets": [
+    "aime2026"
+  ],
+  "seed": 42,
+  "counts": {
+    "train": 64,
+    "dev": 36,
+    "aime2026": 30
+  },
+  "sha256": {
+    "train.jsonl": "df72b0fcb86039cc624d6d96c3cad621f2337cad5e56f0a66be0055cc535c113",
+    "dev.jsonl": "bd7450ddc036d90f73108d0fbfd73309a81406a943d05cfcaa380177e67f4c17",
+    "aime2026.jsonl": "b196f8791803136365ef75d60f4ba170e5ce420a2667779ee769705f9483e1e5"
+  },
+  "sources": {
+    "aime2026": {
+      "dataset": "MathArena/aime_2026",
+      "license": "cc-by-nc-sa-4.0",
+      "local_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/aime2026_raw.jsonl",
+      "raw_rows": 30,
+      "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+      "revision": "d2de22f3c656b4f56cf8981212186377d1e23bc3",
+      "sha256": "c931b7fff5803c03158a832b0831d01dc41ba26e145ef58873ac88a59318d50f",
+      "source_split": "train",
+      "upstream_revision_verified": true
+    },
+    "beyondaime": {
+      "dataset": "ByteDance-Seed/BeyondAIME",
+      "license": "cc0-1.0",
+      "local_file": "/Users/tornadoy/Documents/Codex/2026-09-25/resource-x20/work/margent-luna-codex-20260929/source_data/beyondaime_raw.jsonl",
+      "raw_rows": 100,
+      "read_order": "lexicographic Parquet filenames, then native row order; no upstream shuffle",
+      "revision": "c705198ae1043810b1e1693bd879250b51a7a523",
+      "sha256": "bd3399dbf61b2354276a04ca44e30c8fe00bc6d981b4e5576acf7c931574dd30",
+      "source_split": "test",
+      "upstream_revision_verified": true
+    }
+  },
+  "derivation": {
+    "source_manifest_sha256": "b7bd1fae03f5acef69246e6da55582fd075dc44e4a118f9a5566b793accccf7f",
+    "role_change": "BeyondAIME is Manager RSI train/dev only; AIME2026 is the only held-out test",
+    "rule": "data.partition(beyondaime rows, excluded=AIME2026 identities, train_n, dev_n, seed)",
+    "aime2026_near_duplicates": {
+      "threshold": 0.85,
+      "matches": 0
+    }
+  },
+  "dedup": {},
+  "verification_scope": "terminal_answer",
+  "dedup_scope": "NFKC, case and whitespace normalized exact text; not semantic decontamination"
+}

@@ -23,12 +23,13 @@ case "${1:-}" in
     CUDA_VISIBLE_DEVICES="${RSI_ADVISOR_GPU:-0}" "$RSI_PYTHON" -m src.verifiable.experts serve --config "$RSI_CONFIG"
     ;;
   plan|run)
-    "$RSI_PYTHON" -m src.verifiable.rsi prepare --data-dir "$RSI_DATA" --out "$RSI_SUBSET" --train-n 16 --dev-n 16
+    "$RSI_PYTHON" -m src.verifiable.rsi prepare --data-dir "$RSI_DATA" --out "$RSI_SUBSET" \
+      --train-n "${RSI_TRAIN_N:-16}" --dev-n "${RSI_DEV_N:-16}"
     extra=()
     if [[ "$1" == plan ]]; then extra+=(--dry-run); fi
     CUDA_VISIBLE_DEVICES="${RSI_MANAGER_GPU:-1}" "$RSI_PYTHON" -m src.verifiable.rsi run \
       --config "$RSI_CONFIG" --data-dir "$RSI_SUBSET" --out "$RSI_OUTPUT" \
-      --rounds 2 --hours 24 --arms dynamic static success "${extra[@]}"
+      --rounds 2 --hours "${RSI_HOURS:-24}" --arms ${RSI_ARMS:-dynamic static success} "${extra[@]}"
     ;;
   report)
     "$RSI_PYTHON" -m src.verifiable.rsi report --out "$RSI_OUTPUT"

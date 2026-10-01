@@ -6,7 +6,7 @@ MARGENT trains a Manager language model to solve a problem independently, decide
 
 | Document | Use it for |
 |---|---|
-| **[Experiment runbook](agent_routing/docs/MARGENT_END_TO_END_RUNBOOK.md)** | Complete RunPod commands: setup → expert SFT → Manager SFT/GRPO → AIME2026/BeyondAIME → W&B → recovery and backup |
+| **[Experiment runbook](agent_routing/docs/MARGENT_END_TO_END_RUNBOOK.md)** | Complete RunPod commands: setup → expert SFT → Manager SFT/GRPO on BeyondAIME → AIME2026 → W&B → recovery and backup |
 | **[Architecture](agent_routing/README.md)** | Model roles, decision protocol, training objectives, data flow and source map |
 | [Dataset card](agent_routing/data/math_luna_codex_pilot_20260929/README.md) | Published Numina/Codex Luna examples, JSON/JSONL layout, provenance and quality limits |
 
@@ -16,11 +16,11 @@ The runbook is the single operational reference for the current math experiment.
 
 - **Student model:** `Qwen/Qwen3.5-9B`, pinned revision; three independent expert LoRAs and a separate Manager LoRA.
 - **Experts:** Extractor, Reasoner and Verifier. Train them on the published 544 role examples, evaluate/review them, then freeze them for Manager training.
-- **Manager data:** a separate frozen Numina pool of 128 train / 64 dev questions; the default mechanism pilot uses 16 / 16.
+- **Manager data:** BeyondAIME split 64 train / 36 dev (`agent_routing/data/manager_beyond_rsi_20260930`); the default mechanism pilot uses 16 / 16. Experts still train on the Numina Luna data.
 - **Manager cold start:** successful routes collected from the initial Manager with the frozen experts. Expert teacher answers are not copied directly into the Manager SFT set.
 - **Iterative comparison:** dynamic, static and success arms; two SFT/GRPO rounds and 31 controller stages in the default pilot.
-- **External tests:** all 30 AIME2026 and all 100 BeyondAIME questions, with independent and tool-assisted policy accuracy reported separately.
-- **Tracking:** [W&B project](https://wandb.ai/yuningyangaillm/MATH_rsi), local question records, configuration/checkpoint identities, heartbeats and evidence artifacts.
+- **Held-out test:** all 30 AIME2026 questions, with independent and tool-assisted policy accuracy reported separately. BeyondAIME is RSI train/dev data and is never reported as held-out.
+- **Tracking:** W&B project `MATH_rsi` under the entity set in the environment file, local question records, configuration/checkpoint identities, heartbeats and evidence artifacts.
 
 This is a bounded iterative parameter-training experiment. A completed smoke test or increasing training reward does not establish benchmark improvement. The default pilot is small, the synthetic expert labels are not mathematically certified, and documentation/CPU checks are not 9B CUDA validation.
 
