@@ -62,7 +62,7 @@ Run `run --dry-run` to print the plan.
 ## 1. Pod
 
 - 2× A100-80GB or H100-80GB. GPU 0 runs the vLLM advisors (0.45 of its memory, about 36 GB) plus one inference manager (about 20 GB). GPU 1 runs SFT and FA-GRPO.
-- A persistent network volume of **at least 200 GB mounted at `/workspace`**. It holds the HF cache (base model about 18 GB, adapters, tarballs), the advisor cache, the run directories and the backups.
+- A persistent network volume of **at least 200 GB mounted at `/workspace`**. It holds the HF cache (base model about 18 GB, adapters, tarballs), the advisor cache, the run directories and the backups. Without one, `/workspace` is on the container disk and is lost when the pod stops: run the hourly HF backup (§15) from the start and never stop the pod mid-run.
 - A RunPod PyTorch CUDA image. Use driver ≥ 580 if the vLLM wheel is a CUDA 13 build (the previous pod had 580.126). Older drivers need a CUDA 12.x vLLM build (§2).
 - Ports: on the previous pod, RunPod's nginx held `0.0.0.0:8001`, `3001`, `7270`, `7861`, `8081` and `9091`. The advisor server uses **18002**, bound to 127.0.0.1. The start script refuses a port that is in use or on that list.
 
@@ -101,7 +101,12 @@ and preflight must pass again (the controller refuses a report from another vLLM
 
 Credentials are never written by the scripts:
 - **HF:** every MaliDDD artifact is public, so no login is needed to download. To upload backups, run `HF_HOME=/workspace/hf-cache /workspace/mcq-venv/bin/hf auth login` (`huggingface-cli` no longer works with huggingface_hub 1.x).
-- **W&B (optional):** run `wandb login`, set `"wandb": {"enabled": true}` in the config, and do not set `MARGENT_WANDB_MODE=disabled` (the wrapper no longer sets it). Logging goes to entity `madisonlijingxuan-ucla`, project `MATH_rsi`, one W&B run per run directory.
+- **W&B:** run `/workspace/mcq-venv/bin/wandb login` once. The configs enable W&B (`"wandb": {"enabled": true}`, an operational setting outside the run signature; `MARGENT_WANDB_MODE=disabled` turns it off). Logging goes to entity `madisonlijingxuan-ucla`, project `MCQ_rsi`, one W&B run per run directory. It updates after every completed stage:
+  - progress counters;
+  - dev metrics, as summary values and a `dev/table`;
+  - for each FA-GRPO stage, a per-step table and curves of loss, KL_dec, KL_root, train call rate, mean J and informative fraction. Guard values appear on guarded steps.
+
+  A W&B failure is printed and never stops the run.
 
 ## 3. Import and the split check
 
@@ -345,22 +350,46 @@ $PY scripts/mcq_rsi_analysis.py replay --policy <dev eval> --forced verifier=<fo
 
 ## 15. Backup
 
-Back up after every phase (smoke, pilot, each main run, each final test). The tarballs in
-`backups/` sit on the same network volume they protect, so **uploading them off the volume is
-part of every backup** (requires `HF_HOME=/workspace/hf-cache /workspace/mcq-venv/bin/hf auth login` once):
+On a pod **without** a persistent volume (`/workspace` on the container disk), stopping the pod
+deletes everything, so the Hugging Face backup is the only copy. Even with a volume, the backup
+is the copy that survives losing the volume. Log in once (the token stays under `HF_HOME`; never
+paste it into scripts), then keep the hourly loop running in its own tmux session for the whole experiment:
 
 ```bash
-cd /workspace/mcq_rsi
-tar --format=posix -czf backups/medqa_main_$(date +%Y%m%d_%H%M).tgz runs/medqa_main advisor_cache/preflight advisor_cache/locked_test
-tar --format=posix -czf backups/advisor_cache_$(date +%Y%m%d).tgz advisor_cache   # reusable across runs: identical requests never refetch
-$PY -c "from huggingface_hub import HfApi; HfApi().upload_file(path_or_fileobj='backups/<file>.tgz', path_in_repo='mcq_rsi/<file>.tgz', repo_id='MaliDDD/agent-routing-9b-assets', repo_type='dataset')"
+HF_HOME=/workspace/hf-cache /workspace/mcq-venv/bin/hf auth login
+BACKUP_EVERY_MIN=60 bash scripts/runpod_mcq_rsi.sh bg backup     # tmux session mcq_backup_<BENCH>; log: logs/backup.log
+bash scripts/runpod_mcq_rsi.sh backup                            # one extra pass, e.g. right after a phase ends
 ```
 
-A restore needs, besides the tarballs:
+`scripts/backup_mcq_rsi_hf.py` mirrors the following into `/workspace/mcq_rsi/hf_backup_stage`, then uploads that copy with `upload_large_folder` (resumable; unchanged files are skipped):
+- `runs/`;
+- `logs/`;
+- `advisor_cache/{preflight,locked_test}`;
+- the import manifests;
+- the advisor output cache, packed into `advisor_cache.tar.gz`.
+
+It leaves out:
+- per-step FA-GRPO weights and optimizer states (`step-*/`, about 370 MB per step). Every `final/` adapter, `step.json` and `metrics.jsonl` is kept;
+- trainer `checkpoint-*` directories;
+- temporaries and lock files.
+
+The repo is `MaliDDD/margent-mcq-rsi` (`HF_BACKUP_REPO` overrides). It is created **private**; pass `--public` or flip it on the Hub. A file copied while a stage was writing it is copied again on the next pass, so backups taken after a stage completes are consistent. Files deleted locally stay in the repo.
+
+A restore needs:
 - the **same paths** (`/workspace/mcq_rsi/...`): stage signatures record absolute checkpoint paths;
 - the **same git commit** of this repository (the run signature includes git HEAD and source hashes);
 - the same `HF_HOME=/workspace/hf-cache` (FA-GRPO records the resolved base snapshot path);
 - a re-import to the same `import` directory (`runpod_mcq_rsi.sh import`; digests are verified).
+
+```bash
+hf download MaliDDD/margent-mcq-rsi --local-dir /workspace/mcq_rsi_restore
+rsync -a /workspace/mcq_rsi_restore/{runs,logs,advisor_cache} /workspace/mcq_rsi/
+tar -xzf /workspace/mcq_rsi_restore/advisor_cache.tar.gz -C /workspace/mcq_rsi
+```
+
+Completed stages come back whole. A stage that was in progress has no step weights in the backup,
+so move it aside before resuming:
+`$PY -m src.manager.mcq_rsi retry-stage --run-dir <run> --name <stage>`. The next `run` redoes it.
 
 ## 16. Cost and time (design §6 estimates; replace with smoke timings)
 

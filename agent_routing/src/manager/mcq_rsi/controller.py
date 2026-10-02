@@ -122,7 +122,7 @@ DEFAULTS: Dict[str, Any] = {
     # items with median similarity >= min_similarity (bf16 greedy drifts on other GPUs/kernels; preflight.py).
     "preflight": {"required": True, "n_per_kind": 20, "min_match": 0.9, "min_lora_effect": 0.5, "min_closer": 0.75,
                   "min_similarity": 0.5, "seed": 0},
-    "wandb": {"enabled": False, "entity": "madisonlijingxuan-ucla", "project": "MATH_rsi"},
+    "wandb": {"enabled": False, "entity": "madisonlijingxuan-ucla", "project": "MCQ_rsi"},
     "heartbeat_seconds": 15,
 }
 FREE_SECTIONS = ("sft", "grpo")  # validated by RoundSFTConfig / FAGRPOConfig instead
@@ -1445,7 +1445,7 @@ def report(out) -> Dict[str, Any]:
     _write_csv(root / "dev_metrics.csv", dev, ["stage", "round", "role", "n", "accuracy", "initial_draft_accuracy",
                                                "gain_pp", "calls_per_example", "call_rate", "call_gap",
                                                "correction_rate", "corruption_rate", "margin"])
-    _wandb_log(run_info["config_full"], result, f"{root.resolve().name}_{run_info['signature_sha256'][:8]}")
+    _wandb_log(run_info["config_full"], result, f"{root.resolve().name}_{run_info['signature_sha256'][:8]}", root)
     return result
 
 
@@ -1550,7 +1550,32 @@ def render_markdown(r: Dict[str, Any]) -> str:
     return "\n".join(out)
 
 
-def _wandb_log(cfg: Dict[str, Any], result: Dict[str, Any], run_key: str) -> None:
+WANDB_DEV = ("stage", "round", "role", "n", "accuracy", "initial_draft_accuracy", "gain_pp", "calls_per_example",
+             "call_rate", "call_gap", "correction_rate", "corruption_rate")
+WANDB_GRPO = ("loss", "kl_root", "kl_dec", "kl_rev", "pg_loss", "anchor_ce", "grad_norm", "root_accuracy",
+              "train_call_rate", "J_mean", "learning_rate", "step_seconds")
+WANDB_GRPO_PLOTS = ("loss", "kl_dec", "kl_root", "train_call_rate", "J_mean", "informative_fraction")
+
+
+def _number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def grpo_step_rows(metrics_path: Path) -> List[Dict[str, Any]]:
+    """One row per committed FA-GRPO step (``metrics.jsonl``): scalars, informative fraction, guard scalars."""
+    rows = []
+    for r in _read_jsonl(metrics_path) if Path(metrics_path).is_file() else []:
+        row = {"step": r.get("step"), **{k: r.get(k) for k in WANDB_GRPO if _number(r.get(k))}}
+        if r.get("n_states"):
+            row["informative_fraction"] = r.get("n_informative", 0) / r["n_states"]
+        row.update({f"guard_{k}": v for k, v in (r.get("guard") or {}).items() if _number(v)})
+        rows.append(row)
+    return rows
+
+
+def _wandb_log(cfg: Dict[str, Any], result: Dict[str, Any], run_key: str, root: Optional[Path] = None) -> None:
+    """After every completed stage: dev metrics (summary + table) and, per FA-GRPO stage, its step table and
+    curves. One W&B run per run directory and signature (the smoke run is MedQA/main too). Never fails a run."""
     w = cfg.get("wandb") or {}
     if not w.get("enabled") or os.environ.get("MARGENT_WANDB_MODE") == "disabled":
         return
@@ -1558,16 +1583,33 @@ def _wandb_log(cfg: Dict[str, Any], result: Dict[str, Any], run_key: str) -> Non
         import wandb
     except ImportError:
         return
-    with contextlib.suppress(Exception):
-        # One W&B run per run directory and signature (the smoke run is MedQA/main too).
-        run = wandb.init(entity=w.get("entity"), project=w.get("project"),
-                         name=f"mcq_rsi_{result['bench']}_{result['phase']}_{run_key}",
-                         id=re.sub(r"[^A-Za-z0-9_-]", "_", f"mcq_rsi_{result['bench']}_{result['phase']}_{run_key}")[:120],
-                         resume="allow", reinit=True)
-        for d in result["dev"]:
-            run.log({f"dev/{d['stage']}/{k}": d[k] for k in ("accuracy", "calls_per_example", "call_gap")
-                     if isinstance(d.get(k), (int, float))})
+    try:
+        name = f"mcq_rsi_{result['bench']}_{result['phase']}_{run_key}"
+        run = wandb.init(entity=w.get("entity"), project=w.get("project"), name=name,
+                         id=re.sub(r"[^A-Za-z0-9_-]", "_", name)[:120], resume="allow", reinit=True,
+                         config={"bench": result["bench"], "phase": result["phase"], "arms": result["arms"],
+                                 "rounds": result["rounds"]})
+        log: Dict[str, Any] = {"progress/completed_stages": result["completed_stages"],
+                               "progress/planned_stages": result["planned_stages"]}
+        run.summary.update({f"dev/{d['stage']}/{k}": d[k] for d in result["dev"] for k in WANDB_DEV[3:] if _number(d.get(k))})
+        if result["dev"]:
+            log["dev/table"] = wandb.Table(columns=list(WANDB_DEV), data=[[d.get(c) for c in WANDB_DEV] for d in result["dev"]])
+        for g in result["grpo"] if root is not None else []:
+            rows = grpo_step_rows(Path(root) / g["stage"] / "metrics.jsonl")
+            if not rows:
+                continue
+            cols = ["step"] + sorted({k for r in rows for k in r} - {"step"})
+            table = wandb.Table(columns=cols, data=[[r.get(c) for c in cols] for r in rows])
+            log[f"grpo/{g['stage']}/steps"] = table
+            for m in WANDB_GRPO_PLOTS:
+                if m in cols:
+                    log[f"grpo/{g['stage']}/{m}"] = wandb.plot.line(table, "step", m, title=f"{g['stage']} {m}")
+            run.summary.update({f"grpo/{g['stage']}/{k}": g[k] for k in ("selected_step", "informative_fraction",
+                                                                          "learning_rate") if _number(g.get(k))})
+        run.log(log)
         run.finish()
+    except Exception as e:  # noqa: BLE001 - W&B is monitoring only
+        print(f"[MCQ_RSI] W&B logging failed ({type(e).__name__}: {e}); the run continues", flush=True)
 
 
 # ------------------------------------------------------------------------------ status

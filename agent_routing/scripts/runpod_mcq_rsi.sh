@@ -5,6 +5,7 @@
 #   bash scripts/runpod_mcq_rsi.sh attach|status|report|stop-advisors
 #   bash scripts/runpod_mcq_rsi.sh import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test   (single steps, this shell)
 #   bash scripts/runpod_mcq_rsi.sh bg <step>        # a single step in its own tmux session (survives a dropped SSH/web terminal)
+#   BACKUP_EVERY_MIN=60 bash scripts/runpod_mcq_rsi.sh bg backup   # hourly HF backup (scripts/backup_mcq_rsi_hf.py)
 #
 # The pipeline stops after the smoke check; the pilot needs `pilot` (or `bg pilot`) and refuses without a passing
 # <smoke run>/smoke_check.json (SKIP_SMOKE_CHECK=1 overrides).
@@ -54,6 +55,13 @@ gpu_check() {
 }
 
 advisor_up() { curl -fsS "$(url)/health" >/dev/null 2>&1; }
+
+step_backup() {
+  # One pass, or a loop with BACKUP_EVERY_MIN (use: BACKUP_EVERY_MIN=60 bash scripts/runpod_mcq_rsi.sh bg backup).
+  log "HF backup of ${WORK} -> ${HF_BACKUP_REPO:-MaliDDD/margent-mcq-rsi}"
+  "$PY" scripts/backup_mcq_rsi_hf.py --work "$WORK" --repo "${HF_BACKUP_REPO:-MaliDDD/margent-mcq-rsi}" \
+    ${BACKUP_EVERY_MIN:+--every-minutes "$BACKUP_EVERY_MIN"} 2>&1 | tee -a "$LOGS/backup.log"
+}
 
 step_import() { log "import (all benchmarks)"; cli import --bench all --out "$WORK/import" --cache-dir "$HF_HOME/hub" 2>&1 | tee -a "$LOGS/import.log"; }
 step_splits() {
@@ -148,7 +156,7 @@ case "${1:-}" in
   pipeline) pipeline ;;
   bg)
     step="${2:-}"
-    [[ "$step" =~ ^(import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test)$ ]] || die "usage: $0 bg <step>"
+    [[ "$step" =~ ^(import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test|backup)$ ]] || die "usage: $0 bg <step>"
     command -v tmux >/dev/null || die "tmux not installed (apt-get install -y tmux)"
     name="mcq_${step}_${BENCH}"
     tmux has-session -t "$name" 2>/dev/null && die "tmux session ${name} exists (tmux attach -t ${name})"
@@ -160,7 +168,7 @@ case "${1:-}" in
          MCQ_WORK="$WORK" MCQ_PYTHON="$PY" MCQ_TMUX_SESSION="$SESSION" \
          MCQ_ADVISOR_GPU="$ADVISOR_GPU" MCQ_TRAIN_GPU="$TRAIN_GPU" SMOKE_HOURS="${SMOKE_HOURS:-}" \
          ${MARGENT_WANDB_MODE+"MARGENT_WANDB_MODE=$MARGENT_WANDB_MODE"} HF_HOME="$HF_HOME" HF_HUB_DISABLE_XET="$HF_HUB_DISABLE_XET" \
-         TMPDIR="$TMPDIR" \
+         TMPDIR="$TMPDIR" HF_BACKUP_REPO="${HF_BACKUP_REPO:-}" BACKUP_EVERY_MIN="${BACKUP_EVERY_MIN:-}" \
          bash "$REPO/scripts/runpod_mcq_rsi.sh" "$step"); exec bash"
     log "started ${step} in tmux session ${name} (tmux attach -t ${name})" ;;
   import) step_import ;;
@@ -172,11 +180,12 @@ case "${1:-}" in
   pilot) step_pilot ;;
   main) step_main ;;
   final-test) step_final_test ;;
+  backup) step_backup ;;
   status)
     nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu --format=csv,noheader || true
     if advisor_up; then echo "advisors: healthy on ${PORT}"; else echo "advisors: DOWN on ${PORT}"; fi
     for d in "$WORK"/runs/*/; do [[ -f "$d/rsi_run.json" ]] && { echo "== ${d}"; cli status --run-dir "$d"; }; done ;;
   report) cli report --run-dir "${RUN_DIR:-$WORK/runs/${BENCH}_pilot}" ;;
   stop-advisors) bash scripts/start_mcq_advisors.sh stop ;;
-  *) echo "usage: $0 start|attach|status|report|stop-advisors|bg <step>|import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test" >&2; exit 2 ;;
+  *) echo "usage: $0 start|attach|status|report|stop-advisors|bg <step>|import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test|backup" >&2; exit 2 ;;
 esac

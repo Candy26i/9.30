@@ -1041,3 +1041,58 @@ def test_advisor_script_stale_pid_file_is_removed_and_never_returned_as_a_pid(tm
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     assert out.stdout == "pid=[]" and "stale pid file" in out.stderr and not pidfile.exists()
+
+
+def test_wandb_logs_dev_and_grpo_step_curves_and_never_fails_the_run(tmp_path, monkeypatch, capsys):
+    import types
+    logged, inits, summaries = [], [], {}
+
+    class Table:
+        def __init__(self, columns, data):
+            self.columns, self.data = columns, data
+
+    class Run:
+        summary = types.SimpleNamespace(update=summaries.update)
+
+        def log(self, d):
+            logged.append(d)
+
+        def finish(self):
+            pass
+
+    fake = types.SimpleNamespace(init=lambda **kw: inits.append(kw) or Run(), Table=Table,
+                                 plot=types.SimpleNamespace(line=lambda t, x, y, title: ("line", x, y, len(t.data))))
+    monkeypatch.setitem(sys.modules, "wandb", fake)
+    monkeypatch.delenv("MARGENT_WANDB_MODE", raising=False)
+    g = tmp_path / "r1/grpo"
+    g.mkdir(parents=True)
+    steps = [{"step": 1, "loss": 0.5, "kl_dec": 0.0, "kl_root": 0.0, "train_call_rate": 0.4, "J_mean": 0.6,
+              "n_states": 10, "n_informative": 3, "learning_rate": 5e-6},
+             {"step": 2, "loss": 0.4, "kl_dec": 0.01, "kl_root": 0.002, "train_call_rate": 0.42, "J_mean": 0.62,
+              "n_states": 10, "n_informative": 4, "guard": {"call_rate": 0.41, "kl_dec": 0.01, "passed": True}}]
+    (g / "metrics.jsonl").write_text("".join(json.dumps(r) + "\n" for r in steps))
+    result = {"bench": "medqa", "phase": "pilot", "arms": ["dynamic"], "rounds": 2, "completed_stages": 3,
+              "planned_stages": 9, "dev": [{"stage": "r1/S1_dev", "round": 1, "role": "s1", "n": 200, "accuracy": 0.8,
+                                            "calls_per_example": 0.4, "call_gap": 0.2}],
+              "grpo": [{"stage": "r1/grpo", "selected_step": 2, "informative_fraction": 0.35, "learning_rate": 5e-6}]}
+    cfg = {"wandb": {"enabled": True, "entity": "e", "project": "MCQ_rsi"}}
+    CT._wandb_log(cfg, result, "run_abc", tmp_path)
+    assert inits[0]["project"] == "MCQ_rsi" and inits[0]["resume"] == "allow" and inits[0]["id"] == "mcq_rsi_medqa_pilot_run_abc"
+    log = logged[0]
+    assert log["progress/completed_stages"] == 3 and log["dev/table"].data[0][:5] == ["r1/S1_dev", 1, "s1", 200, 0.8]
+    table = log["grpo/r1/grpo/steps"]
+    assert table.columns[0] == "step" and "guard_call_rate" in table.columns and "guard_passed" not in table.columns
+    rows = [dict(zip(table.columns, r)) for r in table.data]
+    assert [r["informative_fraction"] for r in rows] == [0.3, 0.4] and rows[0]["guard_call_rate"] is None
+    assert log["grpo/r1/grpo/kl_dec"] == ("line", "step", "kl_dec", 2)
+    assert summaries["dev/r1/S1_dev/accuracy"] == 0.8 and summaries["grpo/r1/grpo/selected_step"] == 2
+    # Disabled by config or env: nothing; a W&B error is printed, never raised.
+    logged.clear()
+    CT._wandb_log({"wandb": {"enabled": False}}, result, "k", tmp_path)
+    monkeypatch.setenv("MARGENT_WANDB_MODE", "disabled")
+    CT._wandb_log(cfg, result, "k", tmp_path)
+    assert not logged
+    monkeypatch.delenv("MARGENT_WANDB_MODE")
+    fake.init = lambda **kw: (_ for _ in ()).throw(RuntimeError("not logged in"))
+    CT._wandb_log(cfg, result, "k", tmp_path)
+    assert "W&B logging failed" in capsys.readouterr().out

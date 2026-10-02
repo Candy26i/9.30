@@ -112,8 +112,8 @@
     "seed": 0
   },
   "wandb": {
-    "enabled": false,
+    "enabled": true,
     "entity": "madisonlijingxuan-ucla",
-    "project": "MATH_rsi"
+    "project": "MCQ_rsi"
   }
 }
