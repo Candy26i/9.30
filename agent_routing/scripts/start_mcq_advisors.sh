@@ -139,15 +139,21 @@ start() {
   # Flags fingerprint read by preflight / require_passed (a passing preflight is bound to these flags).
   local gpu_name
   gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader -i "$GPU" 2>/dev/null | head -n 1 || true)"
-  python3 - "${SERVED_DIR}/server_flags_${PORT}.json" "$have" "$LORA_MODE" "$gpu_name" "${args[@]}" <<'PY'
+  # Advisors decode greedily, which never uses the sampler; flashinfer's top-k/top-p sampler would JIT-compile a
+  # kernel at startup (needs ninja + a matching nvcc; it failed on the first A100 pod), so it is off by default.
+  local fi_sampler="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
+  python3 - "${SERVED_DIR}/server_flags_${PORT}.json" "$have" "$LORA_MODE" "$gpu_name" "$fi_sampler" "${args[@]}" <<'PY'
 import json, sys
-path, version, mode, gpu, *args = sys.argv[1:]
-json.dump({"vllm_version": version, "lora_mode": mode, "gpu": gpu, "args": args}, open(path, "w"), indent=2, sort_keys=True)
+path, version, mode, gpu, fi_sampler, *args = sys.argv[1:]
+json.dump({"vllm_version": version, "lora_mode": mode, "gpu": gpu, "args": args,
+           "env": {"VLLM_USE_FLASHINFER_SAMPLER": fi_sampler}}, open(path, "w"), indent=2, sort_keys=True)
 PY
   # A fresh log per start (the previous one is kept), so `evidence` shows this server's lines only.
   [[ ! -f "$LOG" ]] || mv "$LOG" "${LOG%.log}.$(date +%Y%m%d_%H%M%S).log"
   log "serving ${max_loras} LoRAs on ${HOST}:${PORT} (GPU ${GPU}, utilisation ${GPU_UTIL}); log ${LOG}"
-  CUDA_VISIBLE_DEVICES="$GPU" nohup "${VLLM_VENV}/bin/python" -m vllm.entrypoints.openai.api_server \
+  # The venv's bin on PATH: JIT builders (ninja) are found without activating the venv.
+  CUDA_VISIBLE_DEVICES="$GPU" PATH="${VLLM_VENV}/bin:${PATH}" VLLM_USE_FLASHINFER_SAMPLER="$fi_sampler" \
+    nohup "${VLLM_VENV}/bin/python" -m vllm.entrypoints.openai.api_server \
     "${args[@]}" > "$LOG" 2>&1 &
   echo $! > "$PIDFILE"
   log "pid $(cat "$PIDFILE"); waiting for /health (up to ${HEALTH_TIMEOUT}s)"

@@ -1001,6 +1001,7 @@ def test_advisor_script_serving_flags():
     assert "port_free" in text and "8001" in text and 'VLLM_VENV="${VLLM_VENV:-/workspace/vllm-venv}"' in text
     assert "serve-loras" in text and 'LORA_MODE="${LORA_MODE:-multimodal}"' in text
     assert "c202236235762e1c871ad0ccb60c8ee5ba337b9a" in text and "hf-overrides" not in text
+    assert 'PATH="${VLLM_VENV}/bin:${PATH}"' in text and 'VLLM_USE_FLASHINFER_SAMPLER:-0' in text
 
 
 def _bash_function(text, name):
