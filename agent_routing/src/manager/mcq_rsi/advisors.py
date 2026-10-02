@@ -233,10 +233,19 @@ class CachedAdvisorPool:
             expected = self.adapters[kind].rpartition("#sha256=")[2]
             weights = Path(str(card.get("root") or "")) / "adapter_model.safetensors"
             got = _file_sha256(weights) if card.get("root") and weights.is_file() else None
+            layout = "as_is"
             if got != expected:
-                raise AdvisorError(f"{name} serves {card.get('root')!r} (adapter sha256 {got}), "
-                                   f"expected the pinned {self.adapters[kind]}")
-            verified[kind] = {"root": os.path.realpath(str(card["root"])), "parent": card["parent"]}
+                # A served copy whose keys were renamed so vLLM's multimodal Qwen3.5 applies them
+                # (``serving``): accepted only if its tensors are bitwise the pinned adapter's.
+                try:
+                    from .serving import verify_served_lora
+                    verify_served_lora(card.get("root") or "", expected)
+                    layout = "multimodal"
+                except (ValueError, OSError, KeyError) as e:
+                    raise AdvisorError(f"{name} serves {card.get('root')!r} (adapter sha256 {got}), "
+                                       f"expected the pinned {self.adapters[kind]} ({e})") from None
+            verified[kind] = {"root": os.path.realpath(str(card["root"])), "parent": card["parent"],
+                              **({"key_layout": layout} if layout != "as_is" else {})}
         self.served = verified
         self._checked = True
         return served
@@ -354,6 +363,16 @@ class CachedAdvisorPool:
         return key
 
     # ------------------------------------------------------------- fetch
+    def request_payload(self, kind: str, question: str, context: str, choices: Dict[str, str], candidate: str = "",
+                        model: Optional[str] = None, system: Optional[str] = None) -> Dict[str, Any]:
+        """The exact ``/v1/chat/completions`` body of a fetch (``preflight`` replays it, optionally against
+        another served ``model`` or with another ``system`` prompt)."""
+        messages = prompts.build_advisor_messages(self.bench, kind, question, context, choices,
+                                                  candidate_answer=candidate if kind == "verifier" else "")
+        if system is not None:
+            messages = [{"role": "system", "content": system}] + messages[1:]
+        return {"model": model or self.spec.lora_name(kind), "messages": messages, **self.decode}
+
     def _fetch(self, kind: str, question: str, context: str, choices: Dict[str, str], candidate: str,
                stop: Optional[threading.Event] = None) -> Dict[str, Any]:
         if not self.server_url:
@@ -361,10 +380,7 @@ class CachedAdvisorPool:
         if not self._checked:
             self.check_server()
         model = self.spec.lora_name(kind)
-        payload = {"model": model,
-                   "messages": prompts.build_advisor_messages(self.bench, kind, question, context, choices,
-                                                              candidate_answer=candidate),
-                   **self.decode}
+        payload = self.request_payload(kind, question, context, choices, candidate)
         last: Optional[BaseException] = None
         for attempt in range(self.retries + 1):
             if self._abort.is_set() or (stop is not None and stop.is_set()):
@@ -457,6 +473,12 @@ class CachedAdvisorPool:
             self._call_log.append({"ts": int(time.time()), "agent_kind": agent_kind,
                                    "example_id": int(example_id), "output_len": len(text)})
         return text
+
+    def cached(self, r: AdvisorRequest) -> Optional[str]:
+        """The cached output of ``r``, or None (never fetches)."""
+        candidate = r.candidate if r.kind == "verifier" else ""
+        fields = self.key_fields(r.kind, r.question, r.context, r.choices, candidate)
+        return self._read(_sha(fields), fields)
 
     def prefetch(self, requests: Iterable[AdvisorRequest]) -> Dict[str, int]:
         """Fetch every uncached request concurrently. The first failure cancels this batch's queued

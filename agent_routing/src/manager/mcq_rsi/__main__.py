@@ -5,6 +5,7 @@ import argparse
 import dataclasses
 import json
 import sys
+from pathlib import Path
 from typing import List, Optional
 
 from . import benchmarks as registry
@@ -207,6 +208,165 @@ def cmd_evaluate(args) -> int:
     return 0 if result["passed"] else 1
 
 
+# ----------------------------------------------------------------------- controller commands
+
+def _config(args):
+    from . import controller
+    cfg = controller.load_config(args.config)
+    if getattr(args, "bench", None) and args.bench != cfg["bench"]:
+        raise SystemExit(f"--bench {args.bench} but {args.config} is for {cfg['bench']}")
+    if getattr(args, "advisor_url", None):
+        cfg["advisor_url"] = args.advisor_url
+    return cfg
+
+
+def cmd_prefetch(args) -> int:
+    """E/R for every pool of the plan and V(q, greedy root of S_1) for dev/test, into the advisor cache."""
+    from . import controller
+    cfg = _config(args)
+    plan = controller.build_plan(cfg, args.phase)
+    spec = next((s for s in plan["stages"] if s["kind"] == "prefetch"), None)
+    if spec is None:
+        spec = {"name": "prefetch/advisors", "kind": "prefetch", "lane": "inference",
+                "params": {"pools": [cfg["dev_pool"]], "checkpoint": "import:S_1", "verifier_pools": []}}
+    if args.pools:
+        spec["params"]["pools"] = args.pools.split(",")
+        spec["params"]["verifier_pools"] = [p for p in spec["params"]["verifier_pools"] if p in spec["params"]["pools"]]
+    if args.no_verifier:
+        spec["params"]["verifier_pools"] = []
+    out = Path(args.out or Path(cfg["advisor_cache"]) / "prefetch" / cfg["bench"])
+    out.mkdir(parents=True, exist_ok=True)
+    result = controller.stage_prefetch(out, controller.Runtime(cfg), spec, out)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_preflight(args) -> int:
+    from . import controller, preflight
+    from .advisors import CachedAdvisorPool
+    cfg = _config(args)
+    if not cfg["advisor_url"]:
+        raise SystemExit("preflight needs --advisor-url or advisor_url in the config")
+    rt = controller.Runtime(cfg)
+    pool = CachedAdvisorPool(rt.bench.name, cfg["advisor_cache"], cfg["advisor_url"])
+    p = cfg["preflight"]
+    settings = {"n_per_kind": args.n or p["n_per_kind"], "min_match": p["min_match"],
+                "min_lora_effect": p["min_lora_effect"], "min_closer": p["min_closer"],
+                "min_similarity": p["min_similarity"], "seed": p["seed"]}
+    if args.skip_if_passed:
+        # A passing report for this identity, server, served adapters, vLLM version, flags and settings is kept.
+        from .advisors import AdvisorError
+        try:
+            pool.check_server()
+            rep = preflight.require_passed(cfg["advisor_cache"], pool)
+            if rep.get("settings") == settings:
+                print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name}: a passing report for this server already exists "
+                      f"({preflight.report_path(cfg['advisor_cache'], rt.bench.name)}); skipped")
+                return 0
+        except (RuntimeError, AdvisorError) as e:
+            print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name}: rerunning ({e})")
+    records = _read_jsonl(Path(cfg["import_dir"]) / rt.bench.name / "round1" / "records.jsonl")
+    rows = splits.pool_rows(rt.manifest(), "collect_r1")
+    result = preflight.run_preflight(rt.bench.name, pool, records, rows, **settings,
+                                     progress=lambda m: print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name} {m}", flush=True))
+    path = preflight.write_report(cfg["advisor_cache"], result)
+    for kind, k in result["kinds"].items():
+        print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name}/{kind}: n={k['n']} match={k['match_rate']:.2f} "
+              f"base_match={k['base_match_rate']:.2f} lora_closer={k['lora_closer_rate']:.2f} "
+              f"sim(lora)={k['median_lora_similarity']:.2f} sim(base)={k['median_base_similarity']:.2f} "
+              f"prefix(lora)={k['median_lora_prefix_ratio']:.2f} lora_effect={k['lora_effect_rate']:.2f}"
+              + (f" runtime_prompt_match={k['variant_match_rate']:.2f}" if k["variant_match_rate"] is not None else "")
+              + f" -> {'PASS (' + k['replay'] + ')' if k['passed'] else 'FAIL: ' + k['diagnosis']}")
+    print(f"[MCQ_RSI/PREFLIGHT] vLLM {result['vllm_version']} gpu {result['gpu']} flags "
+          f"{'recorded' if result['server_flags'] else 'MISSING'} -> {'PASS' if result['passed'] else 'FAIL'} ({path})")
+    return 0 if result["passed"] else 1
+
+
+def cmd_run(args) -> int:
+    from . import controller
+    cfg = _config(args)
+    arms = args.arms.split(",") if args.arms else None
+    result = controller.run(cfg, args.run_dir, phase=args.phase, arms=arms, rounds=args.rounds, hours=args.hours,
+                            dry_run=args.dry_run)
+    if not args.dry_run:
+        print(f"[MCQ_RSI] {result['completed_stages']}/{result['planned_stages']} stages -> {args.run_dir}/report.md")
+    return 0
+
+
+def cmd_status(args) -> int:
+    from . import controller
+    s = controller.status(args.run_dir)
+    st = s["status"]
+    print(f"controller={st.get('controller')} current={st.get('current_stage')} pid={st.get('controller_pid')} "
+          f"stage_pid={st.get('stage_pid')}{' (ALIVE)' if s['stage_process_alive'] else ''} "
+          f"heartbeat_age={s['heartbeat_age_seconds'] and round(s['heartbeat_age_seconds'])}s "
+          f"remaining={s['remaining_hours'] and round(s['remaining_hours'], 2)}h"
+          + (f" error={st['error']}" if st.get("error") else ""))
+    for row in s["stages"]:
+        wall = f"{row['wall_seconds'] / 60:.1f} min" if row["wall_seconds"] else ""
+        print(f"  {row['state']:<8} {row['stage']:<36} {row['kind']:<12} {wall}")
+    return 0
+
+
+def cmd_report(args) -> int:
+    from . import controller
+    controller.report(args.run_dir)
+    print((Path(args.run_dir) / "report.md").read_text(encoding="utf-8"))
+    return 0
+
+
+def cmd_final_test(args) -> int:
+    from . import controller
+    result = controller.final_test(args.run_dir, accept_incomplete=args.accept_incomplete, dry_run=args.dry_run,
+                                   reuse_test=args.reuse_test)
+    print(json.dumps(result if args.dry_run else result["finals"], indent=2, default=str))
+    return 0
+
+
+def cmd_stage(args) -> int:
+    """One stage of a run (the controller's subprocess); refuses under changed code."""
+    from . import controller
+    run_info = controller.load_run(args.run_dir)
+    controller.check_code_unchanged(run_info)
+    spec = controller.find_spec(args.run_dir, run_info, args.name)
+    result = controller.run_stage(Path(args.run_dir).resolve(), run_info, spec)
+    print(f"[MCQ_RSI/STAGE] {args.name}: {json.dumps(result, default=str)[:2000]}")
+    return 0
+
+
+def cmd_ack_gate(args) -> int:
+    from . import controller
+    controller.ack_gate(args.run_dir, args.stage, args.reason)
+    print(f"[MCQ_RSI] acknowledged {args.stage}: {args.reason}")
+    return 0
+
+
+def cmd_retry_stage(args) -> int:
+    from . import controller
+    print(f"[MCQ_RSI] moved aside -> {controller.retry_stage(args.run_dir, args.name)}")
+    return 0
+
+
+def cmd_serve_loras(args) -> int:
+    """Served copies of every benchmark's advisor LoRAs + ``lora_modules.txt`` for start_mcq_advisors.sh."""
+    from . import serving
+    import_dir = Path(args.import_dir or registry.PACKAGE_ROOT / importer.DEFAULT_OUT)
+    out = Path(args.out)
+    lines = []
+    for b in _benches(args.bench):
+        for kind, adapter in b.advisors:
+            pinned = next(d for name, _, d in adapter.files if name == "adapter_model.safetensors")
+            src = import_dir / b.name / "advisors" / kind
+            info = serving.prepare_served_lora(src, out / b.lora_name(kind), args.mode, pinned)
+            weights = Path(info["served_root"]) / serving.WEIGHTS
+            print(f"[MCQ_RSI/SERVE] {b.lora_name(kind)} mode={args.mode} source_sha256={info['source_sha256'][:12]} "
+                  f"keys={serving.key_layout(weights)} -> {info['served_root']}")
+            lines.append(f"{b.lora_name(kind)}={info['served_root']}")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "lora_modules.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return 0
+
+
 def _advisor_args(p) -> None:
     p.add_argument("--advisor-url", default=None, help="vLLM server; omit to run from the advisor cache only")
     p.add_argument("--advisor-cache", default=None, help=f"default: agent_routing/{ADVISOR_CACHE}")
@@ -330,6 +490,80 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--no-require-gate", action="store_true", help="write the result even if the eval gate fails")
     _advisor_args(p)
     p.set_defaults(func=cmd_evaluate)
+
+    # ------------------------------------------------------------------ controller
+    def run_dir(q):
+        q.add_argument("--run-dir", "--out", dest="run_dir", required=True, help="run directory")
+
+    p = sub.add_parser("prefetch", help="advisor E/R for every pool, V(q, greedy root of S_1) for dev/test")
+    p.add_argument("--config", required=True)
+    p.add_argument("--bench", default=None, choices=list(registry.BENCHMARKS))
+    p.add_argument("--phase", default="main", choices=["main", "pilot"])
+    p.add_argument("--pools", default=None, help="comma list (default: every pool of the plan)")
+    p.add_argument("--no-verifier", action="store_true", help="skip V(q, S_1 root) (no manager GPU needed)")
+    p.add_argument("--advisor-url", default=None)
+    p.add_argument("--out", default=None, help="default: <advisor_cache>/prefetch/<bench>")
+    p.set_defaults(func=cmd_prefetch)
+
+    p = sub.add_parser("preflight", help="vLLM identity + LoRA-applied replay gate (required before run)")
+    p.add_argument("--config", required=True)
+    p.add_argument("--bench", default=None, choices=list(registry.BENCHMARKS))
+    p.add_argument("--advisor-url", default=None)
+    p.add_argument("--n", type=int, default=None, help="recorded outputs per kind (default: config, 20)")
+    p.add_argument("--skip-if-passed", action="store_true",
+                   help="keep an existing passing report for this server, adapters, vLLM version, flags and settings")
+    p.set_defaults(func=cmd_preflight)
+
+    p = sub.add_parser("run", help="round-major RSI controller (resumable)")
+    p.add_argument("--config", required=True)
+    run_dir(p)
+    p.add_argument("--bench", default=None, choices=list(registry.BENCHMARKS), help="must match the config")
+    p.add_argument("--arms", default=None, help="comma list (default: config; pilot: dynamic)")
+    p.add_argument("--rounds", type=int, default=None, help="default: config (pilot: 2)")
+    p.add_argument("--hours", type=float, default=72.0, help="wall-clock budget, persisted at the first start (<= 72)")
+    p.add_argument("--phase", default="main", choices=["main", "pilot"])
+    p.add_argument("--advisor-url", default=None)
+    p.add_argument("--dry-run", action="store_true", help="print the plan")
+    p.set_defaults(func=cmd_run)
+
+    for name, func, text in (("status", cmd_status, "stage states, heartbeat, remaining budget"),
+                             ("report", cmd_report, "rebuild report.json / report.md")):
+        p = sub.add_parser(name, help=text)
+        run_dir(p)
+        p.set_defaults(func=func)
+
+    p = sub.add_parser("final-test", help="locked test of the pre-registered finals (once)")
+    run_dir(p)
+    p.add_argument("--accept-incomplete", default=None, metavar="REASON",
+                   help="run although planned stages are incomplete (recorded)")
+    p.add_argument("--dry-run", action="store_true", help="show the finals without registering them")
+    p.add_argument("--reuse-test", default=None, metavar="REASON",
+                   help="run the locked test although another run directory of this benchmark (or a pilot) "
+                        "already used it (recorded in <advisor_cache>/locked_test/<bench>.json)")
+    p.set_defaults(func=cmd_final_test)
+
+    p = sub.add_parser("stage", help="(internal) run one planned stage")
+    run_dir(p)
+    p.add_argument("--name", required=True)
+    p.set_defaults(func=cmd_stage)
+
+    p = sub.add_parser("ack-gate", help="acknowledge a failed gate (e.g. parity) so the run may continue")
+    run_dir(p)
+    p.add_argument("--stage", required=True)
+    p.add_argument("--reason", required=True)
+    p.set_defaults(func=cmd_ack_gate)
+
+    p = sub.add_parser("retry-stage", help="move an incomplete stage directory aside so it is redone")
+    run_dir(p)
+    p.add_argument("--name", required=True)
+    p.set_defaults(func=cmd_retry_stage)
+
+    p = sub.add_parser("serve-loras", help="advisor LoRA copies vLLM applies on Qwen3.5 (+ lora_modules.txt)")
+    p.add_argument("--bench", default="all", choices=bench_choices)
+    p.add_argument("--import-dir", default=None)
+    p.add_argument("--out", required=True)
+    p.add_argument("--mode", default="multimodal", choices=["multimodal", "as_is"])
+    p.set_defaults(func=cmd_serve_loras)
 
     args = parser.parse_args(argv)
     if args.command == "sft" and not args.parity_only and not args.out:
