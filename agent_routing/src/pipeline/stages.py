@@ -1663,8 +1663,17 @@ def run_eval_manager_tools(
     max_tool_calls: int = 3,
     task_description: str = "",
     subagent_server_url: Optional[str] = None,
+    pool: Optional[Any] = None,
+    out_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Evaluate the manager with the same frozen subagents used as tools."""
+    """Evaluate the manager with the same frozen subagents used as tools.
+
+    ``pool`` (optional) is an already-built advisor pool with
+    ``RemoteSubagentPool.call``'s signature, used instead of building one from
+    ``subagent_server_url`` / ``ctx.adapter_root``. ``out_dir`` (optional)
+    replaces ``ctx.eval_root`` as the directory of the output files. With both
+    left at None the behaviour and outputs are unchanged.
+    """
     import torch
     from ..subagents.runtime import FrozenSubagent, SubagentPool
 
@@ -1684,7 +1693,9 @@ def run_eval_manager_tools(
     set_seed(ctx.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
-    if subagent_server_url:
+    if pool is not None:
+        print(f"[EVAL] using injected subagent pool -> {type(pool).__name__}")
+    elif subagent_server_url:
         from ..subagents.runtime import RemoteSubagentPool
         pool = RemoteSubagentPool(server_url=subagent_server_url)
         print(f"[EVAL] using remote subagent pool -> {subagent_server_url}")
@@ -1914,8 +1925,11 @@ def run_eval_manager_tools(
         "binding_mode": binding_mode,
         "subagents": sorted(pool._agents.keys()) if hasattr(pool, "_agents") else ["remote"],
     }
-    write_jsonl(os.path.join(ctx.eval_root, "manager_tool_eval.jsonl"), rows_log)
-    write_json(os.path.join(ctx.eval_root, "manager_tool_eval_report.json"), report)
+    eval_dir = ctx.eval_root if out_dir is None else out_dir
+    if out_dir is not None:
+        os.makedirs(out_dir, exist_ok=True)
+    write_jsonl(os.path.join(eval_dir, "manager_tool_eval.jsonl"), rows_log)
+    write_json(os.path.join(eval_dir, "manager_tool_eval_report.json"), report)
     print(
         f"[EVAL/MANAGER_TOOLS] teacher={ctx.teacher_id} "
         f"acc={report['accuracy']:.3f} tool_rate={report['tool_call_rate']:.3f} (n={n})"
@@ -1934,8 +1948,14 @@ def run_eval_manager_forced(
     task_description: str = "",
     out_tag: str = "",
     subagent_server_url: Optional[str] = None,
+    pool: Optional[Any] = None,
+    out_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate the manager under a FIXED delegation sequence (no free choice).
+
+    ``pool`` / ``out_dir`` (optional) are as in ``run_eval_manager_tools``; an
+    injected pool must serve every forced tool. With both left at None the
+    behaviour and outputs are unchanged.
 
     For each forced advisor, the assistant tool-call turn and the frozen
     advisor's output are injected into the history (mirroring cold-start SFT
@@ -1969,7 +1989,12 @@ def run_eval_manager_forced(
     set_seed(ctx.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
-    if subagent_server_url:
+    if pool is not None:
+        print(f"[EVAL] using injected subagent pool -> {type(pool).__name__}")
+        for t in forced:
+            if not pool.has(t):
+                raise FileNotFoundError(f"forced tool {t!r} is not served by the injected pool")
+    elif subagent_server_url:
         from ..subagents.runtime import RemoteSubagentPool
         pool = RemoteSubagentPool(server_url=subagent_server_url)
         print(f"[EVAL] using remote subagent pool -> {subagent_server_url}")
@@ -2102,8 +2127,11 @@ def run_eval_manager_forced(
         "valid_answer_rate": n_valid / max(1, n),
         "binding_mode": binding_mode,
     }
-    write_jsonl(os.path.join(ctx.eval_root, f"manager_forced_{safe_tag}.jsonl"), rows_log)
-    write_json(os.path.join(ctx.eval_root, f"manager_forced_{safe_tag}_report.json"), report)
+    eval_dir = ctx.eval_root if out_dir is None else out_dir
+    if out_dir is not None:
+        os.makedirs(out_dir, exist_ok=True)
+    write_jsonl(os.path.join(eval_dir, f"manager_forced_{safe_tag}.jsonl"), rows_log)
+    write_json(os.path.join(eval_dir, f"manager_forced_{safe_tag}_report.json"), report)
     print(
         f"[EVAL/FORCED] tools=[{tag}] acc={report['accuracy']:.3f} "
         f"valid={report['valid_answer_rate']:.3f} (n={n})"
