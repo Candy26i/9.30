@@ -130,6 +130,12 @@ start() {
   "$MCQ_PYTHON" -m src.manager.mcq_rsi serve-loras --bench "$BENCHES" --import-dir "$IMPORT_DIR" \
     --out "$SERVED_DIR" --mode "$LORA_MODE" | tee "${SERVED_DIR}/serve_loras.log"
   mapfile -t MODULES < "${SERVED_DIR}/lora_modules.txt"
+  # Extra already-renamed adapters, e.g. retrained advisors: MCQ_EXTRA_LORAS="medqa_extractor_v2=/path ..."
+  if [[ -n "${MCQ_EXTRA_LORAS:-}" ]]; then
+    read -r -a extra <<< "$MCQ_EXTRA_LORAS"
+    MODULES+=("${extra[@]}")
+    log "extra LoRAs: ${extra[*]}"
+  fi
   (( ${#MODULES[@]} > 0 )) || die "no LoRA modules"
   local max_loras=${#MODULES[@]}
   local args=(--model "$BASE_MODEL" --revision "$BASE_REVISION" --served-model-name "$BASE_MODEL"
