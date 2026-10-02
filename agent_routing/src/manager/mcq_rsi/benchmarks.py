@@ -100,6 +100,9 @@ class Benchmark:
     split_manifest: str
     paper_targets: Tuple[Tuple[str, float], ...]
     depth: int = 2
+    # ``round1_labels`` == ``_balance_records(<label records>, rho, balance_seed)`` (dynamic-arm default seed).
+    balance_seed: int = 0
+    label_records: str = "round1_records"  # "round1_records" or the extra_sources label holding those records
     status: str = "ready"
     extra_sources: Tuple[Tuple[str, Source], ...] = ()
     aux_caches: Tuple[Tuple[str, str, str], ...] = ()  # (role, repo-relative path, sha256)
@@ -289,8 +292,12 @@ GPQA = Benchmark(
                  "c2463316911def54735807d4daf1d37fff91f084b113a3d4ff570b8a543d2607"),),
     split_manifest="data/mcq_rsi/gpqa_splits.json",
     paper_targets=(("test_accuracy", 0.54), ("test_avg_tool_calls", 0.51), ("test_call_gap", 0.0172)),
+    balance_seed=42,
+    label_records="label_records",
     notes=(
         "S_1 (locked sft_2.0) was trained on the depth-1 collection; round1_records is the depth-2 tree on the same 200 roots.",
+        "round1_labels (148 rows) is _balance_records(label_records, 2.0, seed 42) row for row; seed 0, or the "
+        "depth-2 round1_records at any depth cut, does not reproduce it. The other benchmarks' files are seed 0.",
         "No spare data: collect_r2/r3 reuse the 200 collect_r1 roots and grpo_r1..r3 reuse one 146-row pool.",
         "Parity targets are on Diamond-100 (= test); dev is new and has no paper number.",
     ),
@@ -424,6 +431,10 @@ def validate(bench: Optional[Benchmark] = None) -> None:
                 fail(f"unpinned source {label}")
             if isinstance(src, TarMember) and not hex64(archive.sha256):
                 fail(f"unpinned archive {archive.path}")
+        if b.label_records != "round1_records" and b.label_records not in dict(b.extra_sources):
+            fail(f"label_records {b.label_records!r} is neither round1_records nor an extra source")
+        if not isinstance(b.balance_seed, int) or b.balance_seed < 0:
+            fail("balance_seed")
         for role, path, digest in b.aux_caches:
             if role not in {"dev", "test"} or not hex64(digest) or path.startswith("/"):
                 fail(f"aux cache {path}")

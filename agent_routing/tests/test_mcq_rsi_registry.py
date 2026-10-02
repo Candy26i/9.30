@@ -24,6 +24,12 @@ def test_registry_is_internally_consistent():
     assert list(BENCHMARKS) == ["medqa", "mmlu_pro", "gpqa", "aqua"]
     assert {b: BENCHMARKS[b].rho for b in BENCHMARKS} == {"medqa": 3.0, "mmlu_pro": 2.0, "gpqa": 2.0, "aqua": 1.0}
     assert {b.depth for b in BENCHMARKS.values()} == {2}
+    # The _balance_records seed and records each round-1 ratio file reproduces from (GPQA: depth-1, seed 42).
+    assert {b: (BENCHMARKS[b].balance_seed, BENCHMARKS[b].label_records) for b in BENCHMARKS} == {
+        "medqa": (0, "round1_records"), "mmlu_pro": (0, "round1_records"), "gpqa": (42, "label_records"),
+        "aqua": (0, "round1_records")}
+    with pytest.raises(ValueError, match="label_records"):
+        registry.validate(dataclasses.replace(MEDQA, label_records="label_records"))
     assert [len(b.choice_keys) for b in BENCHMARKS.values()] == [4, 10, 4, 5]
 
 
