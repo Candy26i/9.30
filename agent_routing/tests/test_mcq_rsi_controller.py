@@ -1017,7 +1017,8 @@ def test_pod_scripts_and_runbook_operations():
     assert "MARGENT_WANDB_MODE:-disabled" not in wrapper  # W&B follows the config unless the operator disables it
     setup = (ROOT / "scripts" / "setup_mcq_rsi_pod.sh").read_text()
     assert "backups,recorded}" in setup and "hf auth login" in setup and "huggingface-cli" not in setup
-    assert "MCQ_RSI_TOKENIZER_DIR" in setup and "faulthandler_timeout=60" in setup and "timeout 400" in setup
+    assert "MCQ_RSI_TOKENIZER_DIR" in setup and "faulthandler_timeout=60" in setup and "timeout 900" in setup
+    assert 'out="$(CUDA_VISIBLE_DEVICES= ' in setup  # CPU unit tests stay on the CPU on a GPU pod
     assert "VLLM_TORCH_INDEX_URL" in setup and ".mcq_build" in setup
     assert setup.index("cuda_major=") < setup.index("torch in the vLLM venv sees no GPU")  # specific message first
     advisors = (ROOT / "scripts" / "start_mcq_advisors.sh").read_text()

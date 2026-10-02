@@ -82,7 +82,7 @@ The script does the following:
 - Checks the volume and the GPUs (it needs 2).
 - Creates `/workspace/mcq-venv` (experiment, `requirements-math.txt`) and a **separate** `/workspace/vllm-venv` with `vllm==0.26.0`, the version the paper's advisor servers ran. vLLM pins its own torch; v0.30.0, for example, pins torch 2.13, so it can never share the experiment venv. Qwen3.5 is supported from vLLM 0.17.
 - Downloads `Qwen/Qwen3.5-9B@c202236…` into `HF_HOME=/workspace/hf-cache`.
-- Runs the CPU test files, one process per file, each under `timeout 400` with `-rs` (every skip is printed). The SFT tokenisation-parity test on the real round-1 label files needs the imported S_1 tokenizer, so rerun the setup script once after §3's import; it then fails if that test is skipped.
+- Runs the CPU test files on the CPU (`CUDA_VISIBLE_DEVICES=`), one process per file, each under `timeout 900` with `-rs` (every skip is printed). The SFT tokenisation-parity test on the real round-1 label files needs the imported S_1 tokenizer, so rerun the setup script once after §3's import; it then fails if that test is skipped.
 
 The script checks the vLLM venv's CUDA build against the driver before anything touches the
 GPU. If the build is CUDA ≥ 13 and the driver is below 580, rerun with a CUDA 12.x build of
@@ -373,7 +373,7 @@ It leaves out:
 - trainer `checkpoint-*` directories;
 - temporaries and lock files.
 
-The repo is `MaliDDD/margent-mcq-rsi` (`HF_BACKUP_REPO` overrides). It is created **private**; pass `--public` or flip it on the Hub. A file copied while a stage was writing it is copied again on the next pass, so backups taken after a stage completes are consistent. Files deleted locally stay in the repo.
+If `hf auth login` ran without `HF_HOME` set, the token is stored elsewhere, for example `/workspace/.cache/huggingface/token`. Point the backup at that file with `HF_TOKEN_PATH=<file>` (passed on by `bg`) instead of moving it. The repo is `MaliDDD/margent-mcq-rsi` (`HF_BACKUP_REPO` overrides). It is created **private**; pass `--public` or flip it on the Hub. A file copied while a stage was writing it is copied again on the next pass, so backups taken after a stage completes are consistent. Files deleted locally stay in the repo.
 
 A restore needs:
 - the **same paths** (`/workspace/mcq_rsi/...`): stage signatures record absolute checkpoint paths;

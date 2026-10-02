@@ -95,8 +95,10 @@ fi
 tok_dir="$WORK/import/medqa/round1/sft"
 for f in tests/test_mcq_rsi_*.py; do
   log "pytest ${f}"
-  out="$(MARGENT_WANDB_MODE=disabled MCQ_RSI_IMPORT_DIR="$WORK/import" MCQ_RSI_TOKENIZER_DIR="$tok_dir" \
-    timeout 400 "$MCQ_VENV/bin/python" -m pytest -q -rs -p no:cacheprovider -o faulthandler_timeout=60 "$f" 2>&1)" \
+  # CUDA_VISIBLE_DEVICES= keeps these unit tests on the CPU, as on a laptop: their fake models build CPU tensors.
+  # Pod CPUs are slow per core (test_mcq_rsi_grpo.py: ~550 s on an A100 pod vs ~100 s on a laptop), hence 900 s.
+  out="$(CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 MARGENT_WANDB_MODE=disabled MCQ_RSI_IMPORT_DIR="$WORK/import" MCQ_RSI_TOKENIZER_DIR="$tok_dir" \
+    timeout 900 "$MCQ_VENV/bin/python" -m pytest -q -rs -p no:cacheprovider -o faulthandler_timeout=60 "$f" 2>&1)" \
     || { printf '%s\n' "$out"; die "tests failed: ${f}"; }
   printf '%s\n' "$out" | tail -n 15
   if [[ "$f" == *test_mcq_rsi_sft.py && -f "$tok_dir/tokenizer.json" ]] && grep -qi "skipped.*tokenizer_dir" <<<"$out"; then

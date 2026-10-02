@@ -169,6 +169,7 @@ case "${1:-}" in
          MCQ_ADVISOR_GPU="$ADVISOR_GPU" MCQ_TRAIN_GPU="$TRAIN_GPU" SMOKE_HOURS="${SMOKE_HOURS:-}" \
          ${MARGENT_WANDB_MODE+"MARGENT_WANDB_MODE=$MARGENT_WANDB_MODE"} HF_HOME="$HF_HOME" HF_HUB_DISABLE_XET="$HF_HUB_DISABLE_XET" \
          TMPDIR="$TMPDIR" HF_BACKUP_REPO="${HF_BACKUP_REPO:-}" BACKUP_EVERY_MIN="${BACKUP_EVERY_MIN:-}" \
+         ${HF_TOKEN_PATH+"HF_TOKEN_PATH=$HF_TOKEN_PATH"} \
          bash "$REPO/scripts/runpod_mcq_rsi.sh" "$step"); exec bash"
     log "started ${step} in tmux session ${name} (tmux attach -t ${name})" ;;
   import) step_import ;;
