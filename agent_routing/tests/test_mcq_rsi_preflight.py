@@ -215,7 +215,7 @@ def test_controller_requires_a_passing_preflight_for_this_server(tmp_path, monke
     pool, fx, http = replay_server(tmp_path, "ok")
     adapters = pool.adapters
     monkeypatch.setattr(advisors, "CachedAdvisorPool",
-                        lambda bench, cache, url, workers=32: CachedAdvisorPool(bench, cache, url, adapters=adapters,
+                        lambda bench, cache, url, workers=32, mode="lora": CachedAdvisorPool(bench, cache, url, adapters=adapters, mode=mode,
                                                                                 http=http, workers=workers))
     cfg = controller.load_config({"bench": "medqa", "advisor_cache": str(tmp_path / "cache"),
                                   "import_dir": str(tmp_path / "import"), "advisor_url": "http://x"})
@@ -248,7 +248,7 @@ def test_preflight_bound_to_vllm_version_and_server_flags(tmp_path, monkeypatch)
     flags.write_text(json.dumps({"vllm_version": "0.26.0", "lora_mode": "multimodal", "args": ["--max-loras", "12"]}))
     monkeypatch.setenv("MCQ_ADVISOR_FLAGS_FILE", str(flags))
     monkeypatch.setattr(advisors, "CachedAdvisorPool",
-                        lambda bench, cache, url, workers=32: CachedAdvisorPool(bench, cache, url, adapters=pool.adapters,
+                        lambda bench, cache, url, workers=32, mode="lora": CachedAdvisorPool(bench, cache, url, adapters=pool.adapters, mode=mode,
                                                                                 http=http, workers=workers))
     cfg = controller.load_config({"bench": "medqa", "advisor_cache": str(tmp_path / "cache"),
                                   "import_dir": str(tmp_path / "import"), "advisor_url": "http://x"})
@@ -304,7 +304,7 @@ def test_cli_preflight_exit_codes(tmp_path, monkeypatch, capsys):
         imp.mkdir(parents=True)
         (imp / "records.jsonl").write_text("".join(json.dumps(r) + "\n" for r in fx["records"]))
         monkeypatch.setattr(advisors, "CachedAdvisorPool",
-                            lambda bench, cache, url, workers=32, a=pool.adapters, h=http:
+                            lambda bench, cache, url, workers=32, mode="lora", a=pool.adapters, h=http:
                             CachedAdvisorPool(bench, cache, url, adapters=a, http=h))
         monkeypatch.setattr(splits, "read_manifest", lambda path: {"benchmark": "medqa"})
         monkeypatch.setattr(splits, "pool_rows", lambda manifest, name, rows=None, fx=fx:

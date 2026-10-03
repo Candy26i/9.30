@@ -37,6 +37,16 @@ def test_split_drops_held_out_by_id_or_hash_and_groups_questions():
     validate_sft_splits(train, val)  # the trainer's own leakage check accepts it
 
 
+def test_runaway_teacher_responses_are_dropped():
+    rows = _rows(10)
+    rows[3]["response"] = '{"key_evidence": [], "extracted_facts": ["x = 110.5 / (227.5 + 18n) => 110.5 ='  # cut off
+    rows[4]["response"] = "```json\n{\"a\": 1}\n```"
+    train, val, info = V2.split_rows(rows, {}, 0.2, 42)
+    assert info["dropped_not_json"] == 1 and info["rows_kept"] == 9
+    assert 3 not in {r["example_id"] for r in train + val} and 4 in {r["example_id"] for r in train + val}
+    assert V2.split_rows(rows, {}, 0.2, 42, require_json=False)[2]["rows_kept"] == 10
+
+
 def test_best_epoch_is_the_lowest_validation_loss(tmp_path):
     for step in (64, 128, 192):
         (tmp_path / f"checkpoint-{step}").mkdir()

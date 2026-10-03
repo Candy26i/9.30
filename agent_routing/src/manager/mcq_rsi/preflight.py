@@ -114,6 +114,45 @@ def diagnose(kind_result: Dict[str, Any], min_match: float, min_effect: float, m
             "check the prompt registry (reasoner variant rates), vLLM version, dtype and thinking settings")
 
 
+def diagnose_base(kind_result: Dict[str, Any], min_match: float, min_similarity: float = 0.5) -> Optional[str]:
+    """Base advisors (advisor_mode "base") must reproduce the recorded paper-era outputs, which came from the
+    base model (D14): exactly, or as closely as bf16 greedy drift allows (median similarity >= min_similarity;
+    the trained adapters score 0.17-0.30 against them, the base 0.63-0.83 on MedQA)."""
+    if kind_result["n"] == 0:
+        return "no recorded outputs to replay"
+    if kind_result["match_rate"] >= min_match or kind_result["median_base_similarity"] >= min_similarity:
+        return None
+    return ("the base model does not reproduce the recorded paper advisor outputs: check the prompt registry, "
+            "chat template (thinking off), vLLM version, dtype and the pinned base revision")
+
+
+def _replay_base(http, url, pool, kind, items, min_match, min_similarity, progress) -> Dict[str, Any]:
+    stats: Dict[str, Any] = {"n": len(items), "match": 0, "examples": []}
+    sims, prefixes = [], []
+    for i, item in enumerate(items):
+        r = item["row"]
+        recorded = item["output"].strip()
+        base = _post(http, url, pool.request_payload(kind, r["question"], r.get("context") or "", r["choices"],
+                                                     item["candidate"]), pool.timeout)
+        sims.append(similarity(base, recorded))
+        prefixes.append(prefix_ratio(base, recorded))
+        stats["match"] += base == recorded
+        if len(stats["examples"]) < 3:
+            stats["examples"].append({"example_id": item["example_id"], "candidate": item["candidate"],
+                                      "base_equal": base == recorded, "base_similarity": sims[-1],
+                                      "base_prefix_ratio": prefixes[-1], "recorded_head": recorded[:160],
+                                      "base_head": base[:160]})
+        if progress:
+            progress(f"{kind} {i + 1}/{len(items)} match={stats['match']} (base advisors)")
+    n = max(1, stats["n"])
+    stats.update(match_rate=stats["match"] / n, base_match_rate=stats["match"] / n,
+                 median_base_similarity=_median(sims), median_base_prefix_ratio=_median(prefixes))
+    stats["diagnosis"] = diagnose_base(stats, min_match, min_similarity)
+    stats["replay"] = ("exact" if stats["match_rate"] >= min_match else "similar") if stats["diagnosis"] is None else "failed"
+    stats["passed"] = stats["diagnosis"] is None
+    return stats
+
+
 def server_version(pool, http=None) -> Dict[str, Any]:
     try:
         resp = (http or pool._client()).get(f"{pool.server_url}/version", timeout=pool.timeout)
@@ -129,7 +168,11 @@ def server_flags(pool) -> Optional[Dict[str, Any]]:
     env = os.environ.get("MCQ_ADVISOR_FLAGS_FILE")
     port = urlparse(pool.server_url or "").port
     candidates = [Path(env)] if env else [Path(v["root"]).parent / f"server_flags_{port}.json"
-                                           for v in (pool.served or {}).values() if v.get("root")]
+                                           for v in (pool.served or {}).values()
+                                           if v.get("root") and "model" not in v]
+    if not env and getattr(pool, "mode", "lora") == "base":  # no adapter directory: the script's default one
+        candidates.append(Path(os.environ.get("MCQ_SERVED_LORAS", "/workspace/mcq_rsi/served_loras"))
+                          / f"server_flags_{port}.json")
     for path in candidates:
         if path.is_file():
             try:
@@ -169,8 +212,14 @@ def run_preflight(bench_name: str, pool, records: Sequence[Dict[str, Any]], rows
                               "vllm_version": version, "served_models": served, "verified_loras": pool.served,
                               "server_flags": server_flags(pool), "gpu": gpu_info(),
                               "pool_identity": pool.identity(), "settings": settings, **settings, "kinds": {}}
+    base_mode = getattr(pool, "mode", "lora") == "base"
+    if base_mode:
+        result["advisor_mode"] = "base"
     for kind in kinds:
         items = recorded_items(records, rows_by_id, kind, n_per_kind, seed)
+        if base_mode:
+            result["kinds"][kind] = _replay_base(http, url, pool, kind, items, min_match, min_similarity, progress)
+            continue
         variant = None
         runtime_system = build_runtime_messages(kind, "q", "", {"A": "a", "B": "b"})[0]["content"]
         if kind == "reasoner" and runtime_system != prompts.system_prompt(bench.name, kind):
@@ -222,6 +271,13 @@ def run_preflight(bench_name: str, pool, records: Sequence[Dict[str, Any]], rows
         stats["passed"] = stats["diagnosis"] is None
         result["kinds"][kind] = stats
     result["passed"] = bool(result["kinds"]) and all(k["passed"] for k in result["kinds"].values())
+    if base_mode:
+        # Base advisors are bound to the pinned base revision only through the server's recorded flags.
+        args = (result["server_flags"] or {}).get("args") or []
+        if registry.BASE_REVISION not in args:
+            result["passed"] = False
+            result["flags_problem"] = (f"base advisors need the server flags file with --revision "
+                                       f"{registry.BASE_REVISION} (start_mcq_advisors.sh writes it); found {args or None}")
     result["seconds"] = time.time() - started
     result["finished_unix"] = time.time()
     return result

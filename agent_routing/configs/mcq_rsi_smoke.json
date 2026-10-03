@@ -5,6 +5,7 @@
   "base_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
   "import_dir": "/workspace/mcq_rsi/import",
   "advisor_cache": "/workspace/mcq_rsi/advisor_cache",
+  "advisor_mode": "base",
   "advisor_url": "http://127.0.0.1:18002",
   "advisor_workers": 32,
   "gpus": {

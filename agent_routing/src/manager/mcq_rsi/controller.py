@@ -98,6 +98,9 @@ DEFAULTS: Dict[str, Any] = {
     "split_manifest": None,  # default: the registry manifest
     "advisor_cache": "outputs/mcq_rsi/advisor_cache",
     "advisor_url": None,
+    # "base": advisors are the base model with each role's prompt (the paper-era behaviour, D14; signed);
+    # "lora": the benchmarks' trained adapters, served with renamed keys.
+    "advisor_mode": "lora",
     "advisor_workers": 32,
     "gpus": {"inference": "0", "train": "1"},
     "rounds": 3,
@@ -167,6 +170,9 @@ def load_config(source) -> Dict[str, Any]:
     for name in ("bench", "base_model", "base_revision"):
         if name in cfg["grpo"]:
             raise ValueError(f"grpo.{name} is set by the controller")
+    from .advisors import ADVISOR_MODES
+    if cfg["advisor_mode"] not in ADVISOR_MODES:
+        raise ValueError(f"advisor_mode must be one of {ADVISOR_MODES}")
     validate_arms_rounds(cfg["arms"], cfg["rounds"])
     for lr in cfg["pilot"]["learning_rates"]:
         if not (isinstance(lr, (int, float)) and math.isfinite(lr) and lr > 0):
@@ -474,7 +480,7 @@ class Runtime:
         if self._pool is None:
             from .advisors import CachedAdvisorPool
             self._pool = CachedAdvisorPool(self.bench.name, self.cfg["advisor_cache"], self.cfg["advisor_url"],
-                                           workers=int(self.cfg["advisor_workers"]))
+                                           workers=int(self.cfg["advisor_workers"]), mode=self.cfg["advisor_mode"])
             if self.cfg["advisor_url"]:
                 self._pool.check_server()
                 if self.cfg["preflight"]["required"]:

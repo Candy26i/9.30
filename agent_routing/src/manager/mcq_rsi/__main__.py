@@ -83,7 +83,7 @@ def _load_manager(args, bench):
 def _make_pool(args, bench):
     from .advisors import CachedAdvisorPool
     return CachedAdvisorPool(bench.name, args.advisor_cache or str(registry.PACKAGE_ROOT / ADVISOR_CACHE),
-                             args.advisor_url, workers=args.workers)
+                             args.advisor_url, workers=args.workers, mode=getattr(args, "advisor_mode", "lora"))
 
 
 def cmd_collect(args) -> int:
@@ -248,7 +248,7 @@ def cmd_preflight(args) -> int:
     if not cfg["advisor_url"]:
         raise SystemExit("preflight needs --advisor-url or advisor_url in the config")
     rt = controller.Runtime(cfg)
-    pool = CachedAdvisorPool(rt.bench.name, cfg["advisor_cache"], cfg["advisor_url"])
+    pool = CachedAdvisorPool(rt.bench.name, cfg["advisor_cache"], cfg["advisor_url"], mode=cfg["advisor_mode"])
     p = cfg["preflight"]
     settings = {"n_per_kind": args.n or p["n_per_kind"], "min_match": p["min_match"],
                 "min_lora_effect": p["min_lora_effect"], "min_closer": p["min_closer"],
@@ -271,12 +271,19 @@ def cmd_preflight(args) -> int:
                                      progress=lambda m: print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name} {m}", flush=True))
     path = preflight.write_report(cfg["advisor_cache"], result)
     for kind, k in result["kinds"].items():
+        if result.get("advisor_mode") == "base":
+            print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name}/{kind} (base advisors): n={k['n']} match={k['match_rate']:.2f} "
+                  f"sim={k['median_base_similarity']:.2f} prefix={k['median_base_prefix_ratio']:.2f} -> "
+                  f"{'PASS (' + k['replay'] + ')' if k['passed'] else 'FAIL: ' + k['diagnosis']}")
+            continue
         print(f"[MCQ_RSI/PREFLIGHT] {rt.bench.name}/{kind}: n={k['n']} match={k['match_rate']:.2f} "
               f"base_match={k['base_match_rate']:.2f} lora_closer={k['lora_closer_rate']:.2f} "
               f"sim(lora)={k['median_lora_similarity']:.2f} sim(base)={k['median_base_similarity']:.2f} "
               f"prefix(lora)={k['median_lora_prefix_ratio']:.2f} lora_effect={k['lora_effect_rate']:.2f}"
               + (f" runtime_prompt_match={k['variant_match_rate']:.2f}" if k["variant_match_rate"] is not None else "")
               + f" -> {'PASS (' + k['replay'] + ')' if k['passed'] else 'FAIL: ' + k['diagnosis']}")
+    if result.get("flags_problem"):
+        print(f"[MCQ_RSI/PREFLIGHT] FAIL: {result['flags_problem']}")
     print(f"[MCQ_RSI/PREFLIGHT] vLLM {result['vllm_version']} gpu {result['gpu']} flags "
           f"{'recorded' if result['server_flags'] else 'MISSING'} -> {'PASS' if result['passed'] else 'FAIL'} ({path})")
     return 0 if result["passed"] else 1
@@ -371,6 +378,8 @@ def _advisor_args(p) -> None:
     p.add_argument("--advisor-url", default=None, help="vLLM server; omit to run from the advisor cache only")
     p.add_argument("--advisor-cache", default=None, help=f"default: agent_routing/{ADVISOR_CACHE}")
     p.add_argument("--workers", type=int, default=32, help="concurrent advisor requests")
+    p.add_argument("--advisor-mode", default="lora", choices=["lora", "base"],
+                   help="base: the base model with each advisor's prompt (paper-era behaviour, D14)")
     p.add_argument("--manifest", default=None, help="default: registry split manifest")
     p.add_argument("--limit", type=int, default=0, help="first N rows only (smoke runs)")
 

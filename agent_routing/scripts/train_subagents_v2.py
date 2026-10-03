@@ -7,6 +7,8 @@ base model in the same role (scripts/mcq_advisor_ab.py). v2 keeps the data, reci
 (``src.subagents.train``: lr 2e-4, effective batch 8, r 16 / alpha 32, response-only loss) and changes:
 
 - questions in the benchmark's ``dev``/``test`` pools are removed (the A/B and the locked test use them);
+- teacher responses that are not one complete JSON object are removed (a few teacher outputs ran away to
+  8-9k tokens and stop mid-sentence: up to 6% of GPQA's rows, 0-1.5% elsewhere);
 - 15% of the remaining questions (grouped by ``question_hash``) form a validation split;
 - at most 3 epochs, validation loss after each, and the adapter of the epoch with the lowest
   validation loss is exported (early stopping by selection).
@@ -72,10 +74,25 @@ def _held(row: Dict[str, Any], keys: set) -> bool:
     return ("id", int(row["example_id"])) in keys or ("hash", str(row.get("question_hash"))) in keys
 
 
-def split_rows(rows: List[Dict[str, Any]], held_out: Dict[str, set], val_frac: float, seed: int):
-    """Drop held-out questions; put ``val_frac`` of the remaining questions (by hash) in validation."""
+def json_object(text: str) -> bool:
+    t = (text or "").strip()
+    if t.startswith("```"):
+        t = t.strip("`")
+        t = t[t.find("\n") + 1:] if "\n" in t else t
+    try:
+        return isinstance(json.loads(t), dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
+def split_rows(rows: List[Dict[str, Any]], held_out: Dict[str, set], val_frac: float, seed: int,
+               require_json: bool = True):
+    """Drop held-out questions (and non-JSON targets); put ``val_frac`` of the remaining questions (by hash)
+    in validation."""
     banned = set().union(*held_out.values()) if held_out else set()
-    kept = [r for r in rows if not _held(r, banned)]
+    not_json = [r for r in rows if require_json and not json_object(r.get("response", ""))]
+    bad = {id(r) for r in not_json}
+    kept = [r for r in rows if not _held(r, banned) and id(r) not in bad]
     dropped = {pool: sum(_held(r, keys) for r in rows) for pool, keys in held_out.items()}
     questions = sorted({str(r["question_hash"]) for r in kept})
     order = sorted(questions, key=lambda h: hashlib.sha1(f"{seed}:{h}".encode()).hexdigest())
@@ -83,7 +100,8 @@ def split_rows(rows: List[Dict[str, Any]], held_out: Dict[str, set], val_frac: f
     val_q = set(order[:n_val])
     train = [{**r, "split": "train"} for r in kept if str(r["question_hash"]) not in val_q]
     val = [{**r, "split": "dev"} for r in kept if str(r["question_hash"]) in val_q]
-    return train, val, {"rows_in": len(rows), "dropped_held_out": dropped, "rows_kept": len(kept),
+    return train, val, {"rows_in": len(rows), "dropped_held_out": dropped, "dropped_not_json": len(not_json),
+                        "rows_kept": len(kept),
                         "questions": len(questions), "val_questions": len(val_q), "train_rows": len(train),
                         "val_rows": len(val), "val_frac": val_frac, "seed": seed}
 

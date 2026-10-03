@@ -39,6 +39,7 @@ VLLM_VERSION="${VLLM_VERSION:-0.26.0}"
 IMPORT_DIR="${MCQ_IMPORT_DIR:-/workspace/mcq_rsi/import}"
 SERVED_DIR="${MCQ_SERVED_LORAS:-/workspace/mcq_rsi/served_loras}"
 LORA_MODE="${LORA_MODE:-multimodal}"
+LORAS="${MCQ_ADVISOR_LORAS:-all}"  # "none": the base model only, for advisor_mode "base" (the paper-era behaviour, D14)
 BENCHES="${MCQ_BENCHES:-all}"
 HOST="${MCQ_ADVISOR_HOST:-127.0.0.1}"
 PORT="${MCQ_ADVISOR_PORT:-18002}"
@@ -126,29 +127,39 @@ start() {
     (( free >= 40000 )) || die "GPU ${GPU} has ${free} MiB free; need >= 40000 for the advisor server"
   fi
   mkdir -p "$LOG_DIR" "$SERVED_DIR"
-  log "preparing served LoRAs (mode ${LORA_MODE}) in ${SERVED_DIR}"
-  "$MCQ_PYTHON" -m src.manager.mcq_rsi serve-loras --bench "$BENCHES" --import-dir "$IMPORT_DIR" \
-    --out "$SERVED_DIR" --mode "$LORA_MODE" | tee "${SERVED_DIR}/serve_loras.log"
-  mapfile -t MODULES < "${SERVED_DIR}/lora_modules.txt"
-  # Extra already-renamed adapters, e.g. retrained advisors: MCQ_EXTRA_LORAS="medqa_extractor_v2=/path ..."
-  if [[ -n "${MCQ_EXTRA_LORAS:-}" ]]; then
-    read -r -a extra <<< "$MCQ_EXTRA_LORAS"
-    MODULES+=("${extra[@]}")
-    log "extra LoRAs: ${extra[*]}"
+  MODULES=()
+  local served_mode="$LORA_MODE"
+  if [[ "$LORAS" == none ]]; then
+    served_mode="none"
+    log "serving the base model only (MCQ_ADVISOR_LORAS=none; advisor_mode base)"
+  else
+    log "preparing served LoRAs (mode ${LORA_MODE}) in ${SERVED_DIR}"
+    "$MCQ_PYTHON" -m src.manager.mcq_rsi serve-loras --bench "$BENCHES" --import-dir "$IMPORT_DIR" \
+      --out "$SERVED_DIR" --mode "$LORA_MODE" | tee "${SERVED_DIR}/serve_loras.log"
+    mapfile -t MODULES < "${SERVED_DIR}/lora_modules.txt"
+    # Extra already-renamed adapters, e.g. retrained advisors: MCQ_EXTRA_LORAS="medqa_extractor_v2=/path ..."
+    if [[ -n "${MCQ_EXTRA_LORAS:-}" ]]; then
+      read -r -a extra <<< "$MCQ_EXTRA_LORAS"
+      MODULES+=("${extra[@]}")
+      log "extra LoRAs: ${extra[*]}"
+    fi
+    (( ${#MODULES[@]} > 0 )) || die "no LoRA modules"
   fi
-  (( ${#MODULES[@]} > 0 )) || die "no LoRA modules"
   local max_loras=${#MODULES[@]}
   local args=(--model "$BASE_MODEL" --revision "$BASE_REVISION" --served-model-name "$BASE_MODEL"
     --host "$HOST" --port "$PORT" --dtype bfloat16 --max-model-len "$MAX_MODEL_LEN"
-    --gpu-memory-utilization "$GPU_UTIL" --enable-lora --max-loras "$max_loras" --max-cpu-loras "$max_loras"
-    --max-lora-rank 16 --lora-modules "${MODULES[@]}")
+    --gpu-memory-utilization "$GPU_UTIL")
+  if (( max_loras > 0 )); then
+    args+=(--enable-lora --max-loras "$max_loras" --max-cpu-loras "$max_loras" --max-lora-rank 16
+      --lora-modules "${MODULES[@]}")
+  fi
   # Flags fingerprint read by preflight / require_passed (a passing preflight is bound to these flags).
   local gpu_name
   gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader -i "$GPU" 2>/dev/null | head -n 1 || true)"
   # Advisors decode greedily, which never uses the sampler; flashinfer's top-k/top-p sampler would JIT-compile a
   # kernel at startup (needs ninja + a matching nvcc; it failed on the first A100 pod), so it is off by default.
   local fi_sampler="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
-  python3 - "${SERVED_DIR}/server_flags_${PORT}.json" "$have" "$LORA_MODE" "$gpu_name" "$fi_sampler" "${args[@]}" <<'PY'
+  python3 - "${SERVED_DIR}/server_flags_${PORT}.json" "$have" "$served_mode" "$gpu_name" "$fi_sampler" "${args[@]}" <<'PY'
 import json, sys
 path, version, mode, gpu, fi_sampler, *args = sys.argv[1:]
 json.dump({"vllm_version": version, "lora_mode": mode, "gpu": gpu, "args": args,

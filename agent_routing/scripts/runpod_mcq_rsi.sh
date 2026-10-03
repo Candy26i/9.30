@@ -71,10 +71,16 @@ step_splits() {
   cli prepare-splits --bench all --import-dir "$WORK/import" --hf-cache-dir "$HF_HOME/hub" 2>&1 | tee -a "$LOGS/splits.log"
   git -C "$REPO" diff --quiet -- data/mcq_rsi || die "split manifests changed on disk; investigate before running"
 }
+advisor_mode() {  # the config's advisor_mode ("base": the server needs no LoRAs)
+  "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get("advisor_mode", "lora"))' "configs/mcq_rsi_${BENCH}.json"
+}
 step_advisors() {
   if advisor_up; then log "advisor server already healthy on port ${PORT}"; return 0; fi
-  log "starting advisor server on port ${PORT}"
-  MCQ_IMPORT_DIR="$WORK/import" MCQ_LOG_DIR="$LOGS" bash scripts/start_mcq_advisors.sh start 2>&1 | tee -a "$LOGS/advisors.log"
+  local loras=all
+  [[ "$(advisor_mode)" == base ]] && loras=none
+  log "starting advisor server on port ${PORT} (advisor_mode $(advisor_mode), LoRAs: ${loras})"
+  MCQ_ADVISOR_LORAS="$loras" MCQ_IMPORT_DIR="$WORK/import" MCQ_LOG_DIR="$LOGS" \
+    bash scripts/start_mcq_advisors.sh start 2>&1 | tee -a "$LOGS/advisors.log"
 }
 step_preflight() {
   advisor_up || die "advisor server is not running (step advisors)"
