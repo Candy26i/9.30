@@ -57,7 +57,7 @@ Run `run --dry-run` to print the plan.
 | D11 arms / budget | Phase A: MedQA pilot. Phase B: all four benchmarks, dynamic/static/success, R=3. Optional `dynamic_sft` arm |
 | D12 final checkpoint | last round per arm (`G_3`, or `S_3` if rejected), pre-registered; dev-best is not used |
 | D13 schemas | deployment schema for collect/GRPO/eval; the paper SFT schema for SFT |
-| **D14 (new)** advisor serving | Serve LoRAs vLLM actually applies (renamed copies, §5). If preflight shows the **paper's** recorded outputs came from the plain base, stop and decide (§6). |
+| **D14** advisor serving | **Decided (2026-10-02): base advisors, `"advisor_mode": "base"` in every MCQ config.** The paper-era server never applied the advisor LoRAs: vLLM dropped their unmatched keys (§5), and the original HF adapters served that way are byte-identical to the base. So every paper number, the locked S_1 managers and their round-1 labels come from the base model answering under each role's prompt. An A/B over 754 dev questions per role found that neither the paper LoRAs nor retrained ones (v2: validation split, best of ≤3 epochs; `MaliDDD/agent-routing-advisors-<bench>-9b-v2`) beat that base, and the trained verifiers break more correct answers (`scripts/mcq_advisor_ab.py`, logs/advisor_ab). `"advisor_mode": "lora"` and the renamed-copy serving below remain for ablations. |
 
 ## 1. Pod
 
@@ -142,6 +142,21 @@ bash scripts/runpod_mcq_rsi.sh bg pilot  # after reading the smoke results (§7)
 
 ## 5. Advisor server
 
+**Base advisors (all MCQ configs, D14).** `runpod_mcq_rsi.sh advisors` reads the config's `advisor_mode` and,
+for `base`, starts the server with `MCQ_ADVISOR_LORAS=none`: the base model only (no `--enable-lora`; the flags
+file records `lora_mode: none`). It stops with an error if the config cannot be read. Every advisor request
+names `Qwen/Qwen3.5-9B` with the role's system prompt, and the cache keys name the pinned base revision, so
+base and LoRA entries never mix. One base server serves all four benchmarks (prompts are client-side). By hand:
+
+```bash
+MCQ_ADVISOR_LORAS=none bash scripts/start_mcq_advisors.sh start   # stop | status | evidence
+```
+
+Expected evidence: `serving 0 LoRAs`, `non-default args` without `enable_lora`, and one `/v1/models` card,
+`Qwen/Qwen3.5-9B`. Manual CLI commands (`collect`, `evaluate`, `grpo`) take no config: pass `--advisor-mode base`.
+
+**LoRA mode (`"advisor_mode": "lora"`, ablations only).**
+
 ```bash
 bash scripts/start_mcq_advisors.sh start      # stop | status | evidence
 ```
@@ -178,7 +193,22 @@ Loaded new LoRA adapter: name 'medqa_extractor', path '/workspace/mcq_rsi/served
 [MCQ_RSI/SERVE] medqa_extractor mode=multimodal ... keys={'base_model.model.model.language_model.layers.': N}
 ```
 
-## 6. Preflight: identity and the LoRA-applied replay gate (required)
+## 6. Preflight: identity and the replay gate (required)
+
+**Base advisors (all MCQ configs).** Preflight sends the 20 recorded paper advisor requests per kind to the
+base model only. It passes when, for every kind, the replay is exact on ≥ 0.9 of the items (`min_match`) or
+the median similarity to the recorded outputs is ≥ 0.5 (`min_similarity`). The recorded outputs came from the
+base (D14). The trained LoRAs score 0.17–0.30 against them, the base 0.6–0.8. Preflight also requires the
+server flags file to record `--revision c202236…`: that is the only binding to the pinned base. Measured on
+the A100 pod (2026-10-03):
+
+```
+[MCQ_RSI/PREFLIGHT] medqa/extractor (base advisors): n=20 match=0.20 sim=0.80 prefix=0.48 -> PASS (similar)
+[MCQ_RSI/PREFLIGHT] medqa/reasoner (base advisors): n=20 match=0.00 sim=0.59 prefix=0.15 -> PASS (similar)
+[MCQ_RSI/PREFLIGHT] medqa/verifier (base advisors): n=20 match=0.00 sim=0.66 prefix=0.24 -> PASS (similar)
+```
+
+The rest of this section describes the LoRA-mode gate (ablations).
 
 ```bash
 bash scripts/runpod_mcq_rsi.sh preflight                                   # BENCH only (Phase A: medqa)
@@ -226,7 +256,7 @@ When preflight fails, act on the diagnosis it prints:
 | Diagnosis | Meaning | Action |
 |---|---|---|
 | `LoRA not applied` (lora_effect ≈ 0) | the server ignores the adapters | restart with `LORA_MODE=multimodal`; check the evidence lines |
-| `recorded paper outputs are closer to the plain base` (base exact ≥ 0.9, or base closer on ≥ 75%) | the paper's server hit the trap, so the paper's advisors were effectively the base model plus the trained prompt | **Decision D14. Do not run.** Choose between (a) keeping real LoRAs, which means round-1 parity no longer holds and S_1 must be re-evaluated as the new baseline, and (b) reproducing the paper's plain-base serving, which needs a code change to the advisor identity. Record the choice. |
+| `recorded paper outputs are closer to the plain base` (base exact ≥ 0.9, or base closer on ≥ 75%) | the paper's server hit the trap, so the paper's advisors were effectively the base model plus the trained prompt | Expected (D14, decided). The main runs use `"advisor_mode": "base"`. A LoRA ablation proceeds with round-1 parity acknowledged (`ack-gate`), with S_1 re-evaluated as its baseline. |
 | `LoRA applied but … not reproduced` | neither exact nor closer than the base: prompt, version or decoding differ | compare `runtime_prompt_match` / `median_variant_similarity` for the reasoner (the open question of which Reasoner prompt was live for GPQA, MMLU-Pro and AQuA); check vLLM == 0.26.0, bf16 and thinking off; look at the first-divergence ratios and `examples` in the report; the hardware and flag differences above cannot be removed on this pod |
 
 ## 7. GPU smoke (design §7.2, about 1.5 h; must pass before any pilot)
@@ -246,8 +276,8 @@ The smoke config runs MedQA with dynamic R=2: 50 dev questions, 8 collection roo
 
 | Step | Stage / check | Expected |
 |---|---|---|
-| 1 vLLM | §5 evidence, preflight | 12 LoRAs, PASS |
-| 2 replay | preflight report | PASS per kind: exact match ≥ 0.9, or the LoRA closer to the recorded outputs than the base (§6) |
+| 1 vLLM | §5 evidence, preflight | base model only (`serving 0 LoRAs`), PASS |
+| 2 replay | preflight report | PASS per kind: exact match ≥ 0.9, or median similarity to the recorded outputs ≥ 0.5 (§6, base advisors) |
 | 3 round-0 parity | `r1/S1_dev/parity.json` reports `subset` (not gated) and the batched-vs-sequential advisor recheck. `smoke-check` extracts the recorded paper eval (`outputs/eval/medqa_9b_d2400_ev_r3/manager_tool_eval.jsonl` from `assets_0814.tgz`, into `/workspace/mcq_rsi/recorded`) and runs the per-example agreement | `agree ≥ 48` of `n_common = 50` (automatic) |
 | 4 collector | `r2/collect/marginal_value_report.json` | 8 roots; `unconstrained_argmax.mismatch` 0; shards resume on rerun |
 | 5 SFT | `r2/dynamic/sft/sft_report.json` | `tokenization_parity.input_mismatch` 0; adapter reloads in `sft_dev` |

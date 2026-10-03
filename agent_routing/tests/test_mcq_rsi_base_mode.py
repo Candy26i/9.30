@@ -139,4 +139,25 @@ def test_scripts_serve_the_base_model_only_for_base_advisors():
     assert 'LORAS="${MCQ_ADVISOR_LORAS:-all}"' in start and '[[ "$LORAS" == none ]]' in start
     assert 'if (( max_loras > 0 )); then' in start and '"$served_mode"' in start
     wrapper = (ROOT / "scripts" / "runpod_mcq_rsi.sh").read_text()
-    assert 'MCQ_ADVISOR_LORAS="$loras"' in wrapper and '[[ "$(advisor_mode)" == base ]] && loras=none' in wrapper
+    assert 'MCQ_ADVISOR_LORAS="$loras"' in wrapper and 'base) loras=none ;;' in wrapper
+    assert 'mode="$(advisor_mode)" || die' in wrapper and "unknown advisor_mode" in wrapper  # fails closed
+    assert 'if [[ "$served_mode" == none ]]; then' in start  # evidence() reports base-only serving
+
+
+def test_cli_collect_and_eval_accept_the_advisor_mode():
+    from src.manager.mcq_rsi import __main__ as cli
+    import argparse
+    seen = {}
+    real = argparse.ArgumentParser.parse_args
+
+    def capture(self, argv=None, namespace=None):
+        ns = real(self, argv, namespace)
+        seen.update(vars(ns))
+        raise SystemExit(0)
+
+    import unittest.mock as um
+    with um.patch.object(argparse.ArgumentParser, "parse_args", capture):
+        with pytest.raises(SystemExit):
+            cli.main(["collect", "--bench", "medqa", "--pool", "collect_r2", "--checkpoint", "x", "--out", "o",
+                      "--advisor-mode", "base"])
+    assert seen["advisor_mode"] == "base"

@@ -83,7 +83,7 @@ def _load_manager(args, bench):
 def _make_pool(args, bench):
     from .advisors import CachedAdvisorPool
     return CachedAdvisorPool(bench.name, args.advisor_cache or str(registry.PACKAGE_ROOT / ADVISOR_CACHE),
-                             args.advisor_url, workers=args.workers, mode=getattr(args, "advisor_mode", "lora"))
+                             args.advisor_url, workers=args.workers, mode=args.advisor_mode)
 
 
 def cmd_collect(args) -> int:
@@ -379,7 +379,7 @@ def _advisor_args(p) -> None:
     p.add_argument("--advisor-cache", default=None, help=f"default: agent_routing/{ADVISOR_CACHE}")
     p.add_argument("--workers", type=int, default=32, help="concurrent advisor requests")
     p.add_argument("--advisor-mode", default="lora", choices=["lora", "base"],
-                   help="base: the base model with each advisor's prompt (paper-era behaviour, D14)")
+                   help="base: the base model with each advisor's prompt (paper-era behaviour, D14; all MCQ configs)")
     p.add_argument("--manifest", default=None, help="default: registry split manifest")
     p.add_argument("--limit", type=int, default=0, help="first N rows only (smoke runs)")
 
@@ -431,6 +431,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--batch-size", type=int, default=1,
                    help="revisions per generate call; >1 left-pads (not eval's batch-1 numerics)")
     p.add_argument("--workers", type=int, default=32, help="concurrent advisor requests")
+    p.add_argument("--advisor-mode", default="lora", choices=["lora", "base"],
+                   help="base: the base model with each advisor's prompt (paper-era behaviour, D14; all MCQ configs)")
     p.add_argument("--limit", type=int, default=0, help="first N roots only (smoke runs)")
     p.set_defaults(func=cmd_collect)
 

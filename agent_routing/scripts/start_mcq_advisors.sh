@@ -103,8 +103,15 @@ evidence() {
 import json, sys
 for m in json.load(sys.stdin)["data"]:
     print("  %-22s parent=%s root=%s" % (m["id"], m.get("parent"), m.get("root")))'
-  log "LoRA key layout of the served files (expect base_model.model.model.language_model.layers. for multimodal):"
-  cat "${SERVED_DIR}/serve_loras.log" 2>/dev/null | sed 's/^/  /' || true
+  local served_mode
+  served_mode="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("lora_mode", "?"))' \
+    "${SERVED_DIR}/server_flags_${PORT}.json" 2>/dev/null || echo "?")"
+  if [[ "$served_mode" == none ]]; then
+    log "base model only (MCQ_ADVISOR_LORAS=none, advisor_mode base): no LoRAs served; expect one card, ${BASE_MODEL}"
+  else
+    log "LoRA key layout of the served files (expect base_model.model.model.language_model.layers. for multimodal):"
+    cat "${SERVED_DIR}/serve_loras.log" 2>/dev/null | sed 's/^/  /' || true
+  fi
 }
 
 start() {

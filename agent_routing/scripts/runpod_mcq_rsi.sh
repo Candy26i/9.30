@@ -76,9 +76,14 @@ advisor_mode() {  # the config's advisor_mode ("base": the server needs no LoRAs
 }
 step_advisors() {
   if advisor_up; then log "advisor server already healthy on port ${PORT}"; return 0; fi
-  local loras=all
-  [[ "$(advisor_mode)" == base ]] && loras=none
-  log "starting advisor server on port ${PORT} (advisor_mode $(advisor_mode), LoRAs: ${loras})"
+  local mode loras
+  mode="$(advisor_mode)" || die "cannot read advisor_mode from configs/mcq_rsi_${BENCH}.json"
+  case "$mode" in
+    base) loras=none ;;
+    lora) loras=all ;;
+    *) die "unknown advisor_mode '${mode}' in configs/mcq_rsi_${BENCH}.json" ;;
+  esac
+  log "starting advisor server on port ${PORT} (advisor_mode ${mode}, LoRAs: ${loras})"
   MCQ_ADVISOR_LORAS="$loras" MCQ_IMPORT_DIR="$WORK/import" MCQ_LOG_DIR="$LOGS" \
     bash scripts/start_mcq_advisors.sh start 2>&1 | tee -a "$LOGS/advisors.log"
 }
