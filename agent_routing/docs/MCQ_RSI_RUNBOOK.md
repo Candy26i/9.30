@@ -208,6 +208,20 @@ the A100 pod (2026-10-03):
 [MCQ_RSI/PREFLIGHT] medqa/verifier (base advisors): n=20 match=0.00 sim=0.66 prefix=0.24 -> PASS (similar)
 ```
 
+**GPQA (operator decision 2026-10-03): `min_similarity` 0.35.** On GPQA the base model is closer than the
+trained LoRA to the recorded paper outputs on 100% of the items for every role:
+
+| role | sim(base) | sim(LoRA) | base exact |
+|---|---|---|---|
+| extractor | 0.76 | 0.26 | 5/20 |
+| reasoner | 0.46 | 0.25 | – |
+| verifier | 0.37 | 0.13 | – |
+
+So D14 holds for GPQA too. Its long reasoner and verifier outputs diverge from the recorded ones more than
+same-server drift does (base vs base: 0.91 / 0.78), which points to a paper-era GPQA server setting we cannot
+recover (the GPQA server alone had `trust_remote_code`, rank 64 and `override_generation_config`). The runtime
+reasoner prompt is no closer (0.48 vs 0.49). MMLU-Pro passed at 0.50 / 0.55; AQuA at 1.00 / 0.74.
+
 The rest of this section describes the LoRA-mode gate (ablations).
 
 ```bash
