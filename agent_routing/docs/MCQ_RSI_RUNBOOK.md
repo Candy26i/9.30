@@ -53,7 +53,7 @@ Run `run --dry-run` to print the plan.
 | D7 ρ | fixed at the locked values (3.0 / 2.0 / 2.0 / 1.0) |
 | D8 SFT continuation | 3 epochs, lr 1e-5, round-k rows only |
 | D9 GRPO lr, size | 5e-6, 64 steps × 4 questions; the MedQA pilot sweeps {2e-6, 5e-6, 1e-5} first |
-| D10 kernels | off (fla / causal-conv1d not installed), for paper parity |
+| D10 kernels | **on since 2026-10-03.** fla-core / flash-linear-attention 0.4.1 and causal-conv1d 1.7.0 are in the experiment venv (setup script). Without them Qwen3.5's linear-attention layers fall back to torch, which makes SFT and FA-GRPO about 5× slower (A100: about 140 s per FA-GRPO step, or 2.5 h per stage). Numerics differ slightly from kernel-less runs; the round-1 parity gate checks the paper targets under the kernels. |
 | D11 arms / budget | Phase A: MedQA pilot. Phase B: all four benchmarks, dynamic/static/success, R=3. Optional `dynamic_sft` arm |
 | D12 final checkpoint | last round per arm (`G_3`, or `S_3` if rejected), pre-registered; dev-best is not used |
 | D13 schemas | deployment schema for collect/GRPO/eval; the paper SFT schema for SFT |

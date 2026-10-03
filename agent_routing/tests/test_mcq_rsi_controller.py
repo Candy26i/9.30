@@ -1020,6 +1020,8 @@ def test_pod_scripts_and_runbook_operations():
     assert "backups,recorded}" in setup and "hf auth login" in setup and "huggingface-cli" not in setup
     assert "MCQ_RSI_TOKENIZER_DIR" in setup and "faulthandler_timeout=60" in setup and "timeout 900" in setup
     assert 'out="$(CUDA_VISIBLE_DEVICES= ' in setup  # CPU unit tests stay on the CPU on a GPU pod
+    assert '"fla-core==0.4.1"' in setup and '"causal-conv1d==1.7.0"' in setup and "is_fast_path_available" in setup
+    assert setup.index("causal-conv1d==1.7.0") < setup.index("environment_experiment.lock.txt")  # in the lock
     assert "VLLM_TORCH_INDEX_URL" in setup and ".mcq_build" in setup
     assert setup.index("cuda_major=") < setup.index("torch in the vLLM venv sees no GPU")  # specific message first
     advisors = (ROOT / "scripts" / "start_mcq_advisors.sh").read_text()

@@ -41,6 +41,16 @@ fi
 "$MCQ_VENV/bin/python" -m pip install -r requirements-math.txt 'pytest>=8,<9'
 "$MCQ_VENV/bin/python" -m pip check
 "$MCQ_VENV/bin/python" -c 'import torch, transformers, peft; assert torch.cuda.is_available(); print("experiment torch", torch.__version__, "transformers", transformers.__version__, "peft", peft.__version__)'
+# Qwen3.5 linear-attention kernels (D10, revised 2026-10-03): without them transformers falls back to a torch
+# implementation ~5x slower for SFT and FA-GRPO (A100: advisor SFT 20 -> 4 s/step). Versions verified on that pod;
+# causal-conv1d builds from source against the image's CUDA toolkit (torch is a cu128 build).
+"$MCQ_VENV/bin/python" -m pip install --no-deps "fla-core==0.4.1" "flash-linear-attention==0.4.1" "einops==0.8.2" "ninja==1.13.2"
+nvcc_bin="$(ls -d /usr/local/cuda*/bin/nvcc 2>/dev/null | head -n 1 || true)"
+[[ -n "$nvcc_bin" ]] || die "no nvcc under /usr/local/cuda*: causal-conv1d is built from source"
+CUDA_HOME="$(dirname "$(dirname "$nvcc_bin")")" PATH="$(dirname "$nvcc_bin"):$PATH" MAX_JOBS="${MAX_JOBS:-32}" \
+  "$MCQ_VENV/bin/python" -m pip install --no-build-isolation --no-deps "causal-conv1d==1.7.0"
+"$MCQ_VENV/bin/python" -c 'import transformers.models.qwen3_5.modeling_qwen3_5 as m; assert m.is_fast_path_available, "Qwen3.5 fast path unavailable"'
+"$MCQ_VENV/bin/python" -m pip check
 "$MCQ_VENV/bin/python" -m pip freeze > "$WORK/logs/environment_experiment.lock.txt"
 
 # --- vLLM venv (advisor server only; vLLM pins its own torch, so it never shares the experiment venv) ---
