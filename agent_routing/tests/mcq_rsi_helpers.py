@@ -139,15 +139,18 @@ class FakeVLLM:
     ``text(body)`` overrides the reply text; ``hold(body)`` returns an Event the request waits on.
     """
 
-    def __init__(self, served=None, fail=0, fail_when=None, text=None, hold=None):
+    def __init__(self, served=None, fail=0, fail_when=None, text=None, hold=None, version=None):
         self.served = served
         self.fail, self.fail_when, self.text, self.hold = fail, fail_when, text, hold
+        self.version = version  # ``GET /version`` body (None: answered like /v1/models)
         self.posts, self.gets = [], []
         import threading
         self.lock = threading.Lock()
 
     def get(self, url, timeout=None):
         self.gets.append(url)
+        if url.endswith("/version") and self.version is not None:
+            return FakeResponse(200, self.version)
         return FakeResponse(200, {"data": [m if isinstance(m, dict) else {"id": m} for m in (self.served or [])]})
 
     def post(self, url, json=None, timeout=None):

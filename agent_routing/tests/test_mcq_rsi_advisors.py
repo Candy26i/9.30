@@ -343,7 +343,7 @@ def test_eval_gate_and_fail_stop_through_the_stages_eval_loop(tmp_path, monkeypa
 
     class EvalModel:
         def generate(self, input_ids, **kw):
-            return torch.cat([input_ids, torch.tensor([[tok.eos_token_id]])], 1)
+            return torch.cat([input_ids, torch.tensor([[tok.eos_token_id]], device=input_ids.device)], 1)
 
     row = make_rows(1)[0]
     rows = [StandardRow(**{k: row[k] for k in ("example_id", "benchmark_name", "task_subtype", "question",

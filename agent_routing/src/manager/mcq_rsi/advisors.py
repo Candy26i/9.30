@@ -81,6 +81,17 @@ class AdvisorRequest:
                    candidate if kind == "verifier" else "")
 
 
+# "lora": each advisor is its benchmark's trained adapter, served as <bench>_<kind>.
+# "base": each advisor is the base model with the advisor's system prompt -- what the paper-era server
+# actually returned (vLLM dropped the adapters' unmatched keys, D14), so it matches the locked S_1
+# managers, their round-1 labels and the paper's numbers. Requests go to the served base model.
+ADVISOR_MODES = ("lora", "base")
+
+
+def base_identity() -> str:
+    return f"base:{registry.BASE_MODEL}@{registry.BASE_REVISION}"
+
+
 def adapter_identity(bench: registry.Benchmark, kind: str) -> str:
     adapter = bench.advisor(kind)
     model_sha = next(d for name, _, d in adapter.files if name == "adapter_model.safetensors")
@@ -166,11 +177,18 @@ class CachedAdvisorPool:
         workers: int = 32,
         http=None,
         sleep: Callable[[float], None] = time.sleep,
+        mode: str = "lora",
     ):
+        if mode not in ADVISOR_MODES:
+            raise ValueError(f"advisor mode must be one of {ADVISOR_MODES}, got {mode!r}")
+        self.mode = mode
         self.spec = registry.get(bench)
         self.bench = self.spec.name
         self.server_url = server_url.rstrip("/") if server_url else None
-        self.adapters = {k: (adapters or {}).get(k) or adapter_identity(self.spec, k) for k in ADVISOR_KINDS}
+        if mode == "base":  # the cache key's "adapter" names the base model, so the two modes never share entries
+            self.adapters = {k: base_identity() for k in ADVISOR_KINDS}
+        else:
+            self.adapters = {k: (adapters or {}).get(k) or adapter_identity(self.spec, k) for k in ADVISOR_KINDS}
         self.prompt_shas = {k: prompts.prompt_sha256(self.bench, k) for k in ADVISOR_KINDS}
         self.decode = {"temperature": 0.0, "max_tokens": int(max_new_tokens),
                        "chat_template_kwargs": {"enable_thinking": False}}
@@ -191,10 +209,16 @@ class CachedAdvisorPool:
     def has(self, agent_kind: str) -> bool:
         return agent_kind in ADVISOR_KINDS
 
+    def model_name(self, kind: str) -> str:
+        """The served model an advisor request names."""
+        return registry.BASE_MODEL if self.mode == "base" else self.spec.lora_name(kind)
+
     def identity(self) -> Dict[str, Any]:
-        return {"cache_version": CACHE_VERSION, "bench": self.bench, "adapters": self.adapters,
-                "prompts": self.prompt_shas, "decode": self.decode,
-                "lora_names": {k: self.spec.lora_name(k) for k in ADVISOR_KINDS}}
+        ident = {"cache_version": CACHE_VERSION, "bench": self.bench, "adapters": self.adapters,
+                 "prompts": self.prompt_shas, "decode": self.decode}
+        if self.mode == "base":
+            return {**ident, "mode": "base", "models": {k: self.model_name(k) for k in ADVISOR_KINDS}}
+        return {**ident, "lora_names": {k: self.spec.lora_name(k) for k in ADVISOR_KINDS}}
 
     def _client(self):
         if self._http is None:
@@ -222,6 +246,16 @@ class CachedAdvisorPool:
         except Exception as e:  # noqa: BLE001 - any failure is an identity failure
             raise AdvisorError(f"advisor server identity check failed: {e}") from e
         served = sorted(cards)
+        if self.mode == "base":
+            # The base model card (no "parent": not an adapter). Its revision is bound by the preflight report's
+            # server flags (start_mcq_advisors.sh --revision), which require_passed compares.
+            card = cards.get(registry.BASE_MODEL)
+            if card is None or card.get("parent") not in (None, ""):
+                raise AdvisorError(f"advisor server {self.server_url} does not serve the base model "
+                                   f"{registry.BASE_MODEL!r} (serves {served})")
+            self.served = {"base": {"model": registry.BASE_MODEL, "root": str(card.get("root") or "")}}
+            self._checked = True
+            return served
         missing = [self.spec.lora_name(k) for k in ADVISOR_KINDS if self.spec.lora_name(k) not in cards]
         if missing:
             raise AdvisorError(f"advisor server {self.server_url} does not serve {missing} (serves {served})")
@@ -233,10 +267,19 @@ class CachedAdvisorPool:
             expected = self.adapters[kind].rpartition("#sha256=")[2]
             weights = Path(str(card.get("root") or "")) / "adapter_model.safetensors"
             got = _file_sha256(weights) if card.get("root") and weights.is_file() else None
+            layout = "as_is"
             if got != expected:
-                raise AdvisorError(f"{name} serves {card.get('root')!r} (adapter sha256 {got}), "
-                                   f"expected the pinned {self.adapters[kind]}")
-            verified[kind] = {"root": os.path.realpath(str(card["root"])), "parent": card["parent"]}
+                # A served copy whose keys were renamed so vLLM's multimodal Qwen3.5 applies them
+                # (``serving``): accepted only if its tensors are bitwise the pinned adapter's.
+                try:
+                    from .serving import verify_served_lora
+                    verify_served_lora(card.get("root") or "", expected)
+                    layout = "multimodal"
+                except (ValueError, OSError, KeyError) as e:
+                    raise AdvisorError(f"{name} serves {card.get('root')!r} (adapter sha256 {got}), "
+                                       f"expected the pinned {self.adapters[kind]} ({e})") from None
+            verified[kind] = {"root": os.path.realpath(str(card["root"])), "parent": card["parent"],
+                              **({"key_layout": layout} if layout != "as_is" else {})}
         self.served = verified
         self._checked = True
         return served
@@ -354,17 +397,24 @@ class CachedAdvisorPool:
         return key
 
     # ------------------------------------------------------------- fetch
+    def request_payload(self, kind: str, question: str, context: str, choices: Dict[str, str], candidate: str = "",
+                        model: Optional[str] = None, system: Optional[str] = None) -> Dict[str, Any]:
+        """The exact ``/v1/chat/completions`` body of a fetch (``preflight`` replays it, optionally against
+        another served ``model`` or with another ``system`` prompt)."""
+        messages = prompts.build_advisor_messages(self.bench, kind, question, context, choices,
+                                                  candidate_answer=candidate if kind == "verifier" else "")
+        if system is not None:
+            messages = [{"role": "system", "content": system}] + messages[1:]
+        return {"model": model or self.model_name(kind), "messages": messages, **self.decode}
+
     def _fetch(self, kind: str, question: str, context: str, choices: Dict[str, str], candidate: str,
                stop: Optional[threading.Event] = None) -> Dict[str, Any]:
         if not self.server_url:
             raise AdvisorError(f"{kind} output not cached and the pool is offline")
         if not self._checked:
             self.check_server()
-        model = self.spec.lora_name(kind)
-        payload = {"model": model,
-                   "messages": prompts.build_advisor_messages(self.bench, kind, question, context, choices,
-                                                              candidate_answer=candidate),
-                   **self.decode}
+        model = self.model_name(kind)
+        payload = self.request_payload(kind, question, context, choices, candidate)
         last: Optional[BaseException] = None
         for attempt in range(self.retries + 1):
             if self._abort.is_set() or (stop is not None and stop.is_set()):
@@ -432,7 +482,8 @@ class CachedAdvisorPool:
                 result = self._fetch(kind, question, context, choices, candidate, stop)
                 cached = self._write(key, fields, result["output"],
                                      {"finish_reason": result["finish_reason"], "model": result["model"],
-                                      **({"lora": self.served[kind]} if kind in self.served else {})})
+                                      **({"lora": self.served[kind]} if kind in self.served else {}),
+                                      **({"base": self.served["base"]} if "base" in self.served else {})})
                 with self._lock:
                     self.stats["fetched"] += 1
                     self.stats["not_stopped"] += result["finish_reason"] != "stop"
@@ -457,6 +508,12 @@ class CachedAdvisorPool:
             self._call_log.append({"ts": int(time.time()), "agent_kind": agent_kind,
                                    "example_id": int(example_id), "output_len": len(text)})
         return text
+
+    def cached(self, r: AdvisorRequest) -> Optional[str]:
+        """The cached output of ``r``, or None (never fetches)."""
+        candidate = r.candidate if r.kind == "verifier" else ""
+        fields = self.key_fields(r.kind, r.question, r.context, r.choices, candidate)
+        return self._read(_sha(fields), fields)
 
     def prefetch(self, requests: Iterable[AdvisorRequest]) -> Dict[str, int]:
         """Fetch every uncached request concurrently. The first failure cancels this batch's queued
