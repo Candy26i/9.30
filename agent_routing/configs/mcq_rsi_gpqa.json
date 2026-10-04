@@ -42,7 +42,7 @@
     "learning_rate": 1e-05,
     "per_device_batch_size": 1,
     "gradient_accumulation_steps": 8,
-    "max_seq_len": 8192,
+    "max_seq_len": 16384,
     "seed": 42,
     "context": "paper"
   },
@@ -62,6 +62,7 @@
     "guard_probe_size": 64,
     "guard_max_call_rate_delta": 0.1,
     "guard_max_kl_dec": 0.05,
+    "anchor_max_seq_len": 16384,
     "informative_min_fraction": 0.15
   },
   "eval": {
