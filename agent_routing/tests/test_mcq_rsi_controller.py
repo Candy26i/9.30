@@ -1202,3 +1202,332 @@ def test_final_test_code_override_is_recorded_bound_to_the_code_and_final_stages
         with pytest.raises(SystemExit):
             cli.main(["final-test", "--run-dir", str(root), "--allow-code-change", "why"])
     assert seen["allow_code_change"] == "why"
+
+
+# ------------------------------------------------------------- more rounds: manifests and continuation
+
+# sha256 of json.dumps(..., sort_keys=True) of build_plan / signed_config under the committed code before
+# continuation existed (HEAD ea742d8): runs without continue_from must keep their plans and signatures.
+PLANS_BEFORE_CONTINUATION = {
+    'aqua/main//None': 'fb395e3de2b3e334e407610692d904f0cc96a76111cfb64bb7c1dc497cbd4c49',
+    'aqua/main/dynamic,static/3': '29213a3d69f0a0fd0738e8cc036bb50d932145bfaf31a4a84c4eac817c93ef8b',
+    'aqua/pilot//None': 'b57d8669c12b8664cc7b5e9b6a9a8ccd44e9615a25ff83a3bff1acdca94af928',
+    'aqua/signed_config': 'e9f825f669b9a98b541d9158ceaa2715b9f9f7aea4fc063687e03587a125612f',
+    'gpqa/main//None': 'f03125a577befb22c6e0b40ea7bae72fa2ad34424a1aad4c764158be26766e67',
+    'gpqa/main/dynamic,static/3': '1eb22391b4af40232333dbf9eeba600dc255d742ac39318c9fa82abaa75c3159',
+    'gpqa/pilot//None': 'b0a05f661475b36007a466fe15ea6a73f0755bf6d9f5ca3ebe7a765bf3a843ad',
+    'gpqa/signed_config': '1a3678ea792f661cd9023346c6208e5067dbca5c0e740e316dcb5c7767793dec',
+    'medqa/main//None': '01f5c51c7e8779b60eed974962bade07df63b1da552873ab719f59e7dc417974',
+    'medqa/main/dynamic,static/3': '02e427d6ef5eff0e34170cf57206d2b41d95c98bc67fd38091f4d2fba4308e89',
+    'medqa/pilot//None': '7e9a31b838f1ee59ed16b6751ac4e5b4bd6b261a400ea4504e24a655ecb9fd75',
+    'medqa/signed_config': '2b49027f3daf9177d75140e2e92667c929ed496550e21ab87333d70e4646be52',
+    'mmlu_pro/main//None': '56b69ad02fb311be55f6b695ca1b0c135a421e46335c96f180af5a45e46ba2f1',
+    'mmlu_pro/main/dynamic,static/3': '2d5e950fda32ec4dd3585cde0045dc12bedf4d5c8d2c5991431b73ec6c868dad',
+    'mmlu_pro/pilot//None': 'a65d37704431706ab17fc56bb27e2dd923895c0c6a54d5588aba9841d74ef492',
+    'mmlu_pro/signed_config': 'b610a7651af5150fe5112b1b3b92e43594ba3c2dd6200e01f16eca85a0f811cd',
+    'smoke/main//None': '545a5a3320d9d157dd9a0341e03bf34442474967ed618b87d4c9216a14ee9a16',
+    'smoke/main/dynamic,static/3': '5796fe1d310609c56276fb9e122e999fb7c49ad65fd6f5ae0afa6a8a341bd7c6',
+    'smoke/pilot//None': 'aa32ff6a54d978554125be042d35964cca78114a5ea3e11a3067308290ba4acd',
+    'smoke/signed_config': '92938a7a2cfb25e4e188ea5db3367a43b44d015e535ab2efe87cf25eec5d1ab8',
+}
+
+
+def _json_sha(obj):
+    import hashlib
+    return hashlib.sha256(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+
+
+def test_plans_and_signed_configs_without_continuation_are_unchanged():
+    for key, sha in PLANS_BEFORE_CONTINUATION.items():
+        name, what = key.split("/", 1)
+        cfg = CT.load_config(ROOT / "configs" / f"mcq_rsi_{name}.json")
+        assert cfg["continue_from"] is None and "continue_from" not in CT.signed_config(cfg)
+        if what == "signed_config":
+            got = CT.signed_config(cfg)
+        else:
+            phase, arms, rounds = what.split("/")
+            got = CT.build_plan(cfg, phase, arms.split(",") if arms else None, None if rounds == "None" else int(rounds))
+            assert "continuation" not in got
+        assert _json_sha(got) == sha, key
+
+
+R5 = ROOT / "data" / "mcq_rsi" / "mmlu_pro_splits_r5.json"
+
+
+def test_rounds_are_validated_against_the_split_manifest(tmp_path):
+    assert CT.MAX_ROUNDS == 5
+    cfg = cfg_for(tmp_path, bench="mmlu_pro")
+    with pytest.raises(ValueError, match=r"needs pools \['collect_r4', 'grpo_r4'\].*extend-splits --bench mmlu_pro"):
+        CT.build_plan(cfg, "main", ["dynamic"], 4)
+    with pytest.raises(ValueError, match="rounds must be in"):
+        CT.build_plan(cfg, "main", ["dynamic"], 6)
+    with pytest.raises(ValueError, match="rounds must be in"):
+        cfg_for(tmp_path, rounds=6)
+    ext = cfg_for(tmp_path, bench="mmlu_pro", split_manifest=str(R5), rounds=5)
+    plan = CT.build_plan(ext, "main", ["dynamic", "static"])
+    by = {s["name"]: s for s in plan["stages"]}
+    assert plan["rounds"] == 5 and plan["finals"]["dynamic"] == "decision:r5/dynamic/grpo_dev"
+    assert by["r5/dynamic/collect"]["params"] == {"checkpoint": "decision:r4/dynamic/grpo_dev", "pool": "collect_r5",
+                                                  "round": 5}
+    assert by["r5/static/grpo"]["params"]["pool"] == "grpo_r5"
+    assert by["prefetch/advisors"]["params"]["pools"][:5] == ["dev", "collect_r2", "collect_r3", "collect_r4", "collect_r5"]
+    # The first three rounds of an extended manifest plan exactly as with the frozen one (same pools).
+    base = CT.build_plan(cfg, "main", ["dynamic", "static"], 3)
+    assert CT.build_plan(ext, "main", ["dynamic", "static"], 3) == base
+    with pytest.raises(ValueError, match="not found"):
+        CT.build_plan(cfg_for(tmp_path, split_manifest=str(tmp_path / "missing.json")), "main", ["dynamic"], 4)
+
+
+def _eval_rows_file(path, ids, correct):
+    path.write_text("".join(json.dumps({"example_id": i, "correct": bool(c), "initial_draft_correct": bool(c),
+                                        "tool_calls": 0}) + "\n" for i, c in zip(ids, correct)))
+
+
+def _finished_source(tmp_path, arms=("dynamic", "static"), bench="mmlu_pro"):
+    """A completed 3-round main run: markers, and per resolved G_k a decision, adapter weights and dev eval."""
+    cfg = cfg_for(tmp_path, bench=bench)
+    run, root = CT.prepare_run(cfg, tmp_path / "src", arms=list(arms), rounds=3)
+    CT.start(run, root)
+    for s in run["plan"]["stages"]:
+        (root / s["name"]).mkdir(parents=True, exist_ok=True)
+        (root / s["name"] / CT.MARKER).write_text("{}")
+    for arm, rounds in run["plan"]["by_arm"].items():
+        for k, st in rounds.items():
+            stage = st["G"][len("decision:"):]
+            ckpt = root / stage / "final"
+            ckpt.mkdir(exist_ok=True)
+            (ckpt / "adapter_model.safetensors").write_bytes(f"weights of {stage}".encode())
+            d = _eval_dir(root, stage, _metrics(0.70 + 0.01 * int(k), 0.4, 0.2),
+                          {"checkpoint": str(ckpt), "role": "grpo", "accept": {"accepted": True, "decision": "grpo_accepted",
+                                                                                 "reasons": []}})
+            _eval_rows_file(d / "manager_tool_eval.jsonl", range(4), [1, 1, 0, 0])
+    s1 = _eval_dir(root, "r1/S1_dev", _metrics(0.6, 0.4, 0.2), {"checkpoint": "S1", "role": "s1"})
+    _eval_rows_file(s1 / "manager_tool_eval.jsonl", range(4), [1, 0, 0, 0])
+    return cfg, run, root
+
+
+def _cont_cfg(tmp_path, src, **over):
+    raw = {"bench": "mmlu_pro", "split_manifest": str(R5), "rounds": 5, "arms": ["dynamic", "static"],
+           "continue_from": {"run_dir": str(src), "round": 3}}
+    raw.update(over)
+    return cfg_for(tmp_path, **raw)
+
+
+def test_continuation_plan_shape_provenance_and_refusals(tmp_path):
+    _, src_run, src = _finished_source(tmp_path)
+    cfg = _cont_cfg(tmp_path, src)
+    assert CT.signed_config(cfg)["continue_from"] == {"run_dir": str(src), "round": 3}
+    plan = CT.build_plan(cfg, "main")
+    names = [s["name"] for s in plan["stages"]]
+    by = {s["name"]: s for s in plan["stages"]}
+    assert names[:3] == ["r3/dynamic/source", "r3/static/source", "prefetch/advisors"]
+    assert not any(n.startswith(("r1/", "r2/")) or "S1" in n for n in names)
+    assert {s["kind"] for s in plan["stages"]} == {"source", "prefetch", "collect", "select", "sft", "eval", "grpo"}
+    assert plan["finals"] == {"dynamic": "decision:r5/dynamic/grpo_dev", "static": "decision:r5/static/grpo_dev"}
+    assert by["prefetch/advisors"]["params"] == {"pools": ["dev", "collect_r4", "collect_r5", "grpo_r4", "grpo_r5", "test"],
+                                                 "checkpoint": "import:S_1", "verifier_pools": ["dev", "test"]}
+    # G_3 := the source run's resolved decision; rounds 4-5 follow the main-phase logic from it.
+    g3 = src_run["plan"]["by_arm"]["dynamic"]["3"]["G"][len("decision:"):]
+    ckpt = str(src / g3 / "final")
+    assert by["r3/dynamic/source"]["lane"] == "cpu" and by["r3/dynamic/source"]["params"] == {
+        "run_dir": str(src), "stage": g3, "round": 3, "checkpoint": ckpt,
+        "adapter_sha256": CT._file_sha(Path(ckpt) / "adapter_model.safetensors"),
+        "signature_sha256": src_run["signature_sha256"]}
+    assert plan["by_arm"]["dynamic"]["3"] == {"source": "r3/dynamic/source", "G": "decision:r3/dynamic/source"}
+    assert by["r4/dynamic/collect"]["params"] == {"checkpoint": "decision:r3/dynamic/source", "pool": "collect_r4", "round": 4}
+    assert by["r4/dynamic/sft"]["params"] == {"labels": "out:r4/dynamic/select::labels.jsonl",
+                                              "init": "decision:r3/dynamic/source"}
+    assert by["r4/dynamic/sft_dev"]["params"]["previous"] == "decision:r3/dynamic/source"
+    assert by["r4/dynamic/grpo"]["params"] == {"checkpoint": "out:r4/dynamic/sft::model", "pool": "grpo_r4",
+                                               "anchor": "out:r4/dynamic/select::labels.jsonl"}
+    assert by["r4/dynamic/grpo_dev"]["params"]["fallback"] == "out:r4/dynamic/sft::model"
+    assert by["r5/dynamic/collect"]["params"]["checkpoint"] == "decision:r4/dynamic/grpo_dev"
+    assert by["r4/static/sft"]["params"] == {"labels": "out:static/select::labels.jsonl", "init": "decision:r3/static/source"}
+    assert "collect" not in plan["by_arm"]["static"]["4"] and by["r5/static/sft"]["params"]["init"] == "decision:r4/static/grpo_dev"
+    order = {n: i for i, n in enumerate(names)}
+    for i, s in enumerate(plan["stages"]):
+        for v in s["params"].values():
+            if isinstance(v, str) and v.split(":", 1)[0] in ("out", "decision"):
+                assert order[CT._ref_stage(v)] < i, (s["name"], v)
+    c = plan["continuation"]
+    assert c["run_dir"] == str(src) and c["round"] == 3 and c["signature_sha256"] == src_run["signature_sha256"]
+    assert c["git_head"] == src_run["signature"]["code"]["git_head"] and c["config_differences"] == []
+    assert c["arms"]["static"]["checkpoint"] == str(src / src_run["plan"]["by_arm"]["static"]["3"]["G"][9:] / "final")
+    assert c["split_manifest_sha256"] == src_run["signature"]["manifests"]["split_manifest_sha256"]
+    # The continuation is part of the run signature; a run directory is bound to it.
+    run, root = CT.prepare_run(cfg, tmp_path / "cont")
+    assert run["signature"]["plan"]["continuation"]["round"] == 3
+    # Arms: any subset of the source arms.
+    assert [s["name"] for s in CT.build_plan(cfg, "main", ["static"])["stages"]][0] == "r3/static/source"
+    with pytest.raises(ValueError, match=r"arms \['success'\] are not arms of the source run"):
+        CT.build_plan(cfg, "main", ["dynamic", "success"])
+    # Refusals.
+    with pytest.raises(ValueError, match="must exceed"):
+        CT.build_plan(_cont_cfg(tmp_path, src, rounds=3), "main")
+    with pytest.raises(ValueError, match="main-phase setting"):
+        CT.build_plan(cfg, "pilot")
+    with pytest.raises(ValueError, match="not an MCQ RSI run"):
+        CT.build_plan(_cont_cfg(tmp_path, tmp_path / "nowhere"), "main")
+    with pytest.raises(ValueError, match="advisor_mode differs"):
+        CT.build_plan(_cont_cfg(tmp_path, src, advisor_mode="base"), "main")
+    # Another advisor cache: other dev advisor outputs than the source's dev evals, and another locked-test registry.
+    with pytest.raises(ValueError, match="advisor_cache differs"):
+        CT.build_plan(_cont_cfg(tmp_path, src, advisor_cache=str(tmp_path / "other_cache")), "main")
+    with pytest.raises(ValueError, match="needs pools"):  # the frozen manifest has no round 4
+        CT.build_plan(_cont_cfg(tmp_path, src, split_manifest=None), "main")
+    m = json.loads(R5.read_text())
+    m["pools"]["dev"] = m["pools"]["dev"][::-1]
+    (tmp_path / "bad_r5.json").write_text(json.dumps(m))
+    with pytest.raises(ValueError, match=r"pools unchanged \(\['dev'\]\)"):
+        CT.build_plan(_cont_cfg(tmp_path, src, split_manifest=str(tmp_path / "bad_r5.json")), "main")
+    (src / "r2/static/sft" / CT.MARKER).unlink()  # a stage G_3 of static depends on
+    with pytest.raises(ValueError, match=r"static G_3 .* incomplete source stages \['r2/static/sft'\]"):
+        CT.build_plan(cfg, "main")
+    CT.build_plan(cfg, "main", ["dynamic"])  # dynamic does not depend on it
+    for bad in ({"run_dir": str(src)}, {"run_dir": str(src), "round": 0}, {"run_dir": str(src), "round": 5},
+                {"run_dir": str(src), "round": True}, "x"):
+        with pytest.raises(ValueError, match="continue_from"):
+            cfg_for(tmp_path, continue_from=bad)
+
+
+def test_continuation_source_stage_copies_the_decision_and_refuses_a_changed_checkpoint(tmp_path):
+    _, src_run, src = _finished_source(tmp_path)
+    cfg = _cont_cfg(tmp_path, src)
+    run, root = CT.prepare_run(cfg, tmp_path / "cont")
+    CT.start(run, root)
+    rt = StubRuntime(cfg)
+    spec = next(s for s in run["plan"]["stages"] if s["name"] == "r3/dynamic/source")
+    g3 = spec["params"]["stage"]
+    source_dec = json.loads((src / g3 / "decision.json").read_text())
+    assert CT.execute(root, run, spec, time.time() + 60, executor="inprocess", rt=rt) == "ran"
+    dec = json.loads((root / "r3/dynamic/source/decision.json").read_text())
+    assert {k: v for k, v in dec.items() if k != "source"} == source_dec
+    assert dec["dev_result"] == str(src / g3 / "mcq_rsi_eval.json")  # round-4 SFT flags / GRPO baselines
+    assert dec["source"] == {"run_dir": str(src), "stage": g3, "round": 3,
+                             "signature_sha256": src_run["signature_sha256"],
+                             "adapter_sha256": spec["params"]["adapter_sha256"],
+                             "git_head": src_run["signature"]["code"]["git_head"]}
+    assert CT.resolve(root, rt, "decision:r3/dynamic/source") == str(src / g3 / "final")
+    assert CT.execute(root, run, spec, time.time() + 60, executor="inprocess", rt=rt) == "done"
+    # The round-4 SFT eval flags against G_3's (source) dev metrics.
+    assert CT._decision_of(root, rt, "decision:r3/dynamic/source")["metrics"]["accuracy"] == pytest.approx(0.73)
+    # A changed source adapter: a completed copy no longer validates, and a fresh copy is refused.
+    (src / g3 / "final" / "adapter_model.safetensors").write_bytes(b"retrained")
+    with pytest.raises(RuntimeError, match="source checkpoint .* changed"):
+        CT.execute(root, run, spec, time.time() + 60, executor="inprocess", rt=rt)
+    # Every stage that loads G_3 (collect, SFT init, finals) re-checks it through resolve; other fields still resolve.
+    with pytest.raises(RuntimeError, match="source checkpoint .* changed"):
+        CT.resolve(root, rt, "decision:r3/dynamic/source")
+    collect = next(s for s in run["plan"]["stages"] if s["name"] == "r4/dynamic/collect")
+    with pytest.raises(RuntimeError, match="source checkpoint .* changed"):
+        CT.stage_collect(root, rt, collect, tmp_path / "unused")
+    assert CT.resolve(root, rt, "decision:r3/dynamic/source#dev_result") == str(src / g3 / "mcq_rsi_eval.json")
+    static = next(s for s in run["plan"]["stages"] if s["name"] == "r3/static/source")
+    (src / static["params"]["stage"] / "final" / "adapter_model.safetensors").write_bytes(b"retrained")
+    with pytest.raises(RuntimeError, match="sha256 .* recorded when this run was planned"):
+        CT.run_stage(root, run, static, rt)
+    assert not (root / "r3/static/source/decision.json").exists()
+    with pytest.raises(ValueError, match="run settings changed"):  # a restart re-plans on the changed adapter
+        CT.start(CT.prepare_run(cfg, tmp_path / "cont")[0], root)
+    # A changed source run (signature) is refused too.
+    (src / static["params"]["stage"] / "final" / "adapter_model.safetensors").write_bytes(
+        f"weights of {static['params']['stage']}".encode())
+    info = json.loads((src / CT.RUN_FILE).read_text())
+    info["signature_sha256"] = "0" * 64
+    (src / CT.RUN_FILE).write_text(json.dumps(info))
+    with pytest.raises(RuntimeError, match="signature changed"):
+        CT.run_stage(root, run, static, rt)
+
+
+def test_continuation_report_and_final_test_have_no_s1_final(tmp_path, monkeypatch):
+    from src.manager.mcq_rsi import __main__ as cli
+    _, _, src = _finished_source(tmp_path)
+    cfg = _cont_cfg(tmp_path, src, final={"test_pools": ["test"], "forced": ["verifier"]})
+    run, root = CT.prepare_run(cfg, tmp_path / "cont")
+    CT.start(run, root)
+    rt = StubRuntime(cfg)
+    for name in ("r3/dynamic/source", "r3/static/source"):
+        CT.execute(root, run, CT.find_spec(root, run, name), time.time() + 60, executor="inprocess", rt=rt)
+    # One completed round-4 SFT eval: drift vs the source run's S_1 and vs G_3 (the copied decision's dev eval).
+    d = _eval_dir(root, "r4/dynamic/sft_dev", {**_metrics(0.75, 0.5, 0.2), "n": 4, "initial_draft_accuracy": 0.75},
+                  {"checkpoint": "S4", "role": "sft", "flags": []})
+    _eval_rows_file(d / "manager_tool_eval.jsonl", range(4), [1, 1, 1, 0])
+    (d / CT.MARKER).write_text("{}")
+    rep = CT.report(root)
+    assert rep["continuation"]["round"] == 3 and set(rep["continuation"]["arms"]) == {"dynamic", "static"}
+    (row,) = rep["dev"]
+    assert row["drift_vs_S1"]["final_new_correct"] == 2 and row["drift_vs_previous"]["reference"] == "r3/dynamic/source"
+    assert row["drift_vs_previous"]["final_new_correct"] == 1
+    assert [t["round"] for t in rep["arms_timeline"]["dynamic"]] == [3]
+    assert rep["arms_timeline"]["static"][0]["accuracy"] == pytest.approx(0.73)
+    md = (root / "report.md").read_text()
+    assert f"Continuation of {src} from round 3" in md and "No S_1 final" in md
+    # The extended manifest's caveat (GRPO-pool composition change at the round-3/4 boundary) is reported.
+    assert set(rep["split_caveats"]) == {"grpo_r4", "grpo_r5"} and "round-3/4 boundary" in rep["split_caveats"]["grpo_r4"]
+    assert "## Split caveats (extended manifest)" in md
+    # Finals: each arm's G_5 (here truncated to the copied G_3), no S_1.
+    reg = CT.final_test(root, rt=rt, accept_incomplete="test", dry_run=True)
+    assert set(reg["finals"]) == {"dynamic", "static"}
+    assert reg["finals"]["dynamic"]["round"] == 3 and reg["finals"]["dynamic"]["truncated_at_round"] == 3
+    assert [s["name"] for s in reg["stages"]] == ["final/dynamic/test", "final/dynamic/dev_forced_verifier",
+                                                  "final/static/test", "final/static/dev_forced_verifier"]
+    ran = []
+
+    def fake_test(root_, rt_, spec, out):
+        ran.append(spec["name"])
+        CT._write_json(out / "final.json", {"metrics": {"n": 4, "accuracy": 0.75, "calls_per_example": 0.5},
+                                            "label": spec["params"]["label"], "pool": spec["params"]["pool"],
+                                            "forced": spec["params"].get("forced"), "gate": [], "broken": False})
+        return {}
+
+    monkeypatch.setitem(CT.STAGE_FUNCS, "test", fake_test)
+    CT.persistent_deadline(root, 1)
+    CT._write_json(CT.locked_test_registry(cfg), {"bench": "mmlu_pro", "registrations": [
+        {"run_dir": str(src), "test_pools": ["test"]}]})
+    with pytest.raises(RuntimeError, match="already registered"):
+        CT.final_test(root, rt=rt, executor="inprocess", accept_incomplete="test")
+    final = CT.final_test(root, rt=rt, executor="inprocess", accept_incomplete="test",
+                          reuse_test="experiment 4: rounds 4-5 from the main run's G_3")
+    assert len(ran) == 4 and {f["label"] for f in final["finals"]} == {"dynamic", "static"}
+    assert "Locked test" in (root / "report.md").read_text()
+    # `run` takes a continuation config unchanged (dry run prints the plan).
+    cfgfile = tmp_path / "cont.json"
+    cfgfile.write_text(json.dumps({"bench": "mmlu_pro", "import_dir": str(tmp_path / "import"),
+                                   "advisor_cache": str(tmp_path / "cache"), "split_manifest": str(R5), "rounds": 5,
+                                   "continue_from": {"run_dir": str(src), "round": 3}}))
+    assert cli.main(["run", "--config", str(cfgfile), "--run-dir", str(tmp_path / "dry"), "--arms", "dynamic,static",
+                     "--dry-run"]) == 0
+    assert not (tmp_path / "dry").exists()
+
+
+def test_continuation_from_round_1_shares_the_round_2_collection_like_the_main_phase(tmp_path):
+    _, src_run, src = _finished_source(tmp_path, arms=("dynamic", "success", "dynamic_sft", "static"))
+    s1 = tmp_path / "import_S1"  # G_1 of the GRPO-free arms is S_1's eval decision (the imported S_1 adapter)
+    s1.mkdir()
+    (s1 / "adapter_model.safetensors").write_bytes(b"S_1")
+    _eval_dir(src, "r1/S1_dev", _metrics(0.6, 0.4, 0.2), {"checkpoint": str(s1), "role": "s1"})
+    cfg = _cont_cfg(tmp_path, src, split_manifest=None, rounds=3, arms=["dynamic", "success", "dynamic_sft", "static"],
+                    continue_from={"run_dir": str(src), "round": 1})
+    plan = CT.build_plan(cfg, "main")
+    main = CT.build_plan(cfg_for(tmp_path, bench="mmlu_pro"), "main", ["dynamic", "success", "dynamic_sft", "static"], 3)
+    by = {s["name"]: s for s in plan["stages"]}
+    sources = [s["name"] for s in plan["stages"] if s["kind"] == "source"]
+    # The GRPO arms share G_1 (r1/grpo_dev): one source stage; dynamic_sft's G_1 is S_1's eval.
+    assert sources == ["r1/dynamic/source", "r1/dynamic_sft/source"]
+    assert by["r1/dynamic/source"]["params"]["stage"] == "r1/grpo_dev"
+    assert by["r1/dynamic_sft/source"]["params"]["stage"] == "r1/S1_dev"
+    G1 = {a: plan["by_arm"][a]["1"]["G"] for a in plan["arms"]}
+    assert G1["dynamic"] == G1["success"] == G1["static"] == "decision:r1/dynamic/source"
+    assert G1["dynamic_sft"] == "decision:r1/dynamic_sft/source"
+    # Round 2 onwards has the main phase's stage names and shape (one shared r2/collect for the GRPO arms).
+    collects = sorted(n for n in by if n.endswith("/collect"))
+    assert collects == sorted(n for n in (s["name"] for s in main["stages"]) if n.endswith("/collect"))
+    assert "r2/collect" in collects and "r2/dynamic/collect" not in collects and "r2/dynamic_sft/collect" in collects
+    assert plan["by_arm"]["success"]["2"]["collect"] == plan["by_arm"]["dynamic"]["2"]["collect"] == "r2/collect"
+    assert [n for n in by if not n.startswith("r1/")] == [s["name"] for s in main["stages"]
+                                                          if not s["name"].startswith("r1/")]
+    # Only GRPO-free arms: they share the round-2 collection as in the main phase.
+    solo = CT.build_plan(cfg, "main", ["dynamic_sft"])
+    assert "r2/collect" in {s["name"] for s in solo["stages"]}
+    assert "r2/collect" in {s["name"] for s in CT.build_plan(cfg_for(tmp_path, bench="mmlu_pro"), "main",
+                                                             ["dynamic_sft"], 3)["stages"]}

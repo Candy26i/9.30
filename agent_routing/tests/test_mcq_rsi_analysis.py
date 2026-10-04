@@ -230,3 +230,42 @@ def test_smoke_check_gates_round0_agreement_memory_and_accept_blocks(tmp_path, c
     assert A.main(argv) == 0
     (run / "r1/grpo/controller_stage.json").write_text(json.dumps({"peak_memory_gb": None}))  # not recorded
     assert A.main(argv) == 1
+
+
+def test_run_tables_of_a_continuation_run_without_an_s1_final(tmp_path):
+    """A continuation run (controller ``continue_from``) registers only the arms' finals; a final may resolve to
+    the copied G_R decision whose dev result lives in the source run."""
+    cand, forced_v = synthetic(80, seed=5)
+    ids = sorted(cand)
+    dyn = [rec(i, cand[i], forced_v[i]["correct"] if not cand[i] else cand[i], ("verifier",) if not cand[i] else ())
+           for i in ids]
+    sta = [rec(i, cand[i], cand[i]) for i in ids]
+    src, root = tmp_path / "src", tmp_path / "cont"
+    write_jsonl(src / "r3/static/grpo_dev/manager_tool_eval.jsonl", sta)  # the source run's G_3 dev eval
+    write_jsonl(root / "r5/dynamic/grpo_dev/manager_tool_eval.jsonl", dyn)
+    (root / "r5/dynamic/grpo_dev/decision.json").write_text(json.dumps(
+        {"dev_result": str(root / "r5/dynamic/grpo_dev/mcq_rsi_eval.json")}))
+    (root / "r3/static/source").mkdir(parents=True)
+    (root / "r3/static/source/decision.json").write_text(json.dumps(
+        {"dev_result": str(src / "r3/static/grpo_dev/mcq_rsi_eval.json"), "source": {"run_dir": str(src)}}))
+    stages = []
+    for label, rows in (("dynamic", dyn), ("static", sta)):
+        write_jsonl(root / f"final/{label}/test/manager_tool_eval.jsonl", rows)
+        write_jsonl(root / f"final/{label}/dev_forced_verifier/manager_forced_verifier.jsonl", list(forced_v.values()))
+        stages += [{"name": f"final/{label}/test", "params": {"label": label, "pool": "test", "checkpoint": "x"}},
+                   {"name": f"final/{label}/dev_forced_verifier",
+                    "params": {"label": label, "pool": "dev", "checkpoint": "x", "forced": "verifier"}}]
+    (root / "final/finals.json").write_text(json.dumps({"finals": {
+        "dynamic": {"ref": "decision:r5/dynamic/grpo_dev"}, "static": {"ref": "decision:r3/static/source"}},
+        "stages": stages}))
+    final = {"stage": "final/dynamic/test", "label": "dynamic", "pool": "test", "forced": None, "n": 80,
+             "candidate": 0.5, "accuracy": 0.7, "gain_pp": 20.0, "calls_per_example": 0.4}
+    (root / "report.json").write_text(json.dumps({"collections": [], "dev": [], "finals": [final]}))
+    result = A.run_tables(root, n_boot=200, n_replay=200)
+    (comp,) = result["stats"]["comparisons"]
+    assert (comp["a"], comp["b"], comp["pool"]) == ("dynamic", "static", "test")
+    replays = {r["label"]: r for r in result["stats"]["replay"]}
+    assert set(replays) == {"dynamic", "static"}
+    assert replays["static"]["dev_result"] == str(src / "r3/static/grpo_dev/mcq_rsi_eval.json")
+    assert replays["dynamic"]["role_counts"] == {"verifier": sum(not c for c in cand.values())}
+    assert "Paired tests" in A.write_tables(result, tmp_path / "out").read_text()

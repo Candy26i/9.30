@@ -23,6 +23,11 @@ Plan shape (main phase)::
     r2/<arm>/{sft,sft_dev,grpo,grpo_dev}      SFT(init=G_1) -> S_2, flags; FA-GRPO(S_2) -> G_2, accept gate
     r3/<arm>/collect ...                      collect(G_2^arm, collect_r3) (static: none unless static_shadow_collect)
 
+Continuation (``continue_from: {run_dir, round: R}``, main phase): no round-1 stages; per arm a cpu stage
+``r<R>/<arm>/source`` (one per source stage: arms sharing a G_R share it) copies the source run's resolved
+G_R decision (adapter sha256 checked against the plan, and again whenever a stage resolves it),
+then rounds R+1..rounds follow the main-phase logic from it; the finals are the arms' G_rounds (no S_1).
+
 Stages are de-duplicated by content: two arms asking for the same kind with the same
 symbolic parameters share one stage (round 1, ``r2/collect`` of the arms starting from the
 shared G_1, and ``static/select``). ``dynamic_sft`` starts round 2 from S_1, not G_1, so it has
@@ -76,7 +81,7 @@ MAX_HOURS = 72.0
 MARKER = ".mcq_rsi_complete.json"
 RUN_FILE = "rsi_run.json"
 PHASES = ("main", "pilot")
-MAX_ROUNDS = 3  # the split manifests hold collect_r2/r3 and grpo_r1..r3
+MAX_ROUNDS = 5  # base split manifests hold rounds 1-3; extended ones (extend-splits) up to 5 (build_plan checks)
 # selection: label rule; grpo: whether the arm runs FA-GRPO each round.
 ARM_SPECS = {
     "dynamic": {"selection": "dynamic", "grpo": True},
@@ -121,6 +126,8 @@ DEFAULTS: Dict[str, Any] = {
     # Single-role forced evals feed the matched-budget replay (every first role matched); forced-all is Table 3.
     "final": {"test_pools": ["test"], "forced": ["extractor", "reasoner", "verifier", "extractor,reasoner,verifier"]},
     "static_shadow_collect": False,
+    # {"run_dir": <source run directory>, "round": R}: plan rounds R+1..rounds from each arm's G_R of that run.
+    "continue_from": None,
     # min_match: exact replay; else LoRA closer to the recorded output than the base on >= min_closer of the
     # items with median similarity >= min_similarity (bf16 greedy drifts on other GPUs/kernels; preflight.py).
     "preflight": {"required": True, "n_per_kind": 20, "min_match": 0.9, "min_lora_effect": 0.5, "min_closer": 0.75,
@@ -174,6 +181,14 @@ def load_config(source) -> Dict[str, Any]:
     if cfg["advisor_mode"] not in ADVISOR_MODES:
         raise ValueError(f"advisor_mode must be one of {ADVISOR_MODES}")
     validate_arms_rounds(cfg["arms"], cfg["rounds"])
+    cont = cfg["continue_from"]
+    if cont is not None:
+        cont = {k: v for k, v in cont.items() if not k.startswith("_")} if isinstance(cont, dict) else cont
+        if not isinstance(cont, dict) or set(cont) != {"run_dir", "round"} or not cont["run_dir"]:
+            raise ValueError("continue_from must be null or {\"run_dir\": <run directory>, \"round\": R}")
+        if isinstance(cont["round"], bool) or not isinstance(cont["round"], int) or not 1 <= cont["round"] < MAX_ROUNDS:
+            raise ValueError(f"continue_from.round must be in [1, {MAX_ROUNDS - 1}]")
+        cfg["continue_from"] = {"run_dir": _abs(cont["run_dir"]), "round": cont["round"]}
     for lr in cfg["pilot"]["learning_rates"]:
         if not (isinstance(lr, (int, float)) and math.isfinite(lr) and lr > 0):
             raise ValueError("pilot learning rates must be positive")
@@ -190,7 +205,30 @@ def validate_arms_rounds(arms: Sequence[str], rounds: int) -> None:
 
 
 def signed_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in cfg.items() if k not in OPERATIONAL_KEYS}
+    # continue_from is signed when set; unset it is left out, so runs without it keep their signature.
+    return {k: v for k, v in cfg.items() if k not in OPERATIONAL_KEYS
+            and not (k == "continue_from" and v is None)}
+
+
+def split_manifest_path(cfg: Dict[str, Any]) -> Path:
+    bench = registry.get(cfg["bench"])
+    return Path(cfg["split_manifest"]) if cfg["split_manifest"] else bench.path(bench.split_manifest)
+
+
+def check_manifest_rounds(cfg: Dict[str, Any], rounds: int) -> None:
+    """``rounds`` needs collect_r1..r<rounds> and grpo_r1..r<rounds> in the run's split manifest."""
+    from . import splits
+    path = split_manifest_path(cfg)
+    if not path.is_file():
+        if rounds > splits.ROUNDS:
+            raise ValueError(f"rounds={rounds}: split manifest {path} not found")
+        return
+    pools = set(_read_json(path)["pools"])
+    missing = [f"{kind}_r{k}" for k in range(1, rounds + 1) for kind in ("collect", "grpo") if f"{kind}_r{k}" not in pools]
+    if missing:
+        raise ValueError(f"rounds={rounds} needs pools {missing}, which {path} lacks (it holds rounds "
+                         f"1..{splits.manifest_rounds(pools)}); build an extended manifest with `python -m "
+                         f"src.manager.mcq_rsi extend-splits --bench {cfg['bench']} --rounds {rounds}` and set split_manifest")
 
 
 # ------------------------------------------------------------------------------ planning
@@ -237,6 +275,11 @@ def build_plan(cfg: Dict[str, Any], phase: str = "main", arms: Optional[Sequence
         arms = list(arms or cfg["arms"])
         rounds = int(rounds or cfg["rounds"])
     validate_arms_rounds(arms, rounds)
+    check_manifest_rounds(cfg, rounds)
+    if cfg.get("continue_from"):
+        if phase != "main":
+            raise ValueError("continue_from is a main-phase setting")
+        return _continuation_plan(cfg, arms, rounds)
     P = Planner()
     dev = cfg["dev_pool"]
     if cfg["prefetch"]["enabled"]:
@@ -266,7 +309,17 @@ def build_plan(cfg: Dict[str, Any], phase: str = "main", arms: Optional[Sequence
         shared_g1 = f"decision:{d}"
     G = {arm: (shared_g1 if ARM_SPECS[arm]["grpo"] else f"decision:{s1_dev}") for arm in arms}
     by_arm: Dict[str, Dict[str, Dict[str, Any]]] = {arm: {"1": {"G": G[arm], "dev": G[arm]}} for arm in arms}
-    for k in range(2, rounds + 1):
+    _plan_rounds(P, cfg, arms, G, by_arm, range(2, rounds + 1), shared_g1, lr_ref)
+    return {"version": CONTROLLER_VERSION, "bench": cfg["bench"], "phase": phase, "arms": arms, "rounds": rounds,
+            "stages": P.stages, "by_arm": by_arm, "finals": {"S_1": "import:S_1", **{a: G[a] for a in arms}}}
+
+
+def _plan_rounds(P: Planner, cfg: Dict[str, Any], arms: Sequence[str], G: Dict[str, str],
+                 by_arm: Dict[str, Dict[str, Dict[str, Any]]], ks: Iterable[int], shared_g1: Optional[str],
+                 lr_ref: Optional[str]) -> None:
+    """Rounds ``ks`` of every arm from its resolved G (updated in place): collect, select, SFT, GRPO, gates."""
+    dev = cfg["dev_pool"]
+    for k in ks:
         for arm in arms:
             spec = ARM_SPECS[arm]
             stages: Dict[str, Any] = {}
@@ -298,8 +351,133 @@ def build_plan(cfg: Dict[str, Any], phase: str = "main", arms: Optional[Sequence
                 G[arm] = f"decision:{stages['sft_dev']}"
             stages["G"] = G[arm]
             by_arm[arm][str(k)] = stages
-    return {"version": CONTROLLER_VERSION, "bench": cfg["bench"], "phase": phase, "arms": arms, "rounds": rounds,
-            "stages": P.stages, "by_arm": by_arm, "finals": {"S_1": "import:S_1", **{a: G[a] for a in arms}}}
+
+
+def _continuation_plan(cfg: Dict[str, Any], arms: List[str], rounds: int) -> Dict[str, Any]:
+    """Rounds R+1..rounds from each arm's resolved G_R of the source run (``continue_from``)."""
+    info = continuation_source(cfg, arms, rounds)
+    R = info["round"]
+    P = Planner()
+    G: Dict[str, str] = {}
+    by_arm: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    for arm in arms:
+        a = info["arms"][arm]
+        # Keyed by the source stage (no arm param): arms sharing a G_R (only possible for R = 1) share one source
+        # stage and one G ref, so the round-2 collection is shared as in the main phase.
+        stage = P.add(f"r{R}/{arm}/source", "source", "cpu", run_dir=info["run_dir"], stage=a["stage"], round=R,
+                      checkpoint=a["checkpoint"], adapter_sha256=a["adapter_sha256"],
+                      signature_sha256=info["signature_sha256"])
+        G[arm] = f"decision:{stage}"
+        by_arm[arm] = {str(R): {"source": stage, "G": G[arm]}}
+    # As build_plan: the round-2 collection is shared by the arms whose G_1 is the GRPO arms' G_1 (else S_1's).
+    shared_g1 = next((G[a] for a in arms if ARM_SPECS[a]["grpo"]), G[arms[0]]) if R == 1 else None
+    if cfg["prefetch"]["enabled"]:
+        ks = range(R + 1, rounds + 1)
+        pools = [cfg["dev_pool"]] + [f"collect_r{k}" for k in ks] + [f"grpo_r{k}" for k in ks]
+        pools += [p for p in cfg["final"]["test_pools"] if p not in pools]
+        P.add("prefetch/advisors", "prefetch", "inference", pools=pools, checkpoint="import:S_1",
+              verifier_pools=[p for p in cfg["prefetch"]["verifier_pools"] if p in pools])
+    _plan_rounds(P, cfg, arms, G, by_arm, range(R + 1, rounds + 1), shared_g1, None)
+    return {"version": CONTROLLER_VERSION, "bench": cfg["bench"], "phase": "main", "arms": arms, "rounds": rounds,
+            "stages": P.stages, "by_arm": by_arm, "finals": {a: G[a] for a in arms}, "continuation": info}
+
+
+# Settings a continuation must share with its source run (dev gates compare against the source's dev evals).
+# advisor_cache: the cached advisor outputs the source dev evals used, and the locked-test registry
+# (locked_test_registry), so a continuation's final test is registered as a reuse of the source's locked test.
+CONTINUATION_SAME = ("bench", "base_model", "base_revision", "advisor_mode", "advisor_cache", "dev_pool", "limits")
+# Settings a continuation sets for itself; any other signed setting that differs is recorded (config_differences).
+CONTINUATION_FREE = ("rounds", "arms", "split_manifest", "continue_from")
+
+
+def _ref_stage(ref: str) -> Optional[str]:
+    if ref.startswith(("out:", "decision:")):
+        return ref.split(":", 1)[1].split("::", 1)[0].partition("#")[0]
+    return None
+
+
+def stage_dependencies(stages: Sequence[Dict[str, Any]], name: str) -> List[str]:
+    """``name`` and every stage it reads, directly or not (``out:``/``decision:`` references, stage-name params)."""
+    by_name = {s["name"]: s for s in stages}
+
+    def strings(v):
+        if isinstance(v, str):
+            yield v
+        elif isinstance(v, dict):
+            for x in v.values():
+                yield from strings(x)
+        elif isinstance(v, list):
+            for x in v:
+                yield from strings(x)
+
+    seen: List[str] = []
+    todo = [name]
+    while todo:
+        n = todo.pop()
+        if n in seen:
+            continue
+        seen.append(n)
+        for v in strings(by_name[n]["params"]):
+            dep = _ref_stage(v) or (v if v in by_name else None)
+            if dep is not None:
+                todo.append(dep)
+    return seen
+
+
+def continuation_source(cfg: Dict[str, Any], arms: Sequence[str], rounds: int) -> Dict[str, Any]:
+    """Validate ``continue_from`` against the source run and return the provenance the plan records."""
+    from . import splits
+    cont = cfg["continue_from"]
+    src, R = Path(cont["run_dir"]), int(cont["round"])
+    if not src.is_dir() or not (src / RUN_FILE).is_file():
+        raise ValueError(f"continue_from: {src} is not an MCQ RSI run directory")
+    source = load_run(src)
+    plan, scfg = source["plan"], source["config_full"]
+    if plan.get("phase") != "main" or plan.get("continuation"):
+        raise ValueError("continue_from: the source must be a main-phase run that is not itself a continuation")
+    if rounds <= R:
+        raise ValueError(f"rounds ({rounds}) must exceed continue_from.round ({R})")
+    if R > int(plan["rounds"]):
+        raise ValueError(f"continue_from: the source run planned {plan['rounds']} rounds, not {R}")
+    extra = [a for a in arms if a not in plan["arms"]]
+    if extra:
+        raise ValueError(f"continue_from: arms {extra} are not arms of the source run ({plan['arms']})")
+    for key in CONTINUATION_SAME:
+        if scfg.get(key) != cfg[key]:
+            raise ValueError(f"continue_from: {key} differs from the source run ({scfg.get(key)!r} != {cfg[key]!r})")
+    smf = source["signature"]["manifests"]
+    src_manifest = Path(smf["split_manifest"])
+    if not src_manifest.is_file() or _file_sha(src_manifest) != smf["split_manifest_sha256"]:
+        raise ValueError(f"continue_from: the source run's split manifest {src_manifest} is missing or changed")
+    if not split_manifest_path(cfg).is_file():
+        raise ValueError(f"continue_from: split manifest {split_manifest_path(cfg)} not found")
+    own = _read_json(split_manifest_path(cfg))
+    old = _read_json(src_manifest)
+    changed = sorted(p for p, entries in old["pools"].items() if own["pools"].get(p) != entries)
+    if changed or own["benchmark"] != old["benchmark"]:
+        raise ValueError(f"continue_from: the split manifest must hold the source run's pools unchanged ({changed})")
+    out_arms = {}
+    for arm in arms:
+        if str(R) not in plan["by_arm"][arm]:
+            raise ValueError(f"continue_from: the source run has no round {R} for {arm}")
+        ref = plan["by_arm"][arm][str(R)]["G"]
+        stage = _ref_stage(ref)
+        pending = [n for n in stage_dependencies(plan["stages"], stage) if not is_complete(src, {"name": n})]
+        if pending:
+            raise ValueError(f"continue_from: {arm} G_{R} ({ref}) depends on incomplete source stages {pending[:5]}")
+        dec = _read_json(src / stage / "decision.json")
+        weights = Path(dec["checkpoint"]) / "adapter_model.safetensors"
+        if not weights.is_file():
+            raise ValueError(f"continue_from: {arm} G_{R} checkpoint {dec['checkpoint']} has no adapter_model.safetensors")
+        out_arms[arm] = {"ref": ref, "stage": stage, "checkpoint": dec["checkpoint"], "adapter_sha256": _file_sha(weights),
+                         "dev_result": dec["dev_result"]}
+    mine, theirs = signed_config(cfg), signed_config(scfg)
+    differs = sorted(k for k in set(mine) | set(theirs) if k not in CONTINUATION_FREE and mine.get(k) != theirs.get(k))
+    return {"run_dir": str(src), "round": R, "signature_sha256": source["signature_sha256"],
+            "git_head": source["signature"]["code"].get("git_head"),
+            "code_sha256": source["signature"]["code"].get("sha256"),
+            "split_manifest_sha256": smf["split_manifest_sha256"], "arms": out_arms,
+            "config_differences": differs}
 
 
 # ------------------------------------------------------------------------------ identity
@@ -392,7 +570,7 @@ def import_content(path) -> Optional[Dict[str, Any]]:
 
 def manifest_identity(cfg: Dict[str, Any]) -> Dict[str, Any]:
     bench = registry.get(cfg["bench"])
-    split = Path(cfg["split_manifest"]) if cfg["split_manifest"] else bench.path(bench.split_manifest)
+    split = split_manifest_path(cfg)
     content = import_content(Path(cfg["import_dir"]) / bench.name / "import_manifest.json")
     return {"split_manifest": str(split), "split_manifest_sha256": _file_sha(split) if split.is_file() else None,
             "import_content_sha256": _sha(content) if content is not None else None}
@@ -611,7 +789,13 @@ def resolve(root, rt: Runtime, ref: Optional[str]):
         path = Path(root) / stage / "decision.json"
         if not path.is_file():
             raise RuntimeError(f"{ref}: {path} does not exist (stage {stage} not complete)")
-        return _read_json(path)[field or "checkpoint"]
+        dec = _read_json(path)
+        src = dec.get("source")
+        if src and (field or "checkpoint") == "checkpoint" and _adapter_sha(dec["checkpoint"]) != src["adapter_sha256"]:
+            # a continuation's G_R lives in the source run: re-checked whenever a stage loads it
+            raise RuntimeError(f"{ref}: the source checkpoint {dec['checkpoint']} changed (adapter_model.safetensors "
+                               f"sha256 != {src['adapter_sha256']} recorded by {stage})")
+        return dec[field or "checkpoint"]
     raise ValueError(f"unknown reference {ref!r}")
 
 
@@ -898,8 +1082,40 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
     return out_metrics
 
 
+def _adapter_sha(checkpoint) -> str:
+    return _file_sha(Path(checkpoint) / "adapter_model.safetensors")
+
+
+def stage_source(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
+    """Continuation: copy the source run's resolved G_R decision; its adapter must be the one planned on.
+
+    The copy keeps ``checkpoint`` and ``dev_result`` pointing into the source run (the round-(R+1) SFT flags
+    and GRPO baselines compare against that dev eval) and adds the provenance under ``source``."""
+    p = spec["params"]
+    src = Path(p["run_dir"])
+    source = load_run(src)
+    if source["signature_sha256"] != p["signature_sha256"]:
+        raise RuntimeError(f"{src}: the source run's signature changed since this run was planned")
+    if not (src / p["stage"] / MARKER).is_file():
+        raise RuntimeError(f"{src}/{p['stage']} is not complete")
+    dec = _read_json(src / p["stage"] / "decision.json")
+    if dec["checkpoint"] != p["checkpoint"]:
+        raise RuntimeError(f"{src}/{p['stage']} now resolves to {dec['checkpoint']}, planned {p['checkpoint']}")
+    sha = _adapter_sha(p["checkpoint"])
+    if sha != p["adapter_sha256"]:
+        raise RuntimeError(f"{p['checkpoint']}: adapter_model.safetensors sha256 {sha} != {p['adapter_sha256']} "
+                           "recorded when this run was planned; the source checkpoint changed")
+    if not Path(dec["dev_result"]).is_file():
+        raise RuntimeError(f"{dec['dev_result']} (the source G_{p['round']} dev eval) is missing")
+    decision = {**dec, "source": {"run_dir": str(src), "stage": p["stage"], "round": p["round"],
+                                  "signature_sha256": p["signature_sha256"], "adapter_sha256": sha,
+                                  "git_head": source["signature"]["code"].get("git_head")}}
+    _write_json(out / "decision.json", decision)
+    return decision
+
+
 STAGE_FUNCS: Dict[str, Callable] = {
-    "prefetch": stage_prefetch, "eval": stage_eval, "grpo_select": stage_grpo_select, "grpo": stage_grpo,
+    "source": stage_source, "prefetch": stage_prefetch, "eval": stage_eval, "grpo_select": stage_grpo_select, "grpo": stage_grpo,
     "collect": stage_collect, "select": stage_select, "sft": stage_sft, "test": stage_test,
 }
 
@@ -911,13 +1127,15 @@ def validate_stage(spec: Dict[str, Any], out: Path) -> None:
         "grpo_select": ["decision.json"], "grpo": ["summary.json", "final/adapter_model.safetensors"],
         "collect": ["counterfactual_records.jsonl", "marginal_value_report.json"],
         "select": ["labels.jsonl", "labels.report.json"], "sft": ["sft_report.json", "model/adapter_model.safetensors"],
-        "test": ["final.json"],
+        "test": ["final.json"], "source": ["decision.json"],
     }[kind]
     missing = [n for n in need if not (out / n).exists()]
     if missing:
         raise RuntimeError(f"stage {spec['name']} is missing {missing}")
     if kind == "eval" and not _eval_result(out)["passed"] and not _gate_failure_rejected(spec, out):
         raise RuntimeError(f"stage {spec['name']}: eval gate failed")
+    if kind == "source" and _adapter_sha(spec["params"]["checkpoint"]) != spec["params"]["adapter_sha256"]:
+        raise RuntimeError(f"stage {spec['name']}: the source checkpoint {spec['params']['checkpoint']} changed")
     if kind == "select":
         report = _read_json(out / "labels.report.json")
         if report["sha256"] != _file_sha(out / "labels.jsonl"):
@@ -1251,13 +1469,15 @@ def run(config_path, out, *, phase: str = "main", arms=None, rounds=None, hours:
 # ------------------------------------------------------------------------------ final test
 
 def resolve_finals(root, run: Dict[str, Any], rt: Runtime, allow_incomplete: bool) -> Dict[str, Dict[str, Any]]:
-    """Pre-registered finals: S_1 and the last-round G_R (or S_R if rejected) of each arm.
+    """Pre-registered finals: S_1 (not for a continuation) and the last-round G_R (or S_R if rejected) of each arm.
 
     With ``allow_incomplete`` an arm whose last round did not finish falls back to the
     latest round whose G_k resolved, flagged ``truncated_at_round``.
     """
     plan = run["plan"]
-    finals = {"S_1": {"ref": "import:S_1", "checkpoint": resolve(root, rt, "import:S_1"), "round": 1}}
+    finals = {}
+    if "S_1" in plan["finals"]:
+        finals["S_1"] = {"ref": "import:S_1", "checkpoint": resolve(root, rt, "import:S_1"), "round": 1}
     for arm in plan["arms"]:
         rounds = sorted(plan["by_arm"][arm], key=int)
         chosen = None
@@ -1447,8 +1667,10 @@ def report(out) -> Dict[str, Any]:
     stages = plan["stages"]
     complete = {s["name"]: is_complete(root, s) for s in stages}
     base_rows = None
-    s1 = root / "r1/S1_dev" / "manager_tool_eval.jsonl"
-    if complete.get("r1/S1_dev") and s1.is_file():
+    cont = plan.get("continuation")
+    s1_root = Path(cont["run_dir"]) if cont else root  # a continuation's drift baseline is the source run's S_1
+    s1 = s1_root / "r1/S1_dev" / "manager_tool_eval.jsonl"
+    if ((s1_root / "r1/S1_dev" / MARKER).is_file() if cont else complete.get("r1/S1_dev")) and s1.is_file():
         base_rows = _eval_rows(s1)
     dev, collections, labels, grpo_runs, decisions = [], [], [], [], []
     for spec in stages:
@@ -1539,6 +1761,14 @@ def report(out) -> Dict[str, Any]:
         "decisions": decisions, "finals": finals, "test_sets_used": bool(finals),
         "scope": "one seed per cell; dev is used for gates only; the locked test runs once (final-test)",
     }
+    caveats = split_caveats(run_info, plan)
+    if caveats:
+        result["split_caveats"] = caveats
+    if cont:
+        result["continuation"] = {"run_dir": cont["run_dir"], "round": cont["round"], "git_head": cont["git_head"],
+                                  "signature_sha256": cont["signature_sha256"],
+                                  "arms": {a: {k: v[k] for k in ("stage", "checkpoint", "adapter_sha256")}
+                                           for a, v in cont["arms"].items()}}
     _write_json(root / "report.json", result)
     (root / "report.md").write_text(render_markdown(result), encoding="utf-8")
     _write_csv(root / "dev_metrics.csv", dev, ["stage", "round", "role", "n", "accuracy", "initial_draft_accuracy",
@@ -1546,6 +1776,19 @@ def report(out) -> Dict[str, Any]:
                                                "correction_rate", "corruption_rate", "margin"])
     _wandb_log(run_info["config_full"], result, f"{root.resolve().name}_{run_info['signature_sha256'][:8]}", root)
     return result
+
+
+def split_caveats(run_info: Dict[str, Any], plan: Dict[str, Any]) -> Dict[str, str]:
+    """The flags an extended split manifest (``extend-splits``) records for the extended pools this run uses."""
+    from . import splits
+    try:
+        manifest = _read_json(run_info["signature"]["manifests"]["split_manifest"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return {}
+    if not (manifest.get("meta") or {}).get("extension"):
+        return {}
+    used = [p for p in splits.extension_pools(manifest["pools"]) if int(p.rsplit("_r", 1)[1]) <= int(plan["rounds"])]
+    return {p: manifest.get("flags", {})[p] for p in used if p in manifest.get("flags", {})}
 
 
 def _reference_eval(root: Path, spec: Dict[str, Any]) -> Optional[Tuple[str, Path]]:
@@ -1588,6 +1831,14 @@ def _table(headers, rows) -> str:
 def render_markdown(r: Dict[str, Any]) -> str:
     out = [f"# MCQ RSI report: {r['bench']} ({r['phase']}, arms {', '.join(r['arms'])}, R={r['rounds']})", "",
            f"Stages {r['completed_stages']}/{r['planned_stages']} complete. {r['scope']}.", ""]
+    if r.get("continuation"):
+        c = r["continuation"]
+        out += [f"Continuation of {c['run_dir']} from round {c['round']} (source git {c['git_head']}, signature "
+                f"{c['signature_sha256'][:12]}); G_{c['round']}: "
+                + "; ".join(f"{a} {v['stage']} (adapter {v['adapter_sha256'][:12]})" for a, v in c["arms"].items())
+                + ". No S_1 final; drift vs S_1 uses the source run's r1/S1_dev.", ""]
+    if r.get("split_caveats"):
+        out += ["## Split caveats (extended manifest)", ""] + [f"- {p}: {t}" for p, t in r["split_caveats"].items()] + [""]
     def drift_cells(x):
         if not x or not x.get("comparable"):
             return ["-", "-", "-"]

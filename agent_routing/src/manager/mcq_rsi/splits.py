@@ -20,14 +20,20 @@ counts it) and ``test_paper_clean`` (its questions in no other pool or advisor-S
 file). All pools are pairwise hash-disjoint except declared reuse (GPQA) and
 ``test_paper``.
 Duplicates and skipped candidates are recorded, never raised.
+
+``extend_splits`` adds rounds 4..``MAX_ROUNDS`` to a frozen manifest without touching it: a new file
+(``<bench>_splits_r<R>.json``) holds every original pool unchanged plus ``collect_r<k>`` / ``grpo_r<k>``
+drawn from the fresh-question population (the paper GRPO pool is exhausted by grpo_r1..r3).
 """
 from __future__ import annotations
 
 import collections
+import copy
 import hashlib
 import json
 import os
 import random
+import re
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -42,7 +48,10 @@ FLAGGED_POOLS = ("test_paper", "test_paper_clean")
 PAPER_SEED = 42
 N_COLLECT = 400
 N_GRPO = 256
-ROUNDS = 3
+ROUNDS = 3  # rounds of a base manifest (build_splits)
+MAX_ROUNDS = 5  # rounds an extended manifest may hold (extend_splits)
+EXTEND_TAGS = ("collect_ext", "grpo_ext")
+_ROUND_POOL = re.compile(r"(collect|grpo)_r([1-9][0-9]*)")
 HASH_DEFINITION = "src.benchmarks.base.question_hash: sha1(collapse_ws(strip(question)).lower())[:16]"
 
 
@@ -121,6 +130,33 @@ class _Claims:
         return taken
 
 
+def _fresh_candidates(bench: str, rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The fresh-question population collect_r2/r3 (and extended rounds) are drawn from, in cache order."""
+    if bench in {"medqa", "aqua"}:
+        return [r for r in rows if (r.get("split") or "").lower() == "train"][1200:]
+    if bench == "mmlu_pro":
+        order = list(rows)
+        random.Random(PAPER_SEED).shuffle(order)
+        return order[2000:]
+    raise ValueError(f"{bench} has no fresh-question population")
+
+
+def extension_pools(pools: Iterable[str]) -> List[str]:
+    """``collect_r<k>`` / ``grpo_r<k>`` pools with k > ROUNDS, ordered by round (collect first)."""
+    found = [(int(m.group(2)), m.group(1) != "collect", p) for p in pools
+             if (m := _ROUND_POOL.fullmatch(p)) and int(m.group(2)) > ROUNDS]
+    return [p for _, _, p in sorted(found)]
+
+
+def manifest_rounds(pools: Iterable[str]) -> int:
+    """The largest R such that collect_r1..rR and grpo_r1..rR are all present."""
+    pools = set(pools)
+    r = 0
+    while f"collect_r{r + 1}" in pools and f"grpo_r{r + 1}" in pools:
+        r += 1
+    return r
+
+
 def _chunks(rows: List[Dict[str, Any]], prefix: str, size: int) -> Dict[str, List[Dict[str, Any]]]:
     return {f"{prefix}{k + 1}": rows[k * size:(k + 1) * size] for k in range(len(rows) // size)}
 
@@ -167,7 +203,7 @@ def build_splits(
         for pool in ("dev", "test"):
             claims.claim(pool, pools[pool])
         grpo_candidates = [r for r in paper_train if not in_collection(r)]
-        fresh_candidates = train[1200:]
+        fresh_candidates = _fresh_candidates(bench, rows)
         meta["fresh_source"] = "train rows after the first 1200"
     elif bench == "mmlu_pro":
         order = list(rows)
@@ -187,7 +223,7 @@ def build_splits(
         grpo_candidates = [r for r in paper_train if not in_collection(r)]
         pools["test"] = claims.take("test", order[1500:], 500, exclude_advisor=True)
         meta["test_source"] = "first 500 eligible shuffled positions >= 1500 (not advisor-SFT, hash-new)"
-        fresh_candidates = order[2000:]
+        fresh_candidates = _fresh_candidates(bench, rows)
         meta["fresh_source"] = "shuffled positions >= 2000"
     elif bench == "gpqa":
         if test_rows is None:
@@ -279,18 +315,24 @@ def check_manifest(manifest: Dict[str, Any]) -> None:
     missing = [p for p in POOLS if p not in pools]
     if missing:
         raise ValueError(f"missing pools {missing}")
+    extra = extension_pools(pools)
+    rounds = manifest_rounds(pools)
+    if rounds > MAX_ROUNDS or sorted(extra) != sorted(f"{kind}_r{k}" for k in range(ROUNDS + 1, rounds + 1)
+                                                      for kind in ("collect", "grpo")):
+        raise ValueError(f"extended pools {extra} must be collect_r4..r{{R}} and grpo_r4..r{{R}} with R <= {MAX_ROUNDS}")
     reuse = manifest.get("reuse", {})
     for pool, src in reuse.items():
         if pools[pool] != pools[src]:
             raise ValueError(f"{pool} must equal {src}")
-    canonical = [p for p in POOLS if p not in reuse]
+    canonical = [p for p in POOLS + tuple(extra) if p not in reuse]
     hashes = {p: {e["question_hash"] for e in pools[p]} for p in canonical}
     for i, a in enumerate(canonical):
         for b in canonical[i + 1:]:
             shared = hashes[a] & hashes[b]
             if shared:
                 raise ValueError(f"pools {a} and {b} share {len(shared)} question hashes")
-    fresh = [p for p in ("collect_r2", "collect_r3") if p not in reuse]
+    fresh = [p for p in ("collect_r2", "collect_r3") + tuple(x for x in extra if x.startswith("collect_"))
+             if p not in reuse]
     advisor = {e["question_hash"] for e in manifest["advisor_sft"]["entries"]}
     for p in fresh:
         if hashes[p] & advisor:
@@ -455,3 +497,123 @@ def prepare_benchmark(
     manifest["sources"] = sources
     write_frozen(manifest, out or spec.path(spec.split_manifest), force)
     return manifest
+
+
+# ------------------------------------------------------------------ extended rounds
+
+def extended_manifest_path(bench: str, rounds: int) -> Path:
+    spec = registry.get(bench)
+    base = spec.path(spec.split_manifest)
+    return base.with_name(f"{base.stem}_r{rounds}{base.suffix}")
+
+
+def extend_splits(manifest: Dict[str, Any], rows: Sequence[Dict[str, Any]], rounds: int = MAX_ROUNDS, *,
+                  source_sha256: str, source_name: str = "") -> Dict[str, Any]:
+    """A copy of a frozen base manifest with ``collect_r<k>`` / ``grpo_r<k>`` for k = ROUNDS+1..``rounds``.
+
+    Every original pool (and every other field except ``counts``, ``meta.extension``, the per-pool duplicate,
+    skipped-candidate and advisor-overlap records) is kept unchanged. The new pools come from the fresh-question
+    population collect_r2/r3 were drawn from (``_fresh_candidates``), each kind shuffled with its own fixed tag
+    (``EXTEND_TAGS``) and taken round by round (collect_r<k> then grpo_r<k>), so round k's pools do not depend
+    on ``rounds``. No question (hash) of any existing pool, flagged pools included, is ever taken; collect pools
+    also never take an advisor-SFT question (as collect_r2/r3), grpo pools may (as grpo_r1..r3).
+    """
+    bench = manifest["benchmark"]
+    if bench == "gpqa" or manifest.get("reuse"):
+        raise ValueError(f"{bench}: no spare questions (its later rounds reuse the round-1 pools); cannot extend")
+    if manifest.get("builder_version") != BUILDER_VERSION:
+        raise ValueError(f"builder_version {manifest.get('builder_version')} != {BUILDER_VERSION}")
+    check_manifest(manifest)
+    if extension_pools(manifest["pools"]):
+        raise ValueError(f"{bench}: the manifest is already extended; extend the base manifest")
+    if not (isinstance(rounds, int) and ROUNDS < rounds <= MAX_ROUNDS):
+        raise ValueError(f"rounds must be in [{ROUNDS + 1}, {MAX_ROUNDS}]")
+    rows = list(rows)
+    by_id = {int(r["example_id"]): r for r in rows}
+    if len(by_id) != len(rows):
+        raise ValueError(f"{bench}: duplicate example_id in cache")
+    for pool, entries in manifest["pools"].items():  # every pool indexes this cache (no aux cache outside GPQA)
+        _resolve(by_id, entries, pool)
+    fresh = _fresh_candidates(bench, rows)
+    fresh_ids = {int(r["example_id"]) for r in fresh}
+    if any(e["example_id"] not in fresh_ids for p in ("collect_r2", "collect_r3") for e in manifest["pools"][p]):
+        raise ValueError(f"{bench}: collect_r2/r3 are not in the fresh population (loader drift)")
+    entries = manifest["advisor_sft"]["entries"]
+    advisor_ids = {int(a["example_id"]) for a in entries}
+    advisor_hashes = {a["question_hash"] for a in entries}
+    claims = _Claims(advisor_ids, advisor_hashes)
+    for pool, items in manifest["pools"].items():
+        for e in items:
+            claims.owner.setdefault(e["question_hash"], pool)
+    seed = int(manifest["seed"])
+    orders = {}
+    for kind, tag in zip(("collect", "grpo"), EXTEND_TAGS):
+        orders[kind] = list(fresh)
+        _rng(bench, tag, seed).shuffle(orders[kind])
+    new: Dict[str, List[Dict[str, Any]]] = {}
+    for k in range(ROUNDS + 1, rounds + 1):
+        for kind, n, exclude in (("collect", N_COLLECT, True), ("grpo", N_GRPO, False)):
+            # rows an earlier extended pool took are not candidates (their skips would only count earlier draws)
+            candidates = [r for r in orders[kind] if claims.owner.get(identity(r)) not in new]
+            new[f"{kind}_r{k}"] = claims.take(f"{kind}_r{k}", candidates, n, exclude_advisor=exclude)
+    out = copy.deepcopy(manifest)
+    for pool, taken in new.items():
+        out["pools"][pool] = _entries(taken)
+        out["counts"][pool] = len(taken)
+        out["duplicates"]["skipped_candidates"][pool] = claims.skipped[pool]
+        out["advisor_sft"]["overlap"][pool] = sum(int(r["example_id"]) in advisor_ids or identity(r) in advisor_hashes
+                                                  for r in taken)
+        if groups := _dup_groups(taken):
+            out["duplicates"]["within_pool"][pool] = groups
+    # The GRPO-pool composition changes at the round-3/4 boundary: grpo_r1..r3 (paper GRPO pool) hold many
+    # advisor-SFT questions, the fresh population few or none. Recorded so rounds 4.. are not read as saturation.
+    overlap = out["advisor_sft"]["overlap"]
+    base_grpo = {p: overlap.get(p) for p in (f"grpo_r{k}" for k in range(1, ROUNDS + 1))}
+    new_grpo = {p: overlap[p] for p in new if p.startswith("grpo_")}
+    shift = (f"advisor-SFT questions: base {' / '.join(f'{p} {n}' for p, n in base_grpo.items())}; "
+             f"extended {' / '.join(f'{p} {n}' for p, n in new_grpo.items())} (of {N_GRPO} each)")
+    for pool in new_grpo:
+        out.setdefault("flags", {})[pool] = (
+            "drawn from the fresh-question population, not the paper GRPO pool of grpo_r1..r3 (exhausted): the GRPO "
+            f"pool composition changes at the round-3/4 boundary ({shift}). Rounds 4.. are not like-for-like with "
+            "rounds 1-3; split GRPO/dev comparisons across that boundary by advisor-SFT membership")
+    out["meta"]["extension"] = {
+        "grpo_advisor_sft_overlap": {"base": base_grpo, "extended": new_grpo, "pool_size": N_GRPO},
+        "rounds": rounds, "pools": list(new), "source_manifest": source_name, "source_manifest_sha256": source_sha256,
+        "source_pools_unchanged": sorted(manifest["pools"]), "seed": seed, "tags": dict(zip(("collect", "grpo"), EXTEND_TAGS)),
+        "fresh_source": manifest["meta"].get("fresh_source"),
+        "rule": ("collect_r<k>, grpo_r<k> for k = 4..R, round by round, each from the fresh-question population "
+                 "(the population of collect_r2/r3; the paper GRPO pool is exhausted by grpo_r1..r3) shuffled by "
+                 "random.Random('mcq_rsi:<bench>:<tag>:<seed>'); never a question hash of any existing pool "
+                 "(flagged pools included) or of an earlier extended pool; collect pools also never an advisor-SFT "
+                 "question (example_id or hash), grpo pools may be (as grpo_r1..r3)"),
+    }
+    check_manifest(out)
+    for pool, items in manifest["pools"].items():
+        if out["pools"][pool] != items:
+            raise AssertionError(f"{pool} changed")  # never: deepcopy + additions only
+    return out
+
+
+def extend_benchmark(bench: str, rounds: int = MAX_ROUNDS, *, manifest: Optional[str] = None,
+                     cache: Optional[str] = None, out: Optional[str] = None, hf_cache_dir: Optional[str] = None,
+                     force: bool = False) -> Tuple[Dict[str, Any], Path]:
+    """``extend_splits`` over the frozen registry manifest (never modified) -> ``<bench>_splits_r<rounds>.json``."""
+    spec = registry.get(bench)
+    if bench == "gpqa":
+        raise ValueError("gpqa: no spare questions (its later rounds reuse the round-1 pools); cannot extend")
+    source = Path(manifest) if manifest else spec.path(spec.split_manifest)
+    base = read_manifest(source)
+    if base["benchmark"] != bench:
+        raise ValueError(f"{source} is a {base['benchmark']} manifest")
+    cache_path = Path(cache) if cache else spec.path(spec.cache)
+    if bench == "aqua":
+        ensure_aqua_cache(cache_path, spec.cache_sha256, hf_cache_dir)
+    rows = load_cache(cache_path, spec.cache_sha256)
+    rel = str(source.relative_to(registry.PACKAGE_ROOT)) if source.is_relative_to(registry.PACKAGE_ROOT) else str(source)
+    extended = extend_splits(base, rows, rounds, source_sha256=file_sha256(source), source_name=rel)
+    path = Path(out) if out else extended_manifest_path(bench, rounds)
+    if path.resolve() == source.resolve():
+        raise ValueError("the extended manifest never replaces its source")
+    write_frozen(extended, path, force)
+    return extended, path

@@ -6,7 +6,8 @@ Subcommands
   replay    matched-budget replay (paper §4.4): fix role and call count, resample examples 2,000 times
   agree     per-example candidate + tool-sequence agreement of two evals (round-0 parity vs a recorded eval)
   tables    per-round paper Tables 1, 2, 3, 7, 8 from a run directory, finals vs S_1 / between arms
-            (paired bootstrap + McNemar) and matched-budget replay of every final on dev; CSV + markdown
+            (paired bootstrap + McNemar) and matched-budget replay of every final on dev; CSV + markdown.
+            A continuation run (``continue_from``) has no S_1 final: dynamic vs the controls only
   smoke-check  the automatic GPU-smoke pass checks (design §7.2): run complete, round-0 agreement of
             r1/S1_dev with the recorded paper eval (>= 48 of 50), FA-GRPO peak memory, an accept block
             on every GRPO dev eval; writes <run>/smoke_check.json, exit 1 on failure

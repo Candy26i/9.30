@@ -260,3 +260,135 @@ def test_frozen_manifest_is_not_silently_overwritten(tmp_path):
     assert splits.read_manifest(path) == other
     with pytest.raises(ValueError, match="explicit out"):
         splits.prepare_benchmark("medqa", "unused", [], seed=7)
+
+
+# ------------------------------------------------------------------ extended rounds (r4, r5)
+
+EXT = ("collect_r4", "grpo_r4", "collect_r5", "grpo_r5")
+
+
+@pytest.mark.parametrize("name", ["mmlu_pro", "aqua"])
+def test_tracked_r5_manifests_keep_every_frozen_pool_and_add_disjoint_rounds(name):
+    base_path = ROOT / BENCHMARKS[name].split_manifest
+    path = splits.extended_manifest_path(name, 5)
+    assert path == base_path.with_name(f"{name}_splits_r5.json") and path.is_file()
+    base, ext = manifest(name), splits.read_manifest(path)
+    assert ext["meta"]["extension"]["source_manifest_sha256"] == splits.file_sha256(base_path)
+    assert ext["meta"]["extension"]["source_manifest"] == BENCHMARKS[name].split_manifest
+    assert ext["meta"]["extension"]["pools"] == list(EXT) and ext["meta"]["extension"]["rule"]
+    # Every original pool byte-identical (entries and order); the rest of the manifest only gains new-pool records.
+    assert all(ext["pools"][p] == entries for p, entries in base["pools"].items())
+    assert set(ext["pools"]) == set(base["pools"]) | set(EXT)
+    for key in ("benchmark", "builder_version", "seed", "question_hash", "reuse", "sources"):
+        assert ext[key] == base[key], key
+    # Only flags for the extended GRPO pools are added: their population (and advisor-SFT share) differs.
+    assert {k: v for k, v in ext["flags"].items() if k not in ("grpo_r4", "grpo_r5")} == base["flags"]
+    overlap = ext["advisor_sft"]["overlap"]
+    assert ext["meta"]["extension"]["grpo_advisor_sft_overlap"] == {
+        "base": {p: overlap[p] for p in ("grpo_r1", "grpo_r2", "grpo_r3")},
+        "extended": {p: overlap[p] for p in ("grpo_r4", "grpo_r5")}, "pool_size": 256}
+    for p in ("grpo_r4", "grpo_r5"):
+        assert "round-3/4 boundary" in ext["flags"][p] and f"{p} {overlap[p]}" in ext["flags"][p]
+        assert f"grpo_r1 {overlap['grpo_r1']}" in ext["flags"][p]
+    assert sum(overlap[f"grpo_r{k}"] for k in (1, 2, 3)) > 100 and sum(overlap[p] for p in ("grpo_r4", "grpo_r5")) < 10
+    assert {k: v for k, v in ext["meta"].items() if k != "extension"} == base["meta"]
+    assert {p: ext["counts"][p] for p in base["counts"]} == base["counts"]
+    assert [ext["counts"][p] for p in EXT] == [400, 256, 400, 256]
+    assert ext["advisor_sft"]["entries"] == base["advisor_sft"]["entries"]
+    assert ext["advisor_sft"]["overlap"]["collect_r4"] == ext["advisor_sft"]["overlap"]["collect_r5"] == 0
+    old = set().union(*(hashes(base, p) for p in base["pools"]))
+    advisor = {e["question_hash"] for e in base["advisor_sft"]["entries"]}
+    advisor_ids = {e["example_id"] for e in base["advisor_sft"]["entries"]}
+    seen = set()
+    for p in EXT:
+        assert not hashes(ext, p) & old and not hashes(ext, p) & seen, p
+        seen |= hashes(ext, p)
+    for p in ("collect_r4", "collect_r5"):
+        assert not hashes(ext, p) & advisor and not set(ids(ext, p)) & advisor_ids
+    # Drawn from the population of collect_r2/r3.
+    if name == "aqua":
+        assert all(1200 <= i < 97467 for p in EXT for i in ids(ext, p))
+    else:
+        order = list(cache(BENCHMARKS[name].cache))
+        random.Random(42).shuffle(order)
+        pos = {r["example_id"]: i for i, r in enumerate(order)}
+        assert all(pos[i] >= 2000 for p in EXT for i in ids(ext, p))
+    # Regenerating from the cache reproduces the tracked file exactly.
+    if not (ROOT / BENCHMARKS[name].cache).exists():
+        pytest.skip(f"{BENCHMARKS[name].cache} not built")
+    again = splits.extend_splits(base, cache(BENCHMARKS[name].cache), 5,
+                                 source_sha256=splits.file_sha256(base_path), source_name=BENCHMARKS[name].split_manifest)
+    assert again == json.loads(path.read_text())
+
+
+def test_extend_benchmark_writes_a_new_file_and_never_touches_the_frozen_manifest(tmp_path):
+    name = "mmlu_pro"
+    base_path = ROOT / BENCHMARKS[name].split_manifest
+    if not (ROOT / BENCHMARKS[name].cache).exists():
+        pytest.skip("cache not built")
+    before = splits.file_sha256(base_path)
+    m, path = splits.extend_benchmark(name, 5, out=str(tmp_path / "x_r5.json"))
+    assert path == tmp_path / "x_r5.json" and splits.file_sha256(base_path) == before
+    assert splits.read_manifest(path) == json.loads(splits.extended_manifest_path(name, 5).read_text())
+    with pytest.raises(ValueError, match="never replaces its source"):
+        splits.extend_benchmark(name, 5, out=str(base_path))
+    with pytest.raises(ValueError, match="no spare questions"):
+        splits.extend_benchmark("gpqa", 5)
+    with pytest.raises(ValueError, match="already extended"):
+        splits.extend_benchmark(name, 5, manifest=str(path), out=str(tmp_path / "y.json"))
+    from src.manager.mcq_rsi import __main__ as cli
+    with pytest.raises(SystemExit):
+        cli.main(["extend-splits", "--bench", "gpqa"])
+    assert cli.main(["extend-splits", "--bench", name, "--rounds", "4", "--out", str(tmp_path / "x_r4.json")]) == 0
+    r4 = splits.read_manifest(tmp_path / "x_r4.json")
+    assert [p for p in r4["pools"] if p not in manifest(name)["pools"]] == ["collect_r4", "grpo_r4"]
+    assert all(r4["pools"][p] == m["pools"][p] for p in ("collect_r4", "grpo_r4"))
+
+
+def test_extend_splits_is_deterministic_round_stable_and_refuses_gpqa():
+    rows, coll = _synthetic(n_train=6000)
+    for r in rows[6000:]:  # duplicates only among train rows (dev/test stay disjoint from collect_r1)
+        r["question"] = f"question {r['example_id']}"
+    advisor = [{"example_id": r["example_id"], "question_hash": question_hash(r["question"])} for r in rows[1200:1500]]
+    base = splits.build_splits("aqua", rows, coll, advisor)
+    ext = splits.extend_splits(base, rows, 5, source_sha256="s" * 64)
+    assert ext == splits.extend_splits(copy.deepcopy(base), list(rows), 5, source_sha256="s" * 64)
+    assert all(ext["pools"][p] == base["pools"][p] for p in base["pools"]) and base == splits.build_splits("aqua", rows, coll, advisor)
+    r4 = splits.extend_splits(base, rows, 4, source_sha256="s" * 64)
+    assert {p: r4["pools"][p] for p in ("collect_r4", "grpo_r4")} == {p: ext["pools"][p] for p in ("collect_r4", "grpo_r4")}
+    assert "collect_r5" not in r4["pools"] and splits.manifest_rounds(ext["pools"]) == 5
+    fresh = {e["example_id"] for p in EXT for e in ext["pools"][p]}
+    assert fresh <= set(range(1200, 6000)) and not {e["example_id"] for p in ("collect_r4", "collect_r5")
+                                                     for e in ext["pools"][p]} & set(range(1200, 1500))
+    assert ext["duplicates"]["skipped_candidates"]["collect_r4"]["advisor_sft"] > 0
+    # Duplicate-question rows of an existing pool are never drawn (same hash, other example_id).
+    dup_of_old = [r for r in rows if r["example_id"] >= 1200 and question_hash(r["question"]) in
+                  set().union(*(hashes(base, p) for p in base["pools"])) and
+                  r["example_id"] not in {e["example_id"] for p in base["pools"] for e in base["pools"][p]}]
+    assert dup_of_old and not {r["example_id"] for r in dup_of_old} & fresh
+    for p in EXT:
+        assert ext["meta"]["extension"]["pools"] == list(EXT) and ext["counts"][p] == len(ext["pools"][p])
+    with pytest.raises(ValueError, match="already extended"):
+        splits.extend_splits(ext, rows, 5, source_sha256="")
+    for bad in (3, 6):
+        with pytest.raises(ValueError, match="rounds must be in"):
+            splits.extend_splits(base, rows, bad, source_sha256="")
+    with pytest.raises(ValueError, match="only .* eligible"):  # not enough fresh questions
+        small, small_coll = _synthetic(n_train=2600)
+        splits.extend_splits(splits.build_splits("aqua", small, small_coll, []), small, 5, source_sha256="")
+    with pytest.raises(ValueError, match="no spare questions"):
+        splits.extend_splits(manifest("gpqa"), cache(BENCHMARKS["gpqa"].cache), 5, source_sha256="")
+    # check_manifest: extended pools are validated like the base ones.
+    bad = copy.deepcopy(ext)
+    del bad["pools"]["grpo_r5"], bad["counts"]["grpo_r5"]
+    with pytest.raises(ValueError, match="extended pools"):
+        splits.check_manifest(bad)
+    bad = copy.deepcopy(ext)
+    bad["pools"]["grpo_r4"][0] = bad["pools"]["dev"][0]
+    with pytest.raises(ValueError, match="pools dev and grpo_r4 share"):
+        splits.check_manifest(bad)
+    bad = copy.deepcopy(ext)
+    bad["advisor_sft"]["entries"] = bad["advisor_sft"]["entries"] + [bad["pools"]["collect_r5"][0]]
+    with pytest.raises(ValueError, match="collect_r5 contains advisor-SFT"):
+        splits.check_manifest(bad)
+    assert splits.extension_pools(["dev", "grpo_r5", "collect_r4", "grpo_r4", "collect_r5", "collect_r2"]) == list(EXT)

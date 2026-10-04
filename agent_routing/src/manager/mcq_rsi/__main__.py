@@ -74,6 +74,17 @@ def cmd_prepare_splits(args) -> int:
     return 0
 
 
+def cmd_extend_splits(args) -> int:
+    """Rounds 4..R pools on top of a frozen manifest, written to a new file (the frozen manifest never changes)."""
+    registry.validate()
+    manifest, path = splits.extend_benchmark(args.bench, args.rounds, manifest=args.manifest, cache=args.cache,
+                                             out=args.out, hf_cache_dir=args.hf_cache_dir, force=args.force)
+    new = manifest["meta"]["extension"]["pools"]
+    print(f"[MCQ_RSI/SPLITS] {args.bench}: +{ {p: manifest['counts'][p] for p in new} } "
+          f"(source sha256 {manifest['meta']['extension']['source_manifest_sha256'][:12]}) -> {path}")
+    return 0
+
+
 def _load_manager(args, bench):
     from . import protocol
     backend = protocol.load_hf_manager(args.checkpoint, args.base_model, args.base_revision, args.batch_size)
@@ -412,6 +423,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--seed", type=int, default=splits.PAPER_SEED, help="non-default seeds need --out")
     p.add_argument("--force", action="store_true", help="overwrite an existing manifest that differs")
     p.set_defaults(func=cmd_prepare_splits)
+
+    p = sub.add_parser("extend-splits", help="new manifest <bench>_splits_r<R>.json: the frozen pools + rounds 4..R")
+    p.add_argument("--bench", required=True, choices=[b for b in registry.BENCHMARKS if b != "gpqa"])
+    p.add_argument("--rounds", type=int, default=splits.MAX_ROUNDS, help=f"default {splits.MAX_ROUNDS}")
+    p.add_argument("--manifest", default=None, help="source manifest (default: registry split_manifest; never modified)")
+    p.add_argument("--cache", default=None, help="normalized cache (default: registry path)")
+    p.add_argument("--out", default=None, help="default: data/mcq_rsi/<bench>_splits_r<R>.json")
+    p.add_argument("--hf-cache-dir", default=None, help="huggingface_hub cache for the pinned AQuA raw files")
+    p.add_argument("--force", action="store_true", help="overwrite an existing extended manifest that differs")
+    p.set_defaults(func=cmd_extend_splits)
 
     p = sub.add_parser("collect", help="on-policy counterfactual collection of one root pool (GPU manager)")
     p.add_argument("--bench", required=True, choices=list(registry.BENCHMARKS))

@@ -454,3 +454,77 @@ so move it aside before resuming:
 | dynamic + static only | about 2/3 of the above | |
 
 At about US$2–3 per GPU-hour for A100/H100-80GB, 2 GPUs cost about $4–6 per hour of wall time. The pilot costs about $30–40; the full grid, with final tests and preflight, about $300–450.
+
+## 17. Continuation: more rounds
+
+Rounds 4–5 for a benchmark whose main run finished, continuing each arm from that run's `G_3`
+(experiment 4: MMLU-Pro and AQuA, dynamic and static). GPQA cannot be extended: it has no spare questions.
+
+**1. Extended split manifest** (once, from the repo; the result is tracked in git):
+
+```bash
+$PY -m src.manager.mcq_rsi extend-splits --bench mmlu_pro --rounds 5   # -> data/mcq_rsi/mmlu_pro_splits_r5.json
+$PY -m src.manager.mcq_rsi extend-splits --bench aqua --rounds 5       # -> data/mcq_rsi/aqua_splits_r5.json
+```
+
+- The new file holds every pool of `<bench>_splits.json` unchanged, plus `collect_r4`, `collect_r5` (400 each) and `grpo_r4`, `grpo_r5` (256 each). The frozen `<bench>_splits.json` is never modified.
+- The new pools are drawn from the fresh-question population of `collect_r2`/`collect_r3`, because `grpo_r1..r3` used up the paper GRPO pool. Each kind is shuffled with a fixed tag (`collect_ext`, `grpo_ext`) and drawn one round at a time, so `r4` is the same whatever `--rounds` is.
+- A new pool never contains a question hash from an existing pool. That includes `dev`, `test`, `test_paper` and their duplicate groups. Collect pools also never contain an advisor-SFT question; GRPO pools may, as `grpo_r1..r3` do.
+- `meta.extension` records the source manifest's sha256, the seed, the tags and the rule. The command refuses to overwrite a different existing file without `--force`.
+- **Caveat: the GRPO pool changes at the round-3/4 boundary.** `grpo_r1..r3` (paper GRPO pool) contain many advisor-SFT questions, where calling an advisor almost always pays: MMLU-Pro 55/59/50 and AQuA 55/64/71 of 256. `grpo_r4/r5` contain 4/3 (MMLU-Pro) and 0/0 (AQuA); AQuA has no unused advisor-SFT questions left to match. The manifest records this in `flags.grpo_r4/r5` and `meta.extension.grpo_advisor_sft_overlap`, and `report.md` repeats it under "Split caveats". A flatter or lower call rate after round 3 is therefore not by itself evidence of saturation: split round-over-round GRPO and dev comparisons across the boundary by advisor-SFT membership.
+
+**2. Config.** Copy the source run's own config (`rsi_run.json` → `config_full`) and change four fields:
+
+```bash
+for B in mmlu_pro aqua; do
+$PY - "$B" <<'PYEOF'
+import json, sys
+b = sys.argv[1]
+src = f"/workspace/mcq_rsi/runs/{b}_main"
+cfg = json.load(open(f"{src}/rsi_run.json"))["config_full"]
+cfg.update(rounds=5, arms=["dynamic", "static"], split_manifest=f"data/mcq_rsi/{b}_splits_r5.json",
+           continue_from={"run_dir": src, "round": 3})
+json.dump(cfg, open(f"/workspace/tmp/{b}_r5_cfg.json", "w"), indent=2)
+PYEOF
+done
+```
+
+`continue_from` (`{"run_dir", "round": R}`, default `null`) is signed. A config without it plans exactly as before.
+
+**3. Run** (in tmux; resumable like any run; check the plan first with `--dry-run`):
+
+```bash
+$PY -m src.manager.mcq_rsi run --config /workspace/tmp/mmlu_pro_r5_cfg.json --run-dir /workspace/mcq_rsi/runs/mmlu_pro_r5 \
+  --arms dynamic,static --hours 72 --advisor-url http://127.0.0.1:18002
+```
+
+- The plan has no round-1 stages. It starts with one CPU stage per arm, `r3/<arm>/source`. Each one copies the source run's resolved `G_3` decision (`decision.json` of the stage the source plan's `by_arm[arm]["3"]["G"]` names) into the new run.
+- Before copying, the source stage checks that the checkpoint's `adapter_model.safetensors` sha256 still equals the value recorded at planning time. It checks again on every restart, and every stage that loads `G_R` (collect, SFT init, the finals) checks it again when it resolves the reference.
+- The source stage is keyed by the source stage it copies, so arms that share a `G_R` share one source stage (possible only for R = 1, where the GRPO arms share `G_1` and therefore one round-2 collection, as in the main phase).
+- The copied decision keeps `checkpoint` and `dev_result` pointing into the source run. The round-4 SFT flags and the GRPO gates therefore compare against the source run's `G_3` dev eval.
+- Prefetch covers `dev`, `collect_r4..r5`, `grpo_r4..r5` and the test pools; the cached entries of the source run are reused.
+- Rounds 4–5 follow the main-phase logic, per arm. Dynamic recollects from `G_{k-1}`. Static trains SFT from `G_{k-1}` on the round-1 labels.
+- **The run is refused at planning time if any of these fails:**
+  - the source run exists and is a main-phase run;
+  - its plan has every requested arm and round R;
+  - every source stage that `G_R` depends on is complete;
+  - the bench, base model and revision, `advisor_mode`, `advisor_cache`, `dev_pool` and `limits` match the source run (`advisor_cache` holds the advisor outputs the source dev evals used and the locked-test registry, so the continuation's final test needs `--reuse-test`);
+  - the split manifest holds the source run's pools unchanged (the source manifest's sha256 must match the source signature);
+  - `rounds` > R, and every `collect_r<k>`/`grpo_r<k>` up to `rounds` is in the manifest (`MAX_ROUNDS` is 5).
+- **Provenance** is in the plan (`rsi_run.json` → `plan.continuation`, part of the signature) and in `report.json`/`report.md`. It records:
+  - the source run directory, R, the source signature sha256, the source git HEAD and code sha256;
+  - the source split-manifest sha256;
+  - per arm, the source stage, the checkpoint path, its adapter sha256 and its dev result;
+  - `config_differences`: every other signed setting that differs from the source run. With the snippet above it is `[]`.
+
+**4. Final test.** The finals are each arm's `G_5` (or `S_5`, or the last resolved round with `--accept-incomplete`). There is no `S_1` final; the source run already tested it. The locked test was already registered by `<bench>_main`, so a second use must say why:
+
+```bash
+$PY -m src.manager.mcq_rsi final-test --run-dir /workspace/mcq_rsi/runs/mmlu_pro_r5 \
+  --reuse-test "experiment 4: rounds 4-5 continuing mmlu_pro_main G_3 (dynamic, static)"
+$PY scripts/mcq_rsi_analysis.py tables --run-dir /workspace/mcq_rsi/runs/mmlu_pro_r5
+```
+
+`tables` compares dynamic against static on the test pools. To compare against `S_1` or the round-3 finals, pass `compare --a <run>/final/<label>/test --b <r5 run>/final/<arm>/test`. The test ids are the same.
+
+The wrapper's `main` step always uses `configs/mcq_rsi_$BENCH.json`, so start the continuation run directly, as above, inside tmux. Its final test can go through the wrapper: `BENCH=mmlu_pro RUN_DIR=/workspace/mcq_rsi/runs/mmlu_pro_r5 REUSE_TEST="..." bash scripts/runpod_mcq_rsi.sh bg final-test`.
