@@ -1112,7 +1112,8 @@ def test_forced_final_evals_record_gate_failures_but_the_locked_test_stays_stric
 
     def forced(checkpoint, rows, pool, out, tools, **kw):
         seen.update(kw)
-        return {"metrics": {"accuracy": 0.6}, "gate": ["valid_answer_rate=0.995"], "passed": False}
+        return {"metrics": {"accuracy": 0.6, "valid_answer_rate": 0.995}, "gate": ["valid_answer_rate=0.995"],
+                "passed": False}
 
     monkeypatch.setattr(E, "evaluate_forced", forced)
     out = tmp_path / "final/S_1/dev_forced_extractor"
@@ -1121,6 +1122,11 @@ def test_forced_final_evals_record_gate_failures_but_the_locked_test_stays_stric
             "params": {"checkpoint": "S1", "pool": "dev", "label": "S_1", "forced": "extractor"}}
     res = CT.stage_test(tmp_path, rt, spec, out)
     assert seen["require_gate"] is False and res["gate"] == ["valid_answer_rate=0.995"]
+    monkeypatch.setattr(E, "evaluate_forced", lambda *a, **k: {"metrics": {"accuracy": 0.6, "valid_answer_rate": 0.9},
+                                                               "gate": ["valid_answer_rate=0.9"]})
+    with pytest.raises(RuntimeError, match="broken beyond"):
+        CT.stage_test(tmp_path, rt, spec, out)
+    monkeypatch.setattr(E, "evaluate_forced", forced)
     assert json.loads((out / "final.json").read_text())["gate"] == ["valid_answer_rate=0.995"]
     monkeypatch.setattr(E, "evaluate_forced", lambda *a, **k: {"metrics": {}, "gate": ["advisor failures=3"]})
     with pytest.raises(RuntimeError, match="advisor infrastructure"):
@@ -1154,6 +1160,7 @@ def test_final_test_code_override_is_recorded_bound_to_the_code_and_final_stages
         def ident():
             i = real()
             i["files"]["manager/mcq_rsi/controller.py"] = tag * 64
+            i["sha256"] = CT._sha(i["files"])  # as code_identity derives it
             return i
         return ident
 
@@ -1165,6 +1172,7 @@ def test_final_test_code_override_is_recorded_bound_to_the_code_and_final_stages
     CT.final_test(root, rt=rt, executor="inprocess", allow_code_change="forced evals made lenient")
     ov = json.loads((root / CT.CODE_OVERRIDE).read_text())
     assert ov["reason"] == "forced evals made lenient" and ov["old_code_sha256"] != ov["new_code_sha256"]
+    assert ov["new_code_identity_sha256"] and ov["old_git_head"] == ov["new_git_head"]  # files changed, head not
     assert any("controller.py" in c for c in ov["changed"]) and ran
     run_info = json.loads((root / CT.RUN_FILE).read_text())
     CT.check_code_or_override(root, run_info, "final/dynamic/test")  # final stages: covered

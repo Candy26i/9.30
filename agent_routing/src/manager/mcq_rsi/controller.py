@@ -460,7 +460,7 @@ def code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     ov = _read_json(path)
     now_code = json.loads(json.dumps(code_identity(), sort_keys=True))
-    if (_sha(now_code) == ov.get("new_code_sha256")
+    if (_sha(now_code) == ov.get("new_code_identity_sha256")
             and _manifest_content(manifest_identity(run_info["config_full"]))
             == _manifest_content(run_info["signature"]["manifests"])):
         return ov
@@ -477,25 +477,31 @@ def check_code_or_override(root, run_info: Dict[str, Any], stage_name: Optional[
         raise
 
 
+def code_override_preconditions(run_info: Dict[str, Any], reason: Optional[str]) -> None:
+    if not (reason or "").strip():
+        raise ValueError("--allow-code-change needs a reason")
+    if (_manifest_content(manifest_identity(run_info["config_full"]))
+            != _manifest_content(run_info["signature"]["manifests"])):
+        raise RuntimeError("the split/import manifests changed; a code override never covers data changes")
+
+
 def record_code_override(root, run_info: Dict[str, Any], reason: str) -> Dict[str, Any]:
     """Allow the remaining final-test stages to run under the current code (``final-test --allow-code-change``).
 
     Only the code may differ (the manifests' content must be unchanged). The record names the reason and both
     code identities and is bound to the current code's hash; completed stages are never redone."""
-    if not (reason or "").strip():
-        raise ValueError("--allow-code-change needs a reason")
-    cfg = run_info["config_full"]
-    if _manifest_content(manifest_identity(cfg)) != _manifest_content(run_info["signature"]["manifests"]):
-        raise RuntimeError("the split/import manifests changed; a code override never covers data changes")
+    code_override_preconditions(run_info, reason)
     now_code = json.loads(json.dumps(code_identity(), sort_keys=True))
     old_code = run_info["signature"]["code"]
     path = Path(root) / CODE_OVERRIDE
     history = _read_json(path).get("history", []) if path.is_file() else []
     if path.is_file():
         history.append({k: v for k, v in _read_json(path).items() if k != "history"})
-    record = {"reason": reason.strip(), "unix": time.time(), "old_code_sha256": old_code.get("sha256"),
-              "old_git_head": old_code.get("git_head"), "new_code_sha256": _sha(now_code),
-              "new_git_head": now_code.get("git_head"),
+    record = {"reason": reason.strip(), "unix": time.time(),
+              # files-only hashes (comparable) and the full identity the override is bound to
+              "old_code_sha256": old_code.get("sha256"), "new_code_sha256": now_code.get("sha256"),
+              "new_code_identity_sha256": _sha(now_code),
+              "old_git_head": old_code.get("git_head"), "new_git_head": now_code.get("git_head"),
               "changed": signature_diff({"code": old_code}, {"code": now_code})[:50], "history": history}
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_json(path, record)
@@ -704,6 +710,7 @@ def stage_prefetch(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
 
 
 INFRA_GATE_PREFIXES = ("advisor failures",)  # an eval-gate failure that is not the checkpoint's behaviour
+FORCED_MIN_VALID = 0.98  # a forced (analysis) eval tolerates a few invalid answers, recorded; fewer valid ones stop
 
 
 def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
@@ -870,6 +877,10 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
                                           base_revision=cfg["base_revision"] or None, require_gate=False)
         if result.get("gate") and any(g.startswith(INFRA_GATE_PREFIXES) for g in result["gate"]):
             raise RuntimeError(f"eval gate failed (advisor infrastructure): {result['gate']}")
+        valid = (result.get("metrics") or {}).get("valid_answer_rate")
+        if result.get("gate") and not (isinstance(valid, (int, float)) and valid >= FORCED_MIN_VALID):
+            raise RuntimeError(f"forced eval broken beyond the tolerated invalid answers (valid_answer_rate {valid} "
+                               f"< {FORCED_MIN_VALID}): {result['gate']}")
     else:
         result = evaluate.evaluate(p["checkpoint"], rows, rt.pool(), out, bench=rt.bench.name,
                                    base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
@@ -1325,6 +1336,8 @@ def final_test(out, *, accept_incomplete: Optional[str] = None, executor: str = 
     run_info = load_run(root)
     if allow_code_change is None:
         check_code_or_override(root, run_info)
+    else:
+        code_override_preconditions(run_info, allow_code_change)  # also for --dry-run
     rt = rt or Runtime(run_info["config_full"])
     if run_info["plan"]["phase"] == "pilot" and not dry_run and not (reuse_test or "").strip():
         raise RuntimeError("a pilot run never runs the locked test (its checkpoints are not pre-registered finals); "
@@ -1508,6 +1521,7 @@ def report(out) -> Dict[str, Any]:
                            "forced": f["forced"], "n": m["n"], "accuracy": m["accuracy"],
                            "candidate": m.get("initial_draft_accuracy"), "gain_pp": m.get("gain_pp"),
                            "calls_per_example": m["calls_per_example"], "call_gap": m.get("call_gap"),
+                           "valid_answer_rate": m.get("valid_answer_rate"), "gate": list(f.get("gate") or []),
                            **({"parity": f["parity"]["status"]} if "parity" in f else {})})
     budget_path = root / "budget.json"
     result = {
@@ -1621,9 +1635,11 @@ def render_markdown(r: Dict[str, Any]) -> str:
         out.append("")
     if r["finals"]:
         out += ["## Locked test and forced baselines (Table 3 analogue)", "",
-                _table(["stage", "label", "pool", "forced", "n", "candidate", "acc", "gain pp", "calls", "call gap"],
+                _table(["stage", "label", "pool", "forced", "n", "candidate", "acc", "gain pp", "calls", "call gap",
+                        "gate"],
                        [[f["stage"], f["label"], f["pool"], f["forced"] or "-", f["n"], f["candidate"], f["accuracy"],
-                         f["gain_pp"], f["calls_per_example"], f["call_gap"]] for f in r["finals"]]), ""]
+                         f["gain_pp"], f["calls_per_example"], f["call_gap"],
+                         "; ".join(f.get("gate") or []) or "pass"] for f in r["finals"]]), ""]
     if r["pending"]:
         out += ["## Pending stages", "", ", ".join(r["pending"]), ""]
     return "\n".join(out)

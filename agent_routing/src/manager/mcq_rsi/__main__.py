@@ -553,7 +553,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "already used it (recorded in <advisor_cache>/locked_test/<bench>.json)")
     p.add_argument("--allow-code-change", default=None, metavar="REASON",
                    help="run the remaining final stages under the current code (recorded in final/code_override.json; "
-                        "manifests must be unchanged; completed stages are kept)")
+                        "manifests must be unchanged; completed stages are kept). A dev-forced stage stopped earlier "
+                        "holds a result tied to the old code: move it aside first with retry-stage")
     p.set_defaults(func=cmd_final_test)
 
     p = sub.add_parser("stage", help="(internal) run one planned stage")
