@@ -1100,3 +1100,96 @@ def test_wandb_logs_dev_and_grpo_step_curves_and_never_fails_the_run(tmp_path, m
     fake.init = lambda **kw: (_ for _ in ()).throw(RuntimeError("not logged in"))
     CT._wandb_log(cfg, result, "k", tmp_path)
     assert "W&B logging failed" in capsys.readouterr().out
+
+
+def test_forced_final_evals_record_gate_failures_but_the_locked_test_stays_strict(tmp_path, monkeypatch):
+    from src.manager.mcq_rsi import evaluate as E
+    cfg = cfg_for(tmp_path)
+    rt = StubRuntime(cfg)
+    monkeypatch.setattr(StubRuntime, "rows", lambda self, pool: [])
+    monkeypatch.setattr(StubRuntime, "pool", lambda self: None)
+    seen = {}
+
+    def forced(checkpoint, rows, pool, out, tools, **kw):
+        seen.update(kw)
+        return {"metrics": {"accuracy": 0.6}, "gate": ["valid_answer_rate=0.995"], "passed": False}
+
+    monkeypatch.setattr(E, "evaluate_forced", forced)
+    out = tmp_path / "final/S_1/dev_forced_extractor"
+    out.mkdir(parents=True)
+    spec = {"name": "final/S_1/dev_forced_extractor", "kind": "test",
+            "params": {"checkpoint": "S1", "pool": "dev", "label": "S_1", "forced": "extractor"}}
+    res = CT.stage_test(tmp_path, rt, spec, out)
+    assert seen["require_gate"] is False and res["gate"] == ["valid_answer_rate=0.995"]
+    assert json.loads((out / "final.json").read_text())["gate"] == ["valid_answer_rate=0.995"]
+    monkeypatch.setattr(E, "evaluate_forced", lambda *a, **k: {"metrics": {}, "gate": ["advisor failures=3"]})
+    with pytest.raises(RuntimeError, match="advisor infrastructure"):
+        CT.stage_test(tmp_path, rt, spec, out)
+    strict = {}
+    monkeypatch.setattr(E, "evaluate", lambda *a, **k: strict.update(k) or {"metrics": {"accuracy": 0.6}, "gate": []})
+    test_spec = {"name": "final/S_1/test", "kind": "test", "params": {"checkpoint": "S1", "pool": "test", "label": "x"}}
+    (tmp_path / "final/S_1/test").mkdir(parents=True)
+    CT.stage_test(tmp_path, rt, test_spec, tmp_path / "final/S_1/test")
+    assert "require_gate" not in strict  # the locked test keeps evaluate's default hard gate
+
+
+def test_final_test_code_override_is_recorded_bound_to_the_code_and_final_stages_only(tmp_path, monkeypatch):
+    cfg = cfg_for(tmp_path, final={"test_pools": ["test"], "forced": []})
+    rt = StubRuntime(cfg)
+    ran = []
+
+    def fake_test(root, rt, spec, out):
+        ran.append(spec["name"])
+        CT._write_json(out / "final.json", {"metrics": {"n": 1, "accuracy": 1.0, "calls_per_example": 0.0}})
+        return {}
+
+    monkeypatch.setitem(CT.STAGE_FUNCS, "test", fake_test)
+    monkeypatch.setattr(CT, "report", lambda root: {"finals": []})
+    run, root = CT.prepare_run(cfg, tmp_path / "run", arms=["dynamic"], rounds=1)
+    CT.start(run, root)
+    _complete(run, root)
+    real = CT.code_identity
+
+    def changed(tag="x"):
+        def ident():
+            i = real()
+            i["files"]["manager/mcq_rsi/controller.py"] = tag * 64
+            return i
+        return ident
+
+    monkeypatch.setattr(CT, "code_identity", changed("a"))
+    with pytest.raises(RuntimeError, match="code/manifests changed"):
+        CT.final_test(root, rt=rt, executor="inprocess")
+    with pytest.raises(ValueError, match="needs a reason"):
+        CT.final_test(root, rt=rt, executor="inprocess", allow_code_change=" ")
+    CT.final_test(root, rt=rt, executor="inprocess", allow_code_change="forced evals made lenient")
+    ov = json.loads((root / CT.CODE_OVERRIDE).read_text())
+    assert ov["reason"] == "forced evals made lenient" and ov["old_code_sha256"] != ov["new_code_sha256"]
+    assert any("controller.py" in c for c in ov["changed"]) and ran
+    run_info = json.loads((root / CT.RUN_FILE).read_text())
+    CT.check_code_or_override(root, run_info, "final/dynamic/test")  # final stages: covered
+    with pytest.raises(RuntimeError, match="code/manifests changed"):  # RSI stages never are
+        CT.check_code_or_override(root, run_info, "r1/S1_dev")
+    CT.final_test(root, rt=rt, executor="inprocess")  # resuming under the same code needs no new flag
+    monkeypatch.setattr(CT, "code_identity", changed("b"))  # other code: the override does not cover it
+    with pytest.raises(RuntimeError, match="code/manifests changed"):
+        CT.check_code_or_override(root, run_info, "final/dynamic/test")
+    monkeypatch.setattr(CT, "manifest_identity", lambda cfg: {"split_manifest": "x", "split_manifest_sha256": "changed",
+                                                              "import_content_sha256": "y"})
+    with pytest.raises(RuntimeError, match="never covers data changes"):
+        CT.record_code_override(root, run_info, "data changed")
+    from src.manager.mcq_rsi import __main__ as cli
+    import argparse
+    import unittest.mock as um
+    seen = {}
+    real_parse = argparse.ArgumentParser.parse_args
+
+    def capture(self, argv=None, namespace=None):
+        ns = real_parse(self, argv, namespace)
+        seen.update(vars(ns))
+        raise SystemExit(0)
+
+    with um.patch.object(argparse.ArgumentParser, "parse_args", capture):
+        with pytest.raises(SystemExit):
+            cli.main(["final-test", "--run-dir", str(root), "--allow-code-change", "why"])
+    assert seen["allow_code_change"] == "why"

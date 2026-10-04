@@ -444,6 +444,64 @@ def check_code_unchanged(run: Dict[str, Any]) -> None:
                            "restore them or start a new run directory")
 
 
+CODE_OVERRIDE = Path("final") / "code_override.json"
+
+
+def _manifest_content(m: Dict[str, Any]) -> Dict[str, Any]:
+    """The manifests' content hashes (not the checkout path they were read from)."""
+    return {k: v for k, v in m.items() if k != "split_manifest"}
+
+
+def code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The recorded final-test code override, if it covers exactly the code running now (same content
+    manifests). Final stages only: the RSI stages always ran under the run's own code."""
+    path = Path(root) / CODE_OVERRIDE
+    if not path.is_file():
+        return None
+    ov = _read_json(path)
+    now_code = json.loads(json.dumps(code_identity(), sort_keys=True))
+    if (_sha(now_code) == ov.get("new_code_sha256")
+            and _manifest_content(manifest_identity(run_info["config_full"]))
+            == _manifest_content(run_info["signature"]["manifests"])):
+        return ov
+    return None
+
+
+def check_code_or_override(root, run_info: Dict[str, Any], stage_name: Optional[str] = None) -> None:
+    """``check_code_unchanged``, except that final-test stages may run under a recorded code override."""
+    try:
+        check_code_unchanged(run_info)
+    except RuntimeError:
+        if (stage_name is None or stage_name.startswith("final/")) and code_override(root, run_info) is not None:
+            return
+        raise
+
+
+def record_code_override(root, run_info: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """Allow the remaining final-test stages to run under the current code (``final-test --allow-code-change``).
+
+    Only the code may differ (the manifests' content must be unchanged). The record names the reason and both
+    code identities and is bound to the current code's hash; completed stages are never redone."""
+    if not (reason or "").strip():
+        raise ValueError("--allow-code-change needs a reason")
+    cfg = run_info["config_full"]
+    if _manifest_content(manifest_identity(cfg)) != _manifest_content(run_info["signature"]["manifests"]):
+        raise RuntimeError("the split/import manifests changed; a code override never covers data changes")
+    now_code = json.loads(json.dumps(code_identity(), sort_keys=True))
+    old_code = run_info["signature"]["code"]
+    path = Path(root) / CODE_OVERRIDE
+    history = _read_json(path).get("history", []) if path.is_file() else []
+    if path.is_file():
+        history.append({k: v for k, v in _read_json(path).items() if k != "history"})
+    record = {"reason": reason.strip(), "unix": time.time(), "old_code_sha256": old_code.get("sha256"),
+              "old_git_head": old_code.get("git_head"), "new_code_sha256": _sha(now_code),
+              "new_git_head": now_code.get("git_head"),
+              "changed": signature_diff({"code": old_code}, {"code": now_code})[:50], "history": history}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(path, record)
+    return record
+
+
 # ------------------------------------------------------------------------------ deadline
 
 def persistent_deadline(root, hours: float, now: Optional[float] = None) -> Dict[str, Any]:
@@ -805,14 +863,19 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
     p, cfg = spec["params"], rt.cfg
     rows = rt.rows(p["pool"])
     if p.get("forced"):
+        # Forced-delegation dev evals are analysis only (matched-budget replay, Tables 4-5): an invalid answer is
+        # recorded in final.json, not a stop; the locked test evals below stay hard gates.
         result = evaluate.evaluate_forced(p["checkpoint"], rows, rt.pool(), out, p["forced"].split(","),
                                           bench=rt.bench.name, base_model=cfg["base_model"],
-                                          base_revision=cfg["base_revision"] or None)
+                                          base_revision=cfg["base_revision"] or None, require_gate=False)
+        if result.get("gate") and any(g.startswith(INFRA_GATE_PREFIXES) for g in result["gate"]):
+            raise RuntimeError(f"eval gate failed (advisor infrastructure): {result['gate']}")
     else:
         result = evaluate.evaluate(p["checkpoint"], rows, rt.pool(), out, bench=rt.bench.name,
                                    base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
                                    speculative=bool(cfg["eval"]["speculative"]))
-    out_metrics = {"metrics": result["metrics"], "label": p["label"], "pool": p["pool"], "forced": p.get("forced")}
+    out_metrics = {"metrics": result["metrics"], "label": p["label"], "pool": p["pool"], "forced": p.get("forced"),
+                   "gate": list(result.get("gate") or [])}
     if p["label"] == "S_1" and not p.get("forced"):
         out_metrics["parity"] = parity_check(rt.bench, result["metrics"], cfg, "test", subset=bool(rt.limit(p["pool"])))
     _write_json(out / "final.json", out_metrics)
@@ -1248,15 +1311,20 @@ def register_locked_test(root: Path, run_info: Dict[str, Any], finals: Dict[str,
 
 
 def final_test(out, *, accept_incomplete: Optional[str] = None, executor: str = "subprocess",
-               rt: Optional[Runtime] = None, dry_run: bool = False, reuse_test: Optional[str] = None) -> Dict[str, Any]:
+               rt: Optional[Runtime] = None, dry_run: bool = False, reuse_test: Optional[str] = None,
+               allow_code_change: Optional[str] = None) -> Dict[str, Any]:
     """Locked test, once per pre-registered final; refused before every planned stage is complete
     unless ``accept_incomplete`` gives a reason (recorded in ``final/incomplete.json``).
 
     Pilot runs and a second run directory of the same benchmark are refused unless ``reuse_test``
-    gives a reason (recorded in the per-benchmark registry ``locked_test_registry``)."""
+    gives a reason (recorded in the per-benchmark registry ``locked_test_registry``).
+
+    ``allow_code_change`` (a reason) lets the remaining final stages run under code other than the run's
+    (``final/code_override.json``, bound to the current code; completed stages are kept)."""
     root = Path(out).resolve()
     run_info = load_run(root)
-    check_code_unchanged(run_info)
+    if allow_code_change is None:
+        check_code_or_override(root, run_info)
     rt = rt or Runtime(run_info["config_full"])
     if run_info["plan"]["phase"] == "pilot" and not dry_run and not (reuse_test or "").strip():
         raise RuntimeError("a pilot run never runs the locked test (its checkpoints are not pre-registered finals); "
@@ -1267,6 +1335,11 @@ def final_test(out, *, accept_incomplete: Optional[str] = None, executor: str = 
                            "runs only after the plan, or pass --accept-incomplete REASON")
     with run_lock(root), stop_on_signals():
         refuse_orphaned_stage(root)
+        if allow_code_change is not None and not dry_run:
+            try:
+                check_code_unchanged(run_info)
+            except RuntimeError:
+                record_code_override(root, run_info, allow_code_change)
         finals = resolve_finals(root, run_info, rt, bool(pending))
         stages = final_stages(run_info, finals)
         lock = root / "final" / "finals.json"

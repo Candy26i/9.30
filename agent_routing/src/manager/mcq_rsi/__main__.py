@@ -325,7 +325,7 @@ def cmd_report(args) -> int:
 def cmd_final_test(args) -> int:
     from . import controller
     result = controller.final_test(args.run_dir, accept_incomplete=args.accept_incomplete, dry_run=args.dry_run,
-                                   reuse_test=args.reuse_test)
+                                   reuse_test=args.reuse_test, allow_code_change=args.allow_code_change)
     print(json.dumps(result if args.dry_run else result["finals"], indent=2, default=str))
     return 0
 
@@ -334,7 +334,7 @@ def cmd_stage(args) -> int:
     """One stage of a run (the controller's subprocess); refuses under changed code."""
     from . import controller
     run_info = controller.load_run(args.run_dir)
-    controller.check_code_unchanged(run_info)
+    controller.check_code_or_override(args.run_dir, run_info, args.name)
     spec = controller.find_spec(args.run_dir, run_info, args.name)
     result = controller.run_stage(Path(args.run_dir).resolve(), run_info, spec)
     print(f"[MCQ_RSI/STAGE] {args.name}: {json.dumps(result, default=str)[:2000]}")
@@ -551,6 +551,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--reuse-test", default=None, metavar="REASON",
                    help="run the locked test although another run directory of this benchmark (or a pilot) "
                         "already used it (recorded in <advisor_cache>/locked_test/<bench>.json)")
+    p.add_argument("--allow-code-change", default=None, metavar="REASON",
+                   help="run the remaining final stages under the current code (recorded in final/code_override.json; "
+                        "manifests must be unchanged; completed stages are kept)")
     p.set_defaults(func=cmd_final_test)
 
     p = sub.add_parser("stage", help="(internal) run one planned stage")
