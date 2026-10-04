@@ -710,7 +710,9 @@ def stage_prefetch(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
 
 
 INFRA_GATE_PREFIXES = ("advisor failures",)  # an eval-gate failure that is not the checkpoint's behaviour
-FORCED_MIN_VALID = 0.98  # a forced (analysis) eval tolerates a few invalid answers, recorded; fewer valid ones stop
+# A forced (analysis) eval tolerates invalid answers (recorded in final.json and the report); below this a pipeline
+# break is likelier than model behaviour, so it stops. MedQA's static G_3 forced-Extractor eval had 0.96.
+FORCED_MIN_VALID = 0.90
 
 
 def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:

@@ -1122,8 +1122,8 @@ def test_forced_final_evals_record_gate_failures_but_the_locked_test_stays_stric
             "params": {"checkpoint": "S1", "pool": "dev", "label": "S_1", "forced": "extractor"}}
     res = CT.stage_test(tmp_path, rt, spec, out)
     assert seen["require_gate"] is False and res["gate"] == ["valid_answer_rate=0.995"]
-    monkeypatch.setattr(E, "evaluate_forced", lambda *a, **k: {"metrics": {"accuracy": 0.6, "valid_answer_rate": 0.9},
-                                                               "gate": ["valid_answer_rate=0.9"]})
+    monkeypatch.setattr(E, "evaluate_forced", lambda *a, **k: {"metrics": {"accuracy": 0.6, "valid_answer_rate": 0.85},
+                                                               "gate": ["valid_answer_rate=0.85"]})
     with pytest.raises(RuntimeError, match="broken beyond"):
         CT.stage_test(tmp_path, rt, spec, out)
     monkeypatch.setattr(E, "evaluate_forced", forced)
