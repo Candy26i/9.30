@@ -710,8 +710,9 @@ def stage_prefetch(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
 
 
 INFRA_GATE_PREFIXES = ("advisor failures",)  # an eval-gate failure that is not the checkpoint's behaviour
-# A forced (analysis) eval tolerates invalid answers (recorded in final.json and the report); below this a pipeline
-# break is likelier than model behaviour, so it stops. MedQA's static G_3 forced-Extractor eval had 0.96.
+# A forced (analysis) eval never stops the final test (only advisor infrastructure does): its gate is recorded, and
+# below this validity it is flagged "broken" in final.json / the report and left out of the matched-budget replay.
+# (MedQA static G_3 forced-Extractor: 0.96; AQuA S_1 forced-Extractor: 0.63, off-policy for an AQuA manager.)
 FORCED_MIN_VALID = 0.90
 
 
@@ -880,15 +881,17 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
         if result.get("gate") and any(g.startswith(INFRA_GATE_PREFIXES) for g in result["gate"]):
             raise RuntimeError(f"eval gate failed (advisor infrastructure): {result['gate']}")
         valid = (result.get("metrics") or {}).get("valid_answer_rate")
-        if result.get("gate") and not (isinstance(valid, (int, float)) and valid >= FORCED_MIN_VALID):
-            raise RuntimeError(f"forced eval broken beyond the tolerated invalid answers (valid_answer_rate {valid} "
-                               f"< {FORCED_MIN_VALID}): {result['gate']}")
+        broken = bool(result.get("gate")) and not (isinstance(valid, (int, float)) and valid >= FORCED_MIN_VALID)
+        if broken:
+            print(f"[MCQ_RSI] {spec['name']}: forced eval flagged broken (valid_answer_rate {valid} < "
+                  f"{FORCED_MIN_VALID}); recorded, excluded from the matched-budget replay", flush=True)
     else:
+        broken = False
         result = evaluate.evaluate(p["checkpoint"], rows, rt.pool(), out, bench=rt.bench.name,
                                    base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
                                    speculative=bool(cfg["eval"]["speculative"]))
     out_metrics = {"metrics": result["metrics"], "label": p["label"], "pool": p["pool"], "forced": p.get("forced"),
-                   "gate": list(result.get("gate") or [])}
+                   "gate": list(result.get("gate") or []), "broken": broken}
     if p["label"] == "S_1" and not p.get("forced"):
         out_metrics["parity"] = parity_check(rt.bench, result["metrics"], cfg, "test", subset=bool(rt.limit(p["pool"])))
     _write_json(out / "final.json", out_metrics)
@@ -1524,6 +1527,7 @@ def report(out) -> Dict[str, Any]:
                            "candidate": m.get("initial_draft_accuracy"), "gain_pp": m.get("gain_pp"),
                            "calls_per_example": m["calls_per_example"], "call_gap": m.get("call_gap"),
                            "valid_answer_rate": m.get("valid_answer_rate"), "gate": list(f.get("gate") or []),
+                           "broken": bool(f.get("broken")),
                            **({"parity": f["parity"]["status"]} if "parity" in f else {})})
     budget_path = root / "budget.json"
     result = {
@@ -1641,7 +1645,8 @@ def render_markdown(r: Dict[str, Any]) -> str:
                         "gate"],
                        [[f["stage"], f["label"], f["pool"], f["forced"] or "-", f["n"], f["candidate"], f["accuracy"],
                          f["gain_pp"], f["calls_per_example"], f["call_gap"],
-                         "; ".join(f.get("gate") or []) or "pass"] for f in r["finals"]]), ""]
+                         ("BROKEN: " if f.get("broken") else "") + ("; ".join(f.get("gate") or []) or "pass")]
+                        for f in r["finals"]]), ""]
     if r["pending"]:
         out += ["## Pending stages", "", ", ".join(r["pending"]), ""]
     return "\n".join(out)

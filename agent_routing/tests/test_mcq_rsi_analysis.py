@@ -168,6 +168,12 @@ def test_compare_agree_and_run_tables(tmp_path, capsys):
     assert ag["n_common"] == 100 and ag["agree"] == sum(cand.values())
     with pytest.raises(ValueError, match="identical ids"):
         A.compare({1: s1[1]}, {2: s1[2]})
+    # A forced eval flagged broken (too many invalid answers) is left out of the replay; its role's examples stay fixed.
+    (root / "final/dynamic/dev_forced_verifier/final.json").write_text(json.dumps(
+        {"broken": True, "metrics": {"valid_answer_rate": 0.63}}))
+    replays = {r["label"]: r for r in A.run_tables(root, n_boot=100, n_replay=100)["stats"]["replay"]}
+    assert "dynamic" not in replays or replays["dynamic"]["excluded_broken_roles"] == {"verifier": 0.63}
+    assert replays["S_1"]["excluded_broken_roles"] == {}
 
 
 def _rec(i, draft, tools, correct=True):

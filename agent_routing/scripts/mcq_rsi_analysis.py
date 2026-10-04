@@ -258,17 +258,24 @@ def run_tables(run_dir, n_boot: int = 10_000, n_replay: int = 2000, seed: int = 
                 dev_result = str(root / "r1/S1_dev/mcq_rsi_eval.json")
             if not dev_result:
                 continue
-            forced = {}
+            forced, excluded = {}, {}
             for s in stages.values():
                 tools = s["params"].get("forced")
                 if s["params"]["label"] == label and tools and "," not in tools and (root / s["name"]).is_dir():
+                    final_json = root / s["name"] / "final.json"
+                    if final_json.is_file() and _read_json(final_json).get("broken"):
+                        # Too many invalid answers: its outcomes would bias the random baseline; those examples
+                        # keep their policy outcome (fixed) instead.
+                        excluded[tools] = _read_json(final_json)["metrics"].get("valid_answer_rate")
+                        continue
                     try:
                         forced[tools] = load_eval(root / s["name"])
                     except FileNotFoundError:
                         pass
             if forced:
                 res = matched_budget_replay(load_eval(Path(dev_result).parent), forced, n_replay, seed)
-                stats["replay"].append({"label": label, "dev_result": dev_result, **res})
+                stats["replay"].append({"label": label, "dev_result": dev_result, **res,
+                                        "excluded_broken_roles": excluded})
     return {"tables": tables, "stats": stats}
 
 
@@ -289,9 +296,11 @@ def write_tables(result: Dict[str, Any], out_dir) -> Path:
         md += ["## Paired tests (b - a)", "", markdown_table(headers, rows), ""]
     reps = result["stats"]["replay"]
     if reps:
-        headers = ["label", "n", "roles", "fixed", "policy replay acc", "random 95% interval", "p", "above interval"]
+        headers = ["label", "n", "roles", "fixed", "policy replay acc", "random 95% interval", "p", "above interval",
+                   "excluded (broken forced eval: valid rate)"]
         rows = [[r["label"], r["n"], json.dumps(r["role_counts"]), r["fixed_unmatched"], r["policy_replay_accuracy"],
-                 "[{:.3f}, {:.3f}]".format(*r["random_ci95"]), r["p_random_ge_policy"], r["above_random_interval"]]
+                 "[{:.3f}, {:.3f}]".format(*r["random_ci95"]), r["p_random_ge_policy"], r["above_random_interval"],
+                 json.dumps(r.get("excluded_broken_roles") or {})]
                 for r in reps]
         write_csv(out / "matched_budget_replay.csv", headers, rows)
         md += ["## Matched-budget replay (dev)", "", markdown_table(headers, rows), ""]
