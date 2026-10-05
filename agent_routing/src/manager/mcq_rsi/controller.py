@@ -623,6 +623,8 @@ def check_code_unchanged(run: Dict[str, Any]) -> None:
 
 
 CODE_OVERRIDE = Path("final") / "code_override.json"
+# The RSI stages' counterpart (``run --allow-code-change``): the remaining RSI stages run under the current code.
+RSI_CODE_OVERRIDE = Path("rsi_code_override.json")
 
 
 def _manifest_content(m: Dict[str, Any]) -> Dict[str, Any]:
@@ -630,10 +632,8 @@ def _manifest_content(m: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in m.items() if k != "split_manifest"}
 
 
-def code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """The recorded final-test code override, if it covers exactly the code running now (same content
-    manifests). Final stages only: the RSI stages always ran under the run's own code."""
-    path = Path(root) / CODE_OVERRIDE
+def _override_at(root, run_info: Dict[str, Any], rel: Path) -> Optional[Dict[str, Any]]:
+    path = Path(root) / rel
     if not path.is_file():
         return None
     ov = _read_json(path)
@@ -645,12 +645,26 @@ def code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
+def code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The recorded final-test code override, if it covers exactly the code running now (same content
+    manifests). Final stages only; the RSI stages have their own (``rsi_code_override``)."""
+    return _override_at(root, run_info, CODE_OVERRIDE)
+
+
+def rsi_code_override(root, run_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The recorded RSI-stage code override, if it covers exactly the code running now (same content manifests).
+    RSI stages only: the final test needs its own ``final-test --allow-code-change``."""
+    return _override_at(root, run_info, RSI_CODE_OVERRIDE)
+
+
 def check_code_or_override(root, run_info: Dict[str, Any], stage_name: Optional[str] = None) -> None:
-    """``check_code_unchanged``, except that final-test stages may run under a recorded code override."""
+    """``check_code_unchanged``, except that final-test stages (``code_override``) and RSI stages
+    (``rsi_code_override``) may run under a recorded code override of their own."""
     try:
         check_code_unchanged(run_info)
     except RuntimeError:
-        if (stage_name is None or stage_name.startswith("final/")) and code_override(root, run_info) is not None:
+        final = stage_name is None or stage_name.startswith("final/")
+        if (code_override if final else rsi_code_override)(root, run_info) is not None:
             return
         raise
 
@@ -663,15 +677,17 @@ def code_override_preconditions(run_info: Dict[str, Any], reason: Optional[str])
         raise RuntimeError("the split/import manifests changed; a code override never covers data changes")
 
 
-def record_code_override(root, run_info: Dict[str, Any], reason: str) -> Dict[str, Any]:
-    """Allow the remaining final-test stages to run under the current code (``final-test --allow-code-change``).
+def record_code_override(root, run_info: Dict[str, Any], reason: str, *, rel: Path = CODE_OVERRIDE,
+                         extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Allow the remaining final-test stages to run under the current code (``final-test --allow-code-change``;
+    ``rel=RSI_CODE_OVERRIDE``: the remaining RSI stages, ``run --allow-code-change``).
 
     Only the code may differ (the manifests' content must be unchanged). The record names the reason and both
     code identities and is bound to the current code's hash; completed stages are never redone."""
     code_override_preconditions(run_info, reason)
     now_code = json.loads(json.dumps(code_identity(), sort_keys=True))
     old_code = run_info["signature"]["code"]
-    path = Path(root) / CODE_OVERRIDE
+    path = Path(root) / rel
     history = _read_json(path).get("history", []) if path.is_file() else []
     if path.is_file():
         history.append({k: v for k, v in _read_json(path).items() if k != "history"})
@@ -680,10 +696,22 @@ def record_code_override(root, run_info: Dict[str, Any], reason: str) -> Dict[st
               "old_code_sha256": old_code.get("sha256"), "new_code_sha256": now_code.get("sha256"),
               "new_code_identity_sha256": _sha(now_code),
               "old_git_head": old_code.get("git_head"), "new_git_head": now_code.get("git_head"),
-              "changed": signature_diff({"code": old_code}, {"code": now_code})[:50], "history": history}
+              "changed": signature_diff({"code": old_code}, {"code": now_code})[:50], **(extra or {}),
+              "history": history}
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_json(path, record)
     return record
+
+
+def _code_only_change(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
+    """Two run signatures whose code identities differ and nothing else: version, config, plan and the manifests'
+    content are equal. The split manifest's checkout path may differ (``config.split_manifest`` resolves a
+    relative path against the checkout); its content stays pinned by ``manifests.split_manifest_sha256``."""
+    def rest(s):
+        cfg = {k: v for k, v in (s.get("config") or {}).items() if k != "split_manifest"}
+        return json.loads(json.dumps({**{k: v for k, v in s.items() if k not in ("code", "config")}, "config": cfg,
+                                      "manifests": _manifest_content(s.get("manifests") or {})}, sort_keys=True))
+    return old.get("code") != new.get("code") and rest(old) == rest(new)
 
 
 # ------------------------------------------------------------------------------ deadline
@@ -898,6 +926,24 @@ INFRA_GATE_PREFIXES = ("advisor failures",)  # an eval-gate failure that is not 
 # below this validity it is flagged "broken" in final.json / the report and left out of the matched-budget replay.
 # (MedQA static G_3 forced-Extractor: 0.96; AQuA S_1 forced-Extractor: 0.63, off-policy for an AQuA manager.)
 FORCED_MIN_VALID = 0.90
+# An S_k dev eval or a locked test eval whose only gate failure is unparsed answers (each scored wrong) passes once
+# the operator acknowledged that stage (``ack-gate``) and at least this share of the answers parsed; the record goes
+# into its decision.json / final.json. Malformed tool calls and advisor failures are never acknowledged.
+# (MMLU-Pro r5/dynamic/sft_dev: 1 of 200 answers unparsed, 2026-10-05.)
+ACK_MIN_VALID = 0.99
+VALIDITY_GATE = "valid_answer_rate="
+
+
+def acknowledged_gate(root, stage: str, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The record under which the eval-gate failure of ``stage`` passes, or None (the gate stands)."""
+    gate = list(result.get("gate") or [])
+    valid = (result.get("metrics") or {}).get("valid_answer_rate")
+    ack = acks(root).get(stage)
+    if not (gate and ack and all(g.startswith(VALIDITY_GATE) for g in gate)
+            and isinstance(valid, (int, float)) and valid >= ACK_MIN_VALID):
+        return None
+    print(f"[MCQ_RSI] {stage}: eval gate {gate} passed on the operator acknowledgement ({ack['reason']})", flush=True)
+    return {"gate": gate, "valid_answer_rate": valid, "min_valid": ACK_MIN_VALID, "ack": ack}
 
 
 def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
@@ -907,16 +953,26 @@ def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
     checkpoint = resolve(root, rt, p["checkpoint"])
     rows = rt.rows(p["pool"])
     # A GRPO candidate's own eval-gate failure (invalid answers, malformed tool calls) rejects the
-    # candidate (G_k := S_k, ``grpo_accept``) instead of stopping the run; S_1/S_k evals stay hard gates.
+    # candidate (G_k := S_k, ``grpo_accept``) instead of stopping the run; S_1/S_k evals stay hard gates
+    # (an S_k validity failure may pass on an acknowledgement, ``acknowledged_gate``).
     lenient = role == "grpo"
-    result = evaluate.evaluate(checkpoint, rows, rt.pool(), out, bench=rt.bench.name, base_model=cfg["base_model"],
-                               base_revision=cfg["base_revision"] or None, speculative=bool(cfg["eval"]["speculative"]),
-                               require_gate=not lenient)
+    acknowledged = None
+    try:
+        result = evaluate.evaluate(checkpoint, rows, rt.pool(), out, bench=rt.bench.name,
+                                   base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
+                                   speculative=bool(cfg["eval"]["speculative"]), require_gate=not lenient)
+    except evaluate.EvalGateFailed as e:
+        acknowledged = acknowledged_gate(root, spec["name"], e.result) if role == "sft" else None
+        if acknowledged is None:
+            raise
+        result = e.result
     if result.get("gate") and any(g.startswith(INFRA_GATE_PREFIXES) for g in result["gate"]):
         raise RuntimeError(f"eval gate failed (advisor infrastructure): {result['gate']}")
     own = str(out / "mcq_rsi_eval.json")
     decision: Dict[str, Any] = {"role": role, "checkpoint": checkpoint, "dev_result": own,
                                 "metrics": result["metrics"]}
+    if acknowledged is not None:
+        decision["acknowledged_gate"] = acknowledged
     if role == "s1":
         parity = parity_check(rt.bench, result["metrics"], cfg, "dev", subset=bool(rt.limit(p["pool"])))
         ack = acks(root).get(spec["name"])
@@ -938,6 +994,9 @@ def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
         decision.update(flags=flags, previous_checkpoint=prev_dec["checkpoint"], previous_metrics=prev_metrics)
     elif role == "grpo":
         base = _eval_result(Path(root) / p["baseline"])
+        base_dec = _read_json(Path(root) / p["baseline"] / "decision.json")
+        if base_dec.get("acknowledged_gate"):  # S_k passed on an acknowledgement: its gate no longer rejects G_k
+            base = {**base, "gate": []}
         summary = _read_json(Path(root) / p["grpo_stage"] / "summary.json")
         g = cfg["gates"]
         accept = evaluate.grpo_accept(result, base, bool(summary["informativeness"]["passed"]),
@@ -945,9 +1004,10 @@ def stage_eval(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
                                       gap_fraction=g["gap_fraction"])
         accept.update(grpo_steps=summary["steps"], selected_step=summary["selected_step"],
                       accepted_by_guard=summary["accepted_by_guard"], candidate_gate=list(result.get("gate") or []))
+        if base_dec.get("acknowledged_gate"):
+            accept["baseline_acknowledged_gate"] = base_dec["acknowledged_gate"]
         decision["accept"] = accept
         if not accept["accepted"]:  # G_k := S_k
-            base_dec = _read_json(Path(root) / p["baseline"] / "decision.json")
             decision.update(checkpoint=resolve(root, rt, p["fallback"]), dev_result=base_dec["dev_result"],
                             metrics=base["metrics"], rejected_checkpoint=checkpoint)
     _write_json(out / "decision.json", decision)
@@ -1056,9 +1116,11 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
     from . import evaluate
     p, cfg = spec["params"], rt.cfg
     rows = rt.rows(p["pool"])
+    acknowledged = None
     if p.get("forced"):
         # Forced-delegation dev evals are analysis only (matched-budget replay, Tables 4-5): an invalid answer is
-        # recorded in final.json, not a stop; the locked test evals below stay hard gates.
+        # recorded in final.json, not a stop; the locked test evals below stay hard gates (unparsed answers only
+        # may pass on an acknowledgement, ``acknowledged_gate``).
         result = evaluate.evaluate_forced(p["checkpoint"], rows, rt.pool(), out, p["forced"].split(","),
                                           bench=rt.bench.name, base_model=cfg["base_model"],
                                           base_revision=cfg["base_revision"] or None, require_gate=False)
@@ -1071,11 +1133,19 @@ def stage_test(root, rt: Runtime, spec, out: Path) -> Dict[str, Any]:
                   f"{FORCED_MIN_VALID}); recorded, excluded from the matched-budget replay", flush=True)
     else:
         broken = False
-        result = evaluate.evaluate(p["checkpoint"], rows, rt.pool(), out, bench=rt.bench.name,
-                                   base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
-                                   speculative=bool(cfg["eval"]["speculative"]))
+        try:
+            result = evaluate.evaluate(p["checkpoint"], rows, rt.pool(), out, bench=rt.bench.name,
+                                       base_model=cfg["base_model"], base_revision=cfg["base_revision"] or None,
+                                       speculative=bool(cfg["eval"]["speculative"]))
+        except evaluate.EvalGateFailed as e:  # unparsed answers only may pass on an acknowledgement
+            acknowledged = acknowledged_gate(root, spec["name"], e.result)
+            if acknowledged is None:
+                raise
+            result = e.result
     out_metrics = {"metrics": result["metrics"], "label": p["label"], "pool": p["pool"], "forced": p.get("forced"),
                    "gate": list(result.get("gate") or []), "broken": broken}
+    if acknowledged is not None:
+        out_metrics["acknowledged_gate"] = acknowledged
     if p["label"] == "S_1" and not p.get("forced"):
         out_metrics["parity"] = parity_check(rt.bench, result["metrics"], cfg, "test", subset=bool(rt.limit(p["pool"])))
     _write_json(out / "final.json", out_metrics)
@@ -1132,7 +1202,8 @@ def validate_stage(spec: Dict[str, Any], out: Path) -> None:
     missing = [n for n in need if not (out / n).exists()]
     if missing:
         raise RuntimeError(f"stage {spec['name']} is missing {missing}")
-    if kind == "eval" and not _eval_result(out)["passed"] and not _gate_failure_rejected(spec, out):
+    if (kind == "eval" and not _eval_result(out)["passed"] and not _gate_failure_rejected(spec, out)
+            and not _gate_acknowledged(out)):
         raise RuntimeError(f"stage {spec['name']}: eval gate failed")
     if kind == "source" and _adapter_sha(spec["params"]["checkpoint"]) != spec["params"]["adapter_sha256"]:
         raise RuntimeError(f"stage {spec['name']}: the source checkpoint {spec['params']['checkpoint']} changed")
@@ -1148,6 +1219,11 @@ def _gate_failure_rejected(spec: Dict[str, Any], out: Path) -> bool:
         return False
     accept = _read_json(out / "decision.json").get("accept") or {}
     return accept.get("accepted") is False and bool(accept.get("candidate_gate"))
+
+
+def _gate_acknowledged(out: Path) -> bool:
+    """An S_k eval whose gate failure passed on an operator acknowledgement (``acknowledged_gate``)."""
+    return (out / "decision.json").is_file() and bool(_read_json(out / "decision.json").get("acknowledged_gate"))
 
 
 @contextlib.contextmanager
@@ -1408,15 +1484,30 @@ def prepare_run(config_path, out, *, phase: str = "main", arms=None, rounds=None
     return run, root
 
 
-def start(run: Dict[str, Any], root: Path) -> Dict[str, Any]:
-    """Write or check ``rsi_run.json``: an existing run directory only resumes the identical run."""
+def start(run: Dict[str, Any], root: Path, allow_code_change: Optional[str] = None) -> Dict[str, Any]:
+    """Write or check ``rsi_run.json``: an existing run directory only resumes the identical run.
+
+    When only the code changed, ``allow_code_change`` (a reason) lets the remaining RSI stages run under the
+    current code: recorded once in ``rsi_code_override.json`` (bound to that code, with the stages completed
+    before it); a restart under the same code honours the record without the flag."""
     root.mkdir(parents=True, exist_ok=True)
     path = root / RUN_FILE
     if path.exists():
         old = _read_json(path)
         if old["signature"] != run["signature"]:
             diff = signature_diff(old["signature"], run["signature"])
-            raise ValueError(f"{root}: run settings changed ({diff[:12]}); choose a new output directory")
+            if not _code_only_change(old["signature"], run["signature"]):
+                raise ValueError(f"{root}: run settings changed ({diff[:12]}); choose a new output directory")
+            cur = {**old, "config_full": run["config_full"]}  # the manifests as this checkout reads them
+            if allow_code_change is not None:
+                code_override_preconditions(cur, allow_code_change)
+                if rsi_code_override(root, cur) is None:
+                    done = [s["name"] for s in old["plan"]["stages"] if is_complete(root, s)]
+                    record_code_override(root, cur, allow_code_change, rel=RSI_CODE_OVERRIDE,
+                                         extra={"scope": "rsi", "completed_stages": done})
+            elif rsi_code_override(root, cur) is None:
+                raise ValueError(f"{root}: the code changed since the run started ({diff[:12]}); restore it, choose "
+                                 "a new output directory, or pass --allow-code-change REASON")
         # Operational settings (advisor URL, GPUs, ...) may change between restarts.
         old["config_full"] = run["config_full"]
         _write_json(path, old)
@@ -1428,7 +1519,8 @@ def start(run: Dict[str, Any], root: Path) -> Dict[str, Any]:
 
 
 def run(config_path, out, *, phase: str = "main", arms=None, rounds=None, hours: float = MAX_HOURS,
-        dry_run: bool = False, executor: str = "subprocess", rt: Optional[Runtime] = None) -> Dict[str, Any]:
+        dry_run: bool = False, executor: str = "subprocess", rt: Optional[Runtime] = None,
+        allow_code_change: Optional[str] = None) -> Dict[str, Any]:
     run_info, root = prepare_run(config_path, out, phase=phase, arms=arms, rounds=rounds)
     if dry_run:
         for spec in run_info["plan"]["stages"]:
@@ -1436,10 +1528,12 @@ def run(config_path, out, *, phase: str = "main", arms=None, rounds=None, hours:
         return run_info["plan"]
     if not (isinstance(hours, (int, float)) and 0 < hours <= MAX_HOURS):
         raise ValueError(f"--hours must be in (0, {MAX_HOURS:g}]")
+    if allow_code_change is not None and not (root / RUN_FILE).is_file():
+        raise ValueError(f"--allow-code-change resumes an existing run; {root} has no {RUN_FILE}")
     root.mkdir(parents=True, exist_ok=True)
     with run_lock(root), stop_on_signals():
         refuse_orphaned_stage(root)
-        run_info = start(run_info, root)
+        run_info = start(run_info, root, allow_code_change)
         budget = persistent_deadline(root, hours)
         deadline = budget["deadline_unix"]
         stages = run_info["plan"]["stages"]
@@ -1685,7 +1779,7 @@ def report(out) -> Dict[str, Any]:
             dec = _read_json(out_dir / "decision.json")
             row = {"stage": name, "round": _round_of(name), "arms": users, "role": spec["params"].get("role"),
                    **{k: m.get(k) for k in EVAL_KEYS}, "margin": m["initial_draft_accuracy"] - 1.0 / K,
-                   "gate": res.get("gate") or []}
+                   "gate": res.get("gate") or [], "acknowledged": bool(dec.get("acknowledged_gate"))}
             own_rows = _eval_rows(out_dir / "manager_tool_eval.jsonl")
             if base_rows is not None:
                 row["drift_vs_S1"] = drift(base_rows, own_rows)
@@ -1694,7 +1788,7 @@ def report(out) -> Dict[str, Any]:
                 row["drift_vs_previous"] = {"reference": ref[0], **drift(_eval_rows(ref[1]), own_rows)}
             dev.append(row)
             entry = {"stage": name, "role": dec.get("role"), "checkpoint": dec.get("checkpoint")}
-            for key in ("accept", "flags", "parity"):
+            for key in ("accept", "flags", "parity", "acknowledged_gate"):
                 if key in dec:
                     entry[key] = dec[key]
             decisions.append(entry)
@@ -1749,7 +1843,7 @@ def report(out) -> Dict[str, Any]:
                            "candidate": m.get("initial_draft_accuracy"), "gain_pp": m.get("gain_pp"),
                            "calls_per_example": m["calls_per_example"], "call_gap": m.get("call_gap"),
                            "valid_answer_rate": m.get("valid_answer_rate"), "gate": list(f.get("gate") or []),
-                           "broken": bool(f.get("broken")),
+                           "broken": bool(f.get("broken")), "acknowledged": bool(f.get("acknowledged_gate")),
                            **({"parity": f["parity"]["status"]} if "parity" in f else {})})
     budget_path = root / "budget.json"
     result = {
@@ -1764,6 +1858,10 @@ def report(out) -> Dict[str, Any]:
     caveats = split_caveats(run_info, plan)
     if caveats:
         result["split_caveats"] = caveats
+    overrides = {scope: _read_json(root / rel) for scope, rel in (("rsi", RSI_CODE_OVERRIDE), ("final", CODE_OVERRIDE))
+                 if (root / rel).is_file()}
+    if overrides:  # stages run under code other than the run's (``--allow-code-change``)
+        result["code_overrides"] = overrides
     if cont:
         result["continuation"] = {"run_dir": cont["run_dir"], "round": cont["round"], "git_head": cont["git_head"],
                                   "signature_sha256": cont["signature_sha256"],
@@ -1839,6 +1937,11 @@ def render_markdown(r: Dict[str, Any]) -> str:
                 + ". No S_1 final; drift vs S_1 uses the source run's r1/S1_dev.", ""]
     if r.get("split_caveats"):
         out += ["## Split caveats (extended manifest)", ""] + [f"- {p}: {t}" for p, t in r["split_caveats"].items()] + [""]
+    if r.get("code_overrides"):
+        out += ["## Code overrides (stages run under code other than the run's)", ""] + [
+            f"- {scope}: {o['reason']} (git {o.get('old_git_head')} -> {o.get('new_git_head')}"
+            + (f"; completed before: {len(o['completed_stages'])} stages" if "completed_stages" in o else "") + ")"
+            for scope, o in r["code_overrides"].items()] + [""]
     def drift_cells(x):
         if not x or not x.get("comparable"):
             return ["-", "-", "-"]
@@ -1853,7 +1956,7 @@ def render_markdown(r: Dict[str, Any]) -> str:
                    [[d["stage"], ",".join(d["arms"]) or "all", d["accuracy"], d["initial_draft_accuracy"], d["gain_pp"],
                      d["calls_per_example"], d["call_rate"], d["call_gap"], d["correction_rate"], d["corruption_rate"],
                      *drift_cells(d.get("drift_vs_S1")), *drift_cells(d.get("drift_vs_previous"))[1:],
-                     "; ".join(d.get("gate") or []) or "pass"]
+                     ("ACKNOWLEDGED: " if d.get("acknowledged") else "") + ("; ".join(d.get("gate") or []) or "pass")]
                     for d in r["dev"]]), ""]
     out += ["## Arms: resolved checkpoint per round (G_k, or S_k when GRPO was rejected)", ""]
     for arm, timeline in r["arms_timeline"].items():
@@ -1887,6 +1990,9 @@ def render_markdown(r: Dict[str, Any]) -> str:
                 out.append(f"- {d['stage']}: SFT flags {d['flags']}")
             if "parity" in d:
                 out.append(f"- {d['stage']}: parity {d['parity']}")
+            if d.get("acknowledged_gate"):
+                a = d["acknowledged_gate"]
+                out.append(f"- {d['stage']}: eval gate {a['gate']} passed on an acknowledgement ({a['ack']['reason']})")
             if d.get("role") == "grpo_select":
                 out.append(f"- {d['stage']}: selected lr {d['learning_rate']} ({d['selected']})")
         out.append("")
@@ -1896,7 +2002,8 @@ def render_markdown(r: Dict[str, Any]) -> str:
                         "gate"],
                        [[f["stage"], f["label"], f["pool"], f["forced"] or "-", f["n"], f["candidate"], f["accuracy"],
                          f["gain_pp"], f["calls_per_example"], f["call_gap"],
-                         ("BROKEN: " if f.get("broken") else "") + ("; ".join(f.get("gate") or []) or "pass")]
+                         ("BROKEN: " if f.get("broken") else "") + ("ACKNOWLEDGED: " if f.get("acknowledged") else "")
+                         + ("; ".join(f.get("gate") or []) or "pass")]
                         for f in r["finals"]]), ""]
     if r["pending"]:
         out += ["## Pending stages", "", ", ".join(r["pending"]), ""]

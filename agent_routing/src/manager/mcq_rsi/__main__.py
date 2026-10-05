@@ -305,7 +305,7 @@ def cmd_run(args) -> int:
     cfg = _config(args)
     arms = args.arms.split(",") if args.arms else None
     result = controller.run(cfg, args.run_dir, phase=args.phase, arms=arms, rounds=args.rounds, hours=args.hours,
-                            dry_run=args.dry_run)
+                            dry_run=args.dry_run, allow_code_change=args.allow_code_change)
     if not args.dry_run:
         print(f"[MCQ_RSI] {result['completed_stages']}/{result['planned_stages']} stages -> {args.run_dir}/report.md")
     return 0
@@ -556,6 +556,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--phase", default="main", choices=["main", "pilot"])
     p.add_argument("--advisor-url", default=None)
     p.add_argument("--dry-run", action="store_true", help="print the plan")
+    p.add_argument("--allow-code-change", default=None, metavar="REASON",
+                   help="resume under changed code (config, plan and manifests unchanged): the remaining RSI stages "
+                        "run under the current code, recorded once in rsi_code_override.json; completed stages are "
+                        "kept. A stage stopped earlier holds results tied to the old code: move it aside first with "
+                        "retry-stage")
     p.set_defaults(func=cmd_run)
 
     for name, func, text in (("status", cmd_status, "stage states, heartbeat, remaining budget"),
@@ -583,7 +588,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--name", required=True)
     p.set_defaults(func=cmd_stage)
 
-    p = sub.add_parser("ack-gate", help="acknowledge a failed gate (e.g. parity) so the run may continue")
+    p = sub.add_parser("ack-gate", help="acknowledge a failed gate so the run may continue: round-1 parity, or "
+                                        "unparsed answers only (valid >= 0.99) on an S_k dev eval or a locked test eval")
     run_dir(p)
     p.add_argument("--stage", required=True)
     p.add_argument("--reason", required=True)

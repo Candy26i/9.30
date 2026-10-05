@@ -713,6 +713,100 @@ def test_grpo_candidate_failing_its_eval_gate_is_rejected_not_fatal(tmp_path, mo
     assert seen["sft_dev"] is True
 
 
+def test_sk_and_locked_test_validity_gates_pass_only_on_an_acknowledgement(tmp_path, monkeypatch):
+    from src.manager.mcq_rsi import evaluate as E
+    cfg = cfg_for(tmp_path)
+    rt = StubRuntime(cfg)
+    root = tmp_path / "run"
+    _eval_dir(root, "r4/dynamic/grpo_dev", _metrics(0.70, 0.40, 0.40),
+              {"checkpoint": str(root / "r4/dynamic/grpo/final"), "role": "grpo"})
+    (root / "r5/dynamic/grpo").mkdir(parents=True)
+    (root / "r5/dynamic/grpo/summary.json").write_text(json.dumps({"informativeness": {"passed": True}, "steps": 8,
+                                                                   "selected_step": 8, "accepted_by_guard": True}))
+    outcomes, seen = {}, {}
+
+    def fake_eval(checkpoint, rows, pool, out, require_gate=True, **kw):
+        name = str(Path(out).relative_to(root))
+        seen[name] = require_gate
+        valid, gate, m = outcomes[name]
+        res = {"metrics": {**m, "valid_answer_rate": valid}, "gate": list(gate), "passed": not gate}
+        Path(out, "mcq_rsi_eval.json").write_text(json.dumps(res))
+        if gate and require_gate:
+            raise E.EvalGateFailed(f"eval gate failed: {gate}", res)
+        return res
+
+    monkeypatch.setattr(E, "evaluate", fake_eval)
+    monkeypatch.setattr(StubRuntime, "rows", lambda self, pool: [])
+    monkeypatch.setattr(StubRuntime, "pool", lambda self: None)
+
+    def sft_dev(name, valid, gate, role="sft"):
+        outcomes[name] = (valid, gate, _metrics(0.70, 0.40, 0.40))
+        params = ({"checkpoint": f"out:{name.rsplit('/', 1)[0]}/sft::model", "pool": "dev", "role": "sft",
+                   "previous": "decision:r4/dynamic/grpo_dev"} if role == "sft"
+                  else {"checkpoint": "import:S_1", "pool": "dev", "role": "s1"})
+        spec = {"name": name, "kind": "eval", "lane": "inference", "params": params}
+        (root / name).mkdir(parents=True, exist_ok=True)
+        return spec, (lambda: CT.stage_eval(root, rt, spec, root / name))
+
+    # One unparsed answer of 200: a stop without an acknowledgement, as before.
+    spec, go = sft_dev("r5/dynamic/sft_dev", 0.995, ["valid_answer_rate=0.995"])
+    with pytest.raises(E.EvalGateFailed):
+        go()
+    assert seen["r5/dynamic/sft_dev"] is True and not (root / spec["name"] / "decision.json").exists()
+    with pytest.raises(RuntimeError, match="missing"):  # incomplete
+        CT.validate_stage(spec, root / spec["name"])
+    CT.ack_gate(root, "r5/dynamic/sft_dev", "1 of 200 unparsed, scored wrong")
+    dec = go()  # the recorded result passes on the acknowledgement
+    ack = dec["acknowledged_gate"]
+    assert ack["gate"] == ["valid_answer_rate=0.995"] and ack["valid_answer_rate"] == 0.995
+    assert ack["min_valid"] == CT.ACK_MIN_VALID and ack["ack"]["reason"] == "1 of 200 unparsed, scored wrong"
+    assert dec["flags"] == [] and dec["checkpoint"].endswith("r5/dynamic/sft/model")
+    CT.validate_stage(spec, root / spec["name"])  # complete
+    # Never acknowledged: below the floor, a malformed tool call, an S_1 eval, or a stage without its own ack.
+    for name, valid, gate, role in (("r5/static/sft_dev", 0.985, ["valid_answer_rate=0.985"], "sft"),
+                                    ("r6/dynamic/sft_dev", 0.995, ["malformed_tool_calls=1",
+                                                                   "valid_answer_rate=0.995"], "sft"),
+                                    ("r1/S1_dev", 0.995, ["valid_answer_rate=0.995"], "s1")):
+        CT.ack_gate(root, name, "tried")
+        with pytest.raises(E.EvalGateFailed):
+            sft_dev(name, valid, gate, role)[1]()
+    with pytest.raises(E.EvalGateFailed):
+        sft_dev("r7/dynamic/sft_dev", 0.995, ["valid_answer_rate=0.995"])[1]()
+    # The acknowledged S_k's gate no longer rejects its GRPO candidate; the candidate's own gate still does.
+    def grpo_dev(name, valid, gate, m):
+        outcomes[name] = (valid, gate, m)
+        spec = {"name": name, "kind": "eval", "params": {"checkpoint": "out:r5/dynamic/grpo::final", "pool": "dev",
+                                                          "role": "grpo", "baseline": "r5/dynamic/sft_dev",
+                                                          "grpo_stage": "r5/dynamic/grpo",
+                                                          "fallback": "out:r5/dynamic/sft::model"}}
+        (root / name).mkdir(parents=True, exist_ok=True)
+        return CT.stage_eval(root, rt, spec, root / name)
+
+    good = grpo_dev("r5/dynamic/grpo_dev", 1.0, [], _metrics(0.71, 0.40, 0.40))
+    assert good["accept"]["accepted"] and good["accept"]["reasons"] == []
+    assert good["accept"]["baseline_acknowledged_gate"]["gate"] == ["valid_answer_rate=0.995"]
+    bad = grpo_dev("r5/dynamic/grpo_dev2", 0.995, ["valid_answer_rate=0.995"], _metrics(0.75, 0.40, 0.40))
+    assert not bad["accept"]["accepted"] and "G_k dev eval failed its gate" in bad["accept"]["reasons"][0]
+    assert bad["checkpoint"].endswith("r5/dynamic/sft/model")
+    assert bad["dev_result"].endswith("r5/dynamic/sft_dev/mcq_rsi_eval.json")
+    # The locked test: the same rule, recorded in final.json; never for anything but unparsed answers.
+    test_spec = {"name": "final/dynamic/test", "kind": "test",
+                 "params": {"checkpoint": "G5", "pool": "test", "label": "dynamic"}}
+    out = root / "final/dynamic/test"
+    out.mkdir(parents=True)
+    outcomes["final/dynamic/test"] = (0.998, ["valid_answer_rate=0.998"], {**_metrics(0.64, 0.3, 0.3), "n": 500})
+    with pytest.raises(E.EvalGateFailed):
+        CT.stage_test(root, rt, test_spec, out)
+    assert seen["final/dynamic/test"] is True and not (out / "final.json").exists()
+    CT.ack_gate(root, "final/dynamic/test", "unparsed answers are scored wrong")
+    res = CT.stage_test(root, rt, test_spec, out)
+    assert res["gate"] == ["valid_answer_rate=0.998"] and res["acknowledged_gate"]["valid_answer_rate"] == 0.998
+    assert json.loads((out / "final.json").read_text())["acknowledged_gate"]["ack"]["reason"].startswith("unparsed")
+    outcomes["final/dynamic/test"] = (0.998, ["advisor failures=1", "valid_answer_rate=0.998"], _metrics(0.6, 0.3, 0.3))
+    with pytest.raises(E.EvalGateFailed):
+        CT.stage_test(root, rt, test_spec, out)
+
+
 def test_pilot_sweep_trains_each_lr_and_round2_uses_the_selected_lr(tmp_path, monkeypatch):
     from src.manager.mcq_rsi import grpo as G
     cfg = cfg_for(tmp_path, grpo={"learning_rate": 5e-6})  # as in the configs
@@ -1202,6 +1296,104 @@ def test_final_test_code_override_is_recorded_bound_to_the_code_and_final_stages
         with pytest.raises(SystemExit):
             cli.main(["final-test", "--run-dir", str(root), "--allow-code-change", "why"])
     assert seen["allow_code_change"] == "why"
+
+
+def test_rsi_code_override_resumes_the_remaining_rsi_stages_under_changed_code_only(tmp_path, monkeypatch):
+    cfg = cfg_for(tmp_path)
+    run, root = CT.prepare_run(cfg, tmp_path / "run", arms=["dynamic"], rounds=2)
+    CT.start(run, root)
+    first = run["plan"]["stages"][0]["name"]
+    (root / first).mkdir(parents=True)
+    (root / first / CT.MARKER).write_text("{}")
+    real = CT.code_identity
+
+    def changed(tag):
+        def ident():
+            i = real()
+            i["files"]["manager/mcq_rsi/controller.py"] = tag * 64
+            i["sha256"] = CT._sha(i["files"])
+            return i
+        return ident
+
+    monkeypatch.setattr(CT, "code_identity", changed("a"))
+    new = CT.prepare_run(cfg, tmp_path / "run", arms=["dynamic"], rounds=2)[0]
+    with pytest.raises(ValueError, match="pass --allow-code-change"):
+        CT.start(new, root)
+    with pytest.raises(ValueError, match="needs a reason"):
+        CT.start(new, root, " ")
+    assert not (root / CT.RSI_CODE_OVERRIDE).exists()
+    resumed = CT.start(new, root, "S_k validity gate may pass on an acknowledgement")
+    assert resumed["signature"] == run["signature"]  # the run keeps its own signature (and stage markers theirs)
+    ov = json.loads((root / CT.RSI_CODE_OVERRIDE).read_text())
+    assert ov["scope"] == "rsi" and ov["completed_stages"] == [first]
+    assert ov["reason"] == "S_k validity gate may pass on an acknowledgement" and ov["old_code_sha256"] != ov["new_code_sha256"]
+    assert any("controller.py" in c for c in ov["changed"])
+    run_info = json.loads((root / CT.RUN_FILE).read_text())
+    CT.check_code_or_override(root, run_info, "r2/dynamic/sft_dev")  # RSI stages: covered
+    for final in ("final/dynamic/test", None):  # the final test needs its own final-test --allow-code-change
+        with pytest.raises(RuntimeError, match="code/manifests changed"):
+            CT.check_code_or_override(root, run_info, final)
+    CT.start(new, root)  # a restart under the same code honours the record, which is not rewritten
+    CT.start(new, root, "again")
+    assert json.loads((root / CT.RSI_CODE_OVERRIDE).read_text()) == ov
+    monkeypatch.setattr(CT, "code_identity", changed("b"))  # other code: not covered
+    with pytest.raises(ValueError, match="pass --allow-code-change"):
+        CT.start(CT.prepare_run(cfg, tmp_path / "run", arms=["dynamic"], rounds=2)[0], root)
+    with pytest.raises(RuntimeError, match="code/manifests changed"):
+        CT.check_code_or_override(root, run_info, "r2/dynamic/sft_dev")
+    # Anything but the code (here the plan) is never covered.
+    with pytest.raises(ValueError, match="run settings changed"):
+        CT.start(CT.prepare_run(cfg, tmp_path / "run", arms=["dynamic"], rounds=1)[0], root, "why")
+    seen = {}
+    monkeypatch.setattr(CT, "run", lambda *a, **kw: seen.update(kw) or {"completed_stages": 0, "planned_stages": 0})
+    from src.manager.mcq_rsi import __main__ as cli
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(json.dumps({"bench": "medqa", "import_dir": str(tmp_path / "import"),
+                                    "advisor_cache": str(tmp_path / "cache"), "preflight": {"required": False}}))
+    cli.main(["run", "--config", str(cfg_path), "--run-dir", str(root), "--allow-code-change", "why"])
+    assert seen["allow_code_change"] == "why"
+
+
+def test_rsi_code_override_from_another_checkout_and_never_for_a_new_directory(tmp_path, monkeypatch):
+    manifest = CT.split_manifest_path(cfg_for(tmp_path))
+    for tree in ("a", "b"):
+        (tmp_path / tree / "data").mkdir(parents=True)
+        (tmp_path / tree / "data" / "m.json").write_bytes(manifest.read_bytes())
+    raw = {"bench": "medqa", "import_dir": str(tmp_path / "import"), "advisor_cache": str(tmp_path / "cache"),
+           "advisor_url": None, "preflight": {"required": False}, "split_manifest": "data/m.json"}  # relative
+
+    def prepared(tree):
+        monkeypatch.setattr(registry, "PACKAGE_ROOT", tmp_path / tree)
+        return CT.prepare_run(CT.load_config(raw), tmp_path / "run", arms=["dynamic"], rounds=2)
+
+    run, root = prepared("a")
+    CT.start(run, root)
+    with pytest.raises(ValueError, match="run settings changed"):  # same code, other checkout: not a code change
+        CT.start(prepared("b")[0], root, "why")
+    real = CT.code_identity
+
+    def ident():
+        i = real()
+        i["files"]["manager/mcq_rsi/controller.py"] = "c" * 64
+        i["sha256"] = CT._sha(i["files"])
+        return i
+
+    monkeypatch.setattr(CT, "code_identity", ident)
+    with pytest.raises(ValueError, match="pass --allow-code-change"):
+        CT.start(prepared("b")[0], root)
+    CT.start(prepared("b")[0], root, "new code from checkout b")
+    assert json.loads((root / CT.RSI_CODE_OVERRIDE).read_text())["reason"] == "new code from checkout b"
+    on_disk = json.loads((root / CT.RUN_FILE).read_text())
+    assert on_disk["signature"] == run["signature"] and on_disk["config_full"]["split_manifest"].startswith(str(tmp_path / "b"))
+    CT.check_code_or_override(root, on_disk, "r2/dynamic/sft_dev")  # stage subprocesses read checkout b's manifest
+    (tmp_path / "b" / "data" / "m.json").write_bytes(manifest.read_bytes() + b"\n")  # other content: never covered
+    with pytest.raises(ValueError, match="run settings changed"):
+        CT.start(prepared("b")[0], root, "why")
+    with pytest.raises(RuntimeError, match="code/manifests changed"):
+        CT.check_code_or_override(root, on_disk, "r2/dynamic/sft_dev")
+    with pytest.raises(ValueError, match="resumes an existing run"):  # a wrong --run-dir never starts a new run
+        CT.run(CT.load_config(raw), tmp_path / "elsewhere", arms=["dynamic"], rounds=2, allow_code_change="why")
+    assert not (tmp_path / "elsewhere").exists()
 
 
 # ------------------------------------------------------------- more rounds: manifests and continuation
