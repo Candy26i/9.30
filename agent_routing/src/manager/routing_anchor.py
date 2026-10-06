@@ -13,6 +13,13 @@ protocol:
     or ``ANSWER_*`` for COMMIT.  The answer draft itself therefore receives no
     auxiliary SFT gradient.
 
+``route_only_calls``
+    ``route_only`` for rows whose ``decision_type`` is ``call`` and ``full`` for
+    every other row.  A call row's draft is the manager's own wrong draft (the
+    rescue records of the marginal-value labels), so this keeps the correct
+    drafts of commit rows as targets and stops the wrong ones from being
+    learned (MCQ RSI ``sft.draft_supervision = "commit_rows"``).
+
 The latter works because the existing manager protocol makes a draft before
 deciding whether to call a tool or commit; no new ROUTE_* tokens are needed.
 """
@@ -22,7 +29,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
-ANCHOR_MODES = ("full", "route_only")
+ANCHOR_MODES = ("full", "route_only", "route_only_calls")
 _DRAFT_RE = re.compile(r"DRAFT_ANSWER_[A-Za-z0-9_]+")
 
 
@@ -160,8 +167,8 @@ def tokenize_anchor_row(
     target_ids = list(tokenizer(target_text, add_special_tokens=False)["input_ids"])
     input_ids = prompt_ids + target_ids
     label_boundary = len(prompt_ids)
-    if mode == "route_only":
-        decision_type = str(row.get("decision_type") or "")
+    decision_type = str(row.get("decision_type") or "")
+    if mode == "route_only" or (mode == "route_only_calls" and decision_type == "call"):
         if decision_type not in {"call", "commit", "commit_after_call"}:
             raise ValueError("route_only anchor requires decision_type in {call, commit, commit_after_call}")
         draft = str(_draft_prefix_message(response_messages)["content"])

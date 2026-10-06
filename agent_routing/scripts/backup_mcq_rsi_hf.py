@@ -6,6 +6,13 @@ The pod may have no persistent volume, so this is the only copy that survives a 
     python scripts/backup_mcq_rsi_hf.py --work /workspace/mcq_rsi --repo MaliDDD/margent-mcq-rsi           # one pass
     python scripts/backup_mcq_rsi_hf.py ... --every-minutes 60                                              # loop (tmux)
     python scripts/backup_mcq_rsi_hf.py ... --dry-run                                                       # list only
+    python scripts/backup_mcq_rsi_hf.py --run medqa_v2 --repo MaliDDD/margent-mcq-rsi-medqa_v2 --every-minutes 60
+
+A Hugging Face repo holds at most 20,000 files, and one run directory has 1,500-2,600 (the combined repo
+MaliDDD/margent-mcq-rsi reached the limit on 2026-10-06). ``--run NAME`` therefore backs up one run into its own
+repo: ``runs/NAME/``, the logs named after it (``logs/NAME*``), the locked-test registry and the preflight
+records, the import manifests and the advisor-cache archive, staged under ``<work>/hf_backup_stage__NAME``.
+Give every run its own ``--repo`` and its own loop (one tmux session per run).
 
 Each pass:
 1. mirrors ``runs/``, ``logs/``, ``advisor_cache/{preflight,locked_test}/`` and the import manifests into
@@ -60,8 +67,23 @@ def excluded(rel: str) -> bool:
     return any(fnmatch.fnmatchcase(rel, p) for p in EXCLUDE)
 
 
-def source_files(work: Path) -> Dict[str, Path]:
-    """Relative path -> source file of everything the backup keeps."""
+def _in_run(rel: str, run: Optional[str]) -> bool:
+    """Whether a staged path belongs to the per-run backup of ``run`` (every path when ``run`` is None)."""
+    if run is None:
+        return True
+    if rel.startswith("runs/"):
+        return rel.startswith(f"runs/{run}/")
+    if rel.startswith("logs/"):
+        return rel.startswith(f"logs/{run}")
+    return True  # advisor_cache/{preflight,locked_test}, import manifests
+
+
+def stage_dir(work: Path, run: Optional[str] = None) -> Path:
+    return work / (STAGE if run is None else f"{STAGE}__{run}")
+
+
+def source_files(work: Path, run: Optional[str] = None) -> Dict[str, Path]:
+    """Relative path -> source file of everything the backup keeps (of one run with ``run``)."""
     out: Dict[str, Path] = {}
     for tree in TREES:
         root = work / tree
@@ -72,7 +94,7 @@ def source_files(work: Path) -> Dict[str, Path]:
             dirnames[:] = [d for d in dirnames if not excluded(f"{rel_dir}/{d}/x")]
             for name in filenames:
                 rel = f"{rel_dir}/{name}"
-                if not excluded(rel):
+                if not excluded(rel) and _in_run(rel, run):
                     out[rel] = Path(dirpath) / name
     for pattern in EXTRA_GLOBS:
         for f in work.glob(pattern):
@@ -81,9 +103,9 @@ def source_files(work: Path) -> Dict[str, Path]:
     return out
 
 
-def mirror(work: Path, stage: Path, dry_run: bool = False) -> Dict[str, int]:
+def mirror(work: Path, stage: Path, dry_run: bool = False, run: Optional[str] = None) -> Dict[str, int]:
     """Copy new or changed files (size or mtime differ) into ``stage``; delete staged files the source no longer has."""
-    wanted = source_files(work)
+    wanted = source_files(work, run)
     counts = {"copied": 0, "unchanged": 0, "removed": 0, "bytes_copied": 0}
     for rel, src in sorted(wanted.items()):
         dest = stage / rel
@@ -165,19 +187,22 @@ def require_login() -> str:
                          f"{Path(sys.executable).parent / 'hf'} auth login") from None
 
 
-def one_pass(work: Path, repo: str, private: bool, dry_run: bool) -> Dict[str, object]:
-    stage = work / STAGE
+def one_pass(work: Path, repo: str, private: bool, dry_run: bool, run: Optional[str] = None) -> Dict[str, object]:
+    if run is not None and not (work / "runs" / run).is_dir():
+        raise SystemExit(f"no run directory {work / 'runs' / run}")
+    stage = stage_dir(work, run)
     started = time.time()
-    counts = mirror(work, stage, dry_run=dry_run)
+    counts = mirror(work, stage, dry_run=dry_run, run=run)
     packed = pack_advisor_cache(work, stage, dry_run=dry_run)
-    result: Dict[str, object] = {"repo": repo, "private": private, "dry_run": dry_run, **counts,
+    result: Dict[str, object] = {"repo": repo, "run": run, "private": private, "dry_run": dry_run, **counts,
                                  "advisor_cache_packed": packed}
     if not dry_run:
         upload(stage, repo, private)
         result["seconds"] = round(time.time() - started, 1)
         result["finished"] = time.strftime("%F %T")
         (work / "logs").mkdir(parents=True, exist_ok=True)
-        (work / "logs" / "hf_backup_last.json").write_text(json.dumps(result, indent=2) + "\n")
+        last = "hf_backup_last.json" if run is None else f"hf_backup_last__{run}.json"
+        (work / "logs" / last).write_text(json.dumps(result, indent=2) + "\n")
     return result
 
 
@@ -188,16 +213,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--public", action="store_true", help="create the repo public (default: private)")
     p.add_argument("--every-minutes", type=float, default=0.0, help="loop with this period (0: one pass)")
     p.add_argument("--dry-run", action="store_true", help="list what would be copied, packed and removed")
+    p.add_argument("--run", default=os.environ.get("BACKUP_RUN") or None, metavar="NAME",
+                   help="back up one run directory (runs/NAME, logs/NAME*, registries, manifests) into its own repo; "
+                        "a repo holds at most 20,000 files")
     a = p.parse_args(argv)
     work = Path(a.work)
     if not work.is_dir():
         raise SystemExit(f"no work directory {work}")
     if not a.dry_run:
-        log(f"logged in to Hugging Face as {require_login()}; backing up {work} -> {a.repo} "
-            f"({'public' if a.public else 'private'})")
+        log(f"logged in to Hugging Face as {require_login()}; backing up {work}"
+            f"{' run ' + a.run if a.run else ''} -> {a.repo} ({'public' if a.public else 'private'})")
     while True:
         try:
-            log(json.dumps(one_pass(work, a.repo, not a.public, a.dry_run)))
+            log(json.dumps(one_pass(work, a.repo, not a.public, a.dry_run, a.run)))
         except Exception as e:  # noqa: BLE001 - a loop survives transient network/hub errors
             if a.every_minutes <= 0:
                 raise

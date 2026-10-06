@@ -32,7 +32,7 @@ def cfg_for(tmp_path, **over):
 
 def test_plan_shape_dedup_static_reuse_and_sft_init_chain(tmp_path):
     cfg = cfg_for(tmp_path)
-    plan = CT.build_plan(cfg, "main", ["dynamic", "static", "success", "dynamic_sft"], 3)
+    plan = CT.build_plan(cfg, "main", ["dynamic", "static", "success", "dynamic_sft", "static_sft"], 3)
     names = [s["name"] for s in plan["stages"]]
     assert len(names) == len(set(names))
     by = {s["name"]: s for s in plan["stages"]}
@@ -50,6 +50,16 @@ def test_plan_shape_dedup_static_reuse_and_sft_init_chain(tmp_path):
     assert arms["dynamic_sft"]["2"]["collect"] == "r2/dynamic_sft/collect"
     assert by["r2/dynamic_sft/collect"]["params"]["checkpoint"] == "decision:r1/S1_dev"
     assert arms["dynamic"]["3"]["collect"] != arms["success"]["3"]["collect"]
+    # static_sft: the static labels through the shared select stage, SFT from S_1, no GRPO at all.
+    assert arms["static_sft"]["2"]["select"] == "static/select" and "collect" not in arms["static_sft"]["2"]
+    assert by["r2/static_sft/sft"]["params"]["init"] == "decision:r1/S1_dev"
+    assert by["r3/static_sft/sft"]["params"]["init"] == "decision:r2/static_sft/sft_dev"
+    assert not any(n.startswith("r2/static_sft/grpo") or n.startswith("r3/static_sft/grpo") for n in names)
+    assert plan["finals"]["static_sft"] == "decision:r3/static_sft/sft_dev"
+    # Two no-GRPO arms alone plan no GRPO stage anywhere (the new main runs).
+    nogrpo = CT.build_plan(cfg, "main", ["dynamic_sft", "static_sft"], 3)
+    assert not any(s["kind"] in ("grpo", "grpo_select") for s in nogrpo["stages"])
+    assert [s["name"] for s in nogrpo["stages"]][:2] == ["prefetch/advisors", "r1/S1_dev"]
     # Static reuses the round-1 label file in every round, through one shared select stage, and never collects.
     assert arms["static"]["2"]["select"] == arms["static"]["3"]["select"] == "static/select"
     assert by["static/select"]["params"] == {"selection": "static", "records": None}

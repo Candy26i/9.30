@@ -30,8 +30,9 @@ then rounds R+1..rounds follow the main-phase logic from it; the finals are the 
 
 Stages are de-duplicated by content: two arms asking for the same kind with the same
 symbolic parameters share one stage (round 1, ``r2/collect`` of the arms starting from the
-shared G_1, and ``static/select``). ``dynamic_sft`` starts round 2 from S_1, not G_1, so it has
-its own collection, selection and SFT. The pilot phase replaces ``r1/grpo`` by a
+shared G_1, and ``static/select``). ``dynamic_sft`` and ``static_sft`` (no GRPO) start round 2
+from S_1, not G_1, so ``dynamic_sft`` has its own collection, selection and SFT; ``static_sft``
+shares ``static/select`` with ``static``. The pilot phase replaces ``r1/grpo`` by a
 learning-rate sweep (``r1/grpo_lr<lr>`` + ``_dev``) and ``r1/grpo_select``, which picks
 the accepted candidate with the best dev accuracy (ties: fewer calls, then smaller lr);
 its lr is used by the later rounds.
@@ -88,6 +89,7 @@ ARM_SPECS = {
     "static": {"selection": "static", "grpo": True},
     "success": {"selection": "success", "grpo": True},
     "dynamic_sft": {"selection": "dynamic", "grpo": False},  # optional ablation: no GRPO (G_k := S_k)
+    "static_sft": {"selection": "static", "grpo": False},  # static labels, no GRPO: the control for dynamic_sft
 }
 LANES = ("inference", "train", "cpu")
 PACKAGE = Path(__file__).resolve().parent

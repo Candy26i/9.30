@@ -99,6 +99,31 @@ def test_one_pass_uploads_the_staging_folder_privately_and_records_the_result(tm
     assert B.one_pass(w, "r", private=True, dry_run=True)["dry_run"] and not calls
 
 
+def test_per_run_backup_stages_one_run_its_logs_and_the_registries(tmp_path, monkeypatch):
+    w = make_work(tmp_path)
+    _w(w / "runs/medqa_v2/rsi_run.json")
+    _w(w / "runs/medqa_v2/r2/dynamic_sft/sft/model/adapter_model.safetensors")
+    _w(w / "logs/medqa_v2.log")
+    _w(w / "logs/medqa_v2_final_test.log")
+    files = B.source_files(w, run="medqa_v2")
+    assert set(files) == {"runs/medqa_v2/rsi_run.json", "runs/medqa_v2/r2/dynamic_sft/sft/model/adapter_model.safetensors",
+                          "logs/medqa_v2.log", "logs/medqa_v2_final_test.log", "advisor_cache/preflight/medqa.json",
+                          "advisor_cache/locked_test/medqa.json", "import/medqa/import_manifest.json"}
+    assert not any(k.startswith("runs/medqa_pilot") for k in files) and "logs/pipeline.log" not in files
+    calls = []
+    monkeypatch.setattr(B, "upload", lambda stage, repo, private: calls.append((stage, repo, private)))
+    result = B.one_pass(w, "u/mcq-medqa_v2", True, False, run="medqa_v2")
+    stage = B.stage_dir(w, "medqa_v2")
+    assert stage == w / "hf_backup_stage__medqa_v2" and calls == [(stage, "u/mcq-medqa_v2", True)]
+    assert (stage / "runs/medqa_v2/rsi_run.json").is_file() and not (stage / "runs/medqa_pilot").exists()
+    assert (stage / B.ADVISOR_TAR).is_file() and result["run"] == "medqa_v2" and result["copied"] == 7
+    assert (w / "logs/hf_backup_last__medqa_v2.json").is_file()
+    assert B.stage_dir(w) == w / B.STAGE and B.source_files(w) == B.source_files(w, None)
+    import pytest
+    with pytest.raises(SystemExit, match="no run directory"):
+        B.one_pass(w, "u/x", True, True, run="missing")
+
+
 def test_wrapper_exposes_the_backup_step():
     wrapper = (ROOT / "scripts" / "runpod_mcq_rsi.sh").read_text()
     assert "step_backup" in wrapper and "|backup)$" in wrapper and 'BACKUP_EVERY_MIN="${BACKUP_EVERY_MIN:-}"' in wrapper

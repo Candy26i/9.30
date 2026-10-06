@@ -13,7 +13,9 @@
 # Environment: BENCH (preflight/pilot/main/final-test, default medqa), ARMS, ROUNDS, HOURS, MCQ_ADVISOR_PORT (18002),
 #   PREFLIGHT_BENCHES (default: $BENCH; "medqa mmlu_pro gpqa aqua" before Phase B), SMOKE_RUN (default $WORK/runs/smoke),
 #   RUN_DIR (pilot/main/final-test run directory), REUSE_TEST (final-test: reason for a second locked-test use),
-#   MARGENT_WANDB_MODE (unset: W&B follows the config's "wandb.enabled"; "disabled" turns it off).
+#   MARGENT_WANDB_MODE (unset: W&B follows the config's "wandb.enabled"; "disabled" turns it off),
+#   MCQ_CONFIG_SUFFIX (e.g. "_v2": the steps read configs/mcq_rsi_<bench>_v2.json instead of configs/mcq_rsi_<bench>.json),
+#   BACKUP_RUN / HF_BACKUP_REPO / BACKUP_EVERY_MIN (backup: one run directory into its own repo, hourly).
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 REPO="$(pwd)"
@@ -22,6 +24,7 @@ WORK="${MCQ_WORK:-/workspace/mcq_rsi}"
 PY="${MCQ_PYTHON:-/workspace/mcq-venv/bin/python}"
 SESSION="${MCQ_TMUX_SESSION:-mcq_rsi}"
 BENCH="${BENCH:-medqa}"
+CFG_SUFFIX="${MCQ_CONFIG_SUFFIX:-}"  # "_v2": configs/mcq_rsi_<bench>_v2.json (D15: no GRPO, commit_rows draft supervision)
 HOURS="${HOURS:-72}"
 PORT="${MCQ_ADVISOR_PORT:-18002}"
 ADVISOR_GPU="${MCQ_ADVISOR_GPU:-0}"
@@ -58,9 +61,10 @@ advisor_up() { curl -fsS "$(url)/health" >/dev/null 2>&1; }
 
 step_backup() {
   # One pass, or a loop with BACKUP_EVERY_MIN (use: BACKUP_EVERY_MIN=60 bash scripts/runpod_mcq_rsi.sh bg backup).
-  log "HF backup of ${WORK} -> ${HF_BACKUP_REPO:-MaliDDD/margent-mcq-rsi}"
+  # BACKUP_RUN=<run> backs up that run directory alone into HF_BACKUP_REPO (one repo per run: the 20,000-file limit).
+  log "HF backup of ${WORK}${BACKUP_RUN:+ run $BACKUP_RUN} -> ${HF_BACKUP_REPO:-MaliDDD/margent-mcq-rsi}"
   "$PY" scripts/backup_mcq_rsi_hf.py --work "$WORK" --repo "${HF_BACKUP_REPO:-MaliDDD/margent-mcq-rsi}" \
-    ${BACKUP_EVERY_MIN:+--every-minutes "$BACKUP_EVERY_MIN"} 2>&1 | tee -a "$LOGS/backup.log"
+    ${BACKUP_RUN:+--run "$BACKUP_RUN"} ${BACKUP_EVERY_MIN:+--every-minutes "$BACKUP_EVERY_MIN"} 2>&1 | tee -a "$LOGS/backup${BACKUP_RUN:+_$BACKUP_RUN}.log"
 }
 
 step_import() { log "import (all benchmarks)"; cli import --bench all --out "$WORK/import" --cache-dir "$HF_HOME/hub" 2>&1 | tee -a "$LOGS/import.log"; }
@@ -72,16 +76,16 @@ step_splits() {
   git -C "$REPO" diff --quiet -- data/mcq_rsi || die "split manifests changed on disk; investigate before running"
 }
 advisor_mode() {  # the config's advisor_mode ("base": the server needs no LoRAs)
-  "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get("advisor_mode", "lora"))' "configs/mcq_rsi_${BENCH}.json"
+  "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get("advisor_mode", "lora"))' "configs/mcq_rsi_${BENCH}${CFG_SUFFIX}.json"
 }
 step_advisors() {
   if advisor_up; then log "advisor server already healthy on port ${PORT}"; return 0; fi
   local mode loras
-  mode="$(advisor_mode)" || die "cannot read advisor_mode from configs/mcq_rsi_${BENCH}.json"
+  mode="$(advisor_mode)" || die "cannot read advisor_mode from configs/mcq_rsi_${BENCH}${CFG_SUFFIX}.json"
   case "$mode" in
     base) loras=none ;;
     lora) loras=all ;;
-    *) die "unknown advisor_mode '${mode}' in configs/mcq_rsi_${BENCH}.json" ;;
+    *) die "unknown advisor_mode '${mode}' in configs/mcq_rsi_${BENCH}${CFG_SUFFIX}.json" ;;
   esac
   log "starting advisor server on port ${PORT} (advisor_mode ${mode}, LoRAs: ${loras})"
   MCQ_ADVISOR_LORAS="$loras" MCQ_IMPORT_DIR="$WORK/import" MCQ_LOG_DIR="$LOGS" \
@@ -93,7 +97,7 @@ step_preflight() {
   # vLLM version, flags and settings is kept (--skip-if-passed), so restarts do not replay it again.
   for b in ${PREFLIGHT_BENCHES:-$BENCH}; do
     log "preflight ${b}"
-    cli preflight --config "configs/mcq_rsi_${b}.json" --advisor-url "$(url)" --skip-if-passed 2>&1 | tee -a "$LOGS/preflight_${b}.log"
+    cli preflight --config "configs/mcq_rsi_${b}${CFG_SUFFIX}.json" --advisor-url "$(url)" --skip-if-passed 2>&1 | tee -a "$LOGS/preflight_${b}.log"
   done
 }
 step_smoke() {
@@ -123,7 +127,7 @@ step_pilot() {
   gpu_check
   local run="${RUN_DIR:-$WORK/runs/${BENCH}_pilot}"
   log "pilot ${BENCH} (lr sweep at round 1, dynamic R=2) -> ${run}"
-  cli run --config "configs/mcq_rsi_${BENCH}.json" --phase pilot --run-dir "$run" \
+  cli run --config "configs/mcq_rsi_${BENCH}${CFG_SUFFIX}.json" --phase pilot --run-dir "$run" \
     --hours "${HOURS}" --advisor-url "$(url)" 2>&1 | tee -a "$LOGS/${BENCH}_pilot.log"
 }
 step_main() {
@@ -133,7 +137,7 @@ step_main() {
   [[ -z "${ARMS:-}" ]] || extra+=(--arms "$ARMS")
   [[ -z "${ROUNDS:-}" ]] || extra+=(--rounds "$ROUNDS")
   log "main ${BENCH} ${extra[*]:-} -> ${run}"
-  cli run --config "configs/mcq_rsi_${BENCH}.json" --run-dir "$run" --hours "$HOURS" \
+  cli run --config "configs/mcq_rsi_${BENCH}${CFG_SUFFIX}.json" --run-dir "$run" --hours "$HOURS" \
     --advisor-url "$(url)" "${extra[@]}" 2>&1 | tee -a "$LOGS/${BENCH}_main.log"
 }
 step_final_test() {
@@ -169,7 +173,7 @@ case "${1:-}" in
     step="${2:-}"
     [[ "$step" =~ ^(import|splits|advisors|preflight|smoke|smoke-check|pilot|main|final-test|backup)$ ]] || die "usage: $0 bg <step>"
     command -v tmux >/dev/null || die "tmux not installed (apt-get install -y tmux)"
-    name="mcq_${step}_${BENCH}"
+    name="mcq_${step}_${BENCH}${BACKUP_RUN:+_$BACKUP_RUN}"  # one backup loop per run (BACKUP_RUN) may coexist
     tmux has-session -t "$name" 2>/dev/null && die "tmux session ${name} exists (tmux attach -t ${name})"
     # The environment of this shell (BENCH, ARMS, RUN_DIR, ...) is passed on explicitly.
     tmux new-session -d -s "$name" -n "$step" \
@@ -179,7 +183,8 @@ case "${1:-}" in
          MCQ_WORK="$WORK" MCQ_PYTHON="$PY" MCQ_TMUX_SESSION="$SESSION" \
          MCQ_ADVISOR_GPU="$ADVISOR_GPU" MCQ_TRAIN_GPU="$TRAIN_GPU" SMOKE_HOURS="${SMOKE_HOURS:-}" \
          ${MARGENT_WANDB_MODE+"MARGENT_WANDB_MODE=$MARGENT_WANDB_MODE"} HF_HOME="$HF_HOME" HF_HUB_DISABLE_XET="$HF_HUB_DISABLE_XET" \
-         TMPDIR="$TMPDIR" HF_BACKUP_REPO="${HF_BACKUP_REPO:-}" BACKUP_EVERY_MIN="${BACKUP_EVERY_MIN:-}" \
+         TMPDIR="$TMPDIR" HF_BACKUP_REPO="${HF_BACKUP_REPO:-}" BACKUP_EVERY_MIN="${BACKUP_EVERY_MIN:-}" BACKUP_RUN="${BACKUP_RUN:-}" \
+         MCQ_CONFIG_SUFFIX="${MCQ_CONFIG_SUFFIX:-}" \
          ${HF_TOKEN_PATH+"HF_TOKEN_PATH=$HF_TOKEN_PATH"} \
          bash "$REPO/scripts/runpod_mcq_rsi.sh" "$step"); exec bash"
     log "started ${step} in tmux session ${name} (tmux attach -t ${name})" ;;

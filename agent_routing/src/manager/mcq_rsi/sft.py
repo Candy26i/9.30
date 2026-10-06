@@ -38,6 +38,10 @@ from .collect import _atomic_write
 
 SFT_VERSION = "mcq_rsi_sft/1"
 CONTEXTS = ("paper", "evolve")
+# Which rows' DRAFT_ANSWER_X tokens are trained. "all": every row (the paper's SFT). "commit_rows": only commit and
+# commit_after_call rows (correct drafts); a call row's draft is the manager's own wrong draft, which "all" teaches
+# back to the manager round after round (MedQA/AQuA drafts drifted toward one letter, 2026-10-06).
+DRAFT_SUPERVISION = ("all", "commit_rows")
 DECISION_TYPES = ("commit", "call", "commit_after_call")
 _DRAFT_RE = re.compile(r"^DRAFT_ANSWER_([A-Z])")
 _PATCH_LOCK = threading.Lock()
@@ -54,10 +58,13 @@ class RoundSFTConfig:
     max_steps: int = -1
     bf16: bool = True
     context: str = "paper"
+    draft_supervision: str = "all"
 
     def validate(self) -> None:
         if self.context not in CONTEXTS:
             raise ValueError(f"context must be one of {CONTEXTS}")
+        if self.draft_supervision not in DRAFT_SUPERVISION:
+            raise ValueError(f"draft_supervision must be one of {DRAFT_SUPERVISION}")
         if self.num_train_epochs <= 0 or self.learning_rate <= 0 or self.max_seq_len <= 0:
             raise ValueError("epochs, learning rate and max_seq_len must be positive")
 
@@ -250,16 +257,21 @@ def check_tokenization_parity(labels, tokenizer, max_seq_len: int = 4096, contex
 
 
 @contextlib.contextmanager
-def sft_context(context: str = "paper"):
-    """Run ``evolve.train_manager_sft`` with the tool schemas rendered as ``context`` says.
+def sft_context(context: str = "paper", draft_supervision: str = "all"):
+    """Run ``evolve.train_manager_sft`` with the tool schemas rendered as ``context`` says and the
+    draft tokens trained as ``draft_supervision`` says.
 
     ``paper`` wraps ``evolve._tokenize_manager_sft`` for the duration so the schemas
     reach ``build_anchor_features`` as a tuple (see module docstring); evolve.py is
-    not edited and nothing else changes.
+    not edited and nothing else changes. ``commit_rows`` tokenises with the
+    ``route_only_calls`` anchor mode instead of ``full``: call rows get no loss on their
+    ``DRAFT_ANSWER_X`` (``DRAFT_SUPERVISION``).
     """
     if context not in CONTEXTS:
         raise ValueError(f"context must be one of {CONTEXTS}")
-    if context == "evolve":
+    if draft_supervision not in DRAFT_SUPERVISION:
+        raise ValueError(f"draft_supervision must be one of {DRAFT_SUPERVISION}")
+    if context == "evolve" and draft_supervision == "all":
         yield
         return
     from .. import evolve
@@ -267,7 +279,15 @@ def sft_context(context: str = "paper"):
         original = evolve._tokenize_manager_sft
 
         def tokenize(rows, tok, max_seq_len, tools=None):
-            return original(rows, tok, max_seq_len, tools=tuple(tools) if tools else tools)
+            tools = tuple(tools) if context == "paper" and tools else tools
+            if draft_supervision == "all":
+                return original(rows, tok, max_seq_len, tools=tools)
+            from datasets import Dataset
+            from ..routing_anchor import build_anchor_features
+            features, stats = build_anchor_features(rows, tok, max_seq_len, "route_only_calls", tools)
+            if len(features) != len(rows):
+                raise ValueError(f"Manager SFT contains empty or overlength targets; no silent truncation: {stats}")
+            return Dataset.from_list(features)
 
         evolve._tokenize_manager_sft = tokenize
         try:
@@ -353,7 +373,7 @@ def train_round_sft(labels, init_adapter, out_dir, *, base_model: str = registry
         per_device_batch_size=cfg.per_device_batch_size, gradient_accumulation_steps=cfg.gradient_accumulation_steps,
         use_lora=True, lora_r=lora["r"], lora_alpha=lora["lora_alpha"], lora_dropout=lora["lora_dropout"],
         max_steps=cfg.max_steps, bf16=cfg.bf16)
-    with sft_context(cfg.context):
+    with sft_context(cfg.context, cfg.draft_supervision):
         train_manager_sft(manager_cfg)
     if not (model_dir / "adapter_config.json").is_file():
         raise RuntimeError(f"{model_dir}: train_manager_sft wrote no adapter")

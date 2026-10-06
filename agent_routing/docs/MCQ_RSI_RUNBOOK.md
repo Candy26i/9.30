@@ -39,7 +39,7 @@ Each later round `k` does the following:
 
 The plan runs round by round. Identical stages run once: round 1 is shared by all arms,
 `r2/collect` is shared by dynamic and success, and `static/select` serves every round. The
-optional `dynamic_sft` arm starts round 2 from `S_1`, so it has its own collection and SFT.
+optional `dynamic_sft` arm starts round 2 from `S_1`, so it has its own collection and SFT; `static_sft` is its static-label control (no GRPO either).
 Run `run --dry-run` to print the plan.
 
 | Decision (design §8) | Default chosen |
@@ -58,6 +58,7 @@ Run `run --dry-run` to print the plan.
 | D12 final checkpoint | last round per arm (`G_3`, or `S_3` if rejected), pre-registered; dev-best is not used |
 | D13 schemas | deployment schema for collect/GRPO/eval; the paper SFT schema for SFT |
 | **D14** advisor serving | **Decided (2026-10-02): base advisors, `"advisor_mode": "base"` in every MCQ config.** The paper-era server never applied the advisor LoRAs: vLLM dropped their unmatched keys (§5), and the original HF adapters served that way are byte-identical to the base. So every paper number, the locked S_1 managers and their round-1 labels come from the base model answering under each role's prompt. An A/B over 754 dev questions per role found that neither the paper LoRAs nor retrained ones (v2: validation split, best of ≤3 epochs; `MaliDDD/agent-routing-advisors-<bench>-9b-v2`) beat that base, and the trained verifiers break more correct answers (`scripts/mcq_advisor_ab.py`, logs/advisor_ab). `"advisor_mode": "lora"` and the renamed-copy serving below remain for ablations. |
+| **D15** draft supervision | **`sft.draft_supervision = "commit_rows"` in the v2 configs (2026-10-06).** The paper's SFT trains every token of a label row, so a rescue (call) row teaches the manager its own wrong `DRAFT_ANSWER_X` before the call. Recollected labels contain the current manager's wrong drafts, which skew to one letter, and the skew compounded round over round: MedQA dynamic drafts went 73.4 → 67.4 on the locked test (B 142 → 213 of 500, truth 113), AQuA dynamic drafts reached 70% B; static (the fixed round-1 labels) did not drift. `commit_rows` tokenises call rows with the `route_only_calls` anchor mode (`routing_anchor.py`): no loss on the draft, loss on the tool call; commit rows are unchanged. `"all"` (the default) keeps the paper's tokenisation, and every run before 2026-10-06 used it. |
 
 ## 1. Pod
 
@@ -330,7 +331,8 @@ BENCH=medqa bash scripts/runpod_mcq_rsi.sh bg main   # tmux session mcq_main_med
 # = $PY -m src.manager.mcq_rsi run --config configs/mcq_rsi_$BENCH.json --run-dir /workspace/mcq_rsi/runs/${BENCH}_main --hours 72 --advisor-url http://127.0.0.1:18002
 ```
 
-- `--arms dynamic,static` (or `ARMS=dynamic,static`) is the cheaper variant. `dynamic_sft` adds the no-GRPO ablation.
+- `--arms dynamic,static` (or `ARMS=dynamic,static`) is the cheaper variant. `dynamic_sft` adds the no-GRPO ablation; `static_sft` is its control.
+- **v2 main runs (2026-10-06)**: `configs/mcq_rsi_<bench>_v2.json` = the same settings with arms `dynamic_sft,static_sft` (no GRPO stage at all) and `sft.draft_supervision = "commit_rows"` (D15). Each benchmark's locked test was already used by `<bench>_main`, so their final-tests need `--reuse-test`.
 - `--hours` is persisted at the first start (`budget.json`) with a 72 h cap. A restart never buys more time. When the deadline hits, the running stage is killed and the completed stages are kept.
 
 ## 10. Monitoring
@@ -411,6 +413,15 @@ bash scripts/runpod_mcq_rsi.sh backup                            # one extra pas
 - `advisor_cache/{preflight,locked_test}`;
 - the import manifests;
 - the advisor output cache, packed into `advisor_cache.tar.gz`.
+
+**One repo per run.** A Hugging Face repo holds at most 20,000 files and a run directory has 1,500–2,600, so the combined repo `MaliDDD/margent-mcq-rsi` (every run up to 2026-10-06; `medqa_r5` is in `archives/medqa_r5_run_and_new_logs.tar`) is full. New runs back up with `--run`, one repo and one loop each:
+
+```bash
+BACKUP_RUN=medqa_v2 HF_BACKUP_REPO=MaliDDD/margent-mcq-rsi-medqa_v2 BACKUP_EVERY_MIN=60 bash scripts/runpod_mcq_rsi.sh bg backup
+# = $PY scripts/backup_mcq_rsi_hf.py --run medqa_v2 --repo MaliDDD/margent-mcq-rsi-medqa_v2 --every-minutes 60
+```
+
+That stages `runs/<run>/`, `logs/<run>*`, the two registries, the import manifests and the advisor-cache archive under `hf_backup_stage__<run>`. Restore one run the same way as above, from its own repo.
 
 It leaves out:
 - per-step FA-GRPO weights and optimizer states (`step-*/`, about 370 MB per step). Every `final/` adapter, `step.json` and `metrics.jsonl` is kept;
