@@ -159,7 +159,7 @@ def test_commit_rows_draft_supervision_masks_only_the_call_rows_drafts(tmp_path)
     with pytest.raises(ValueError, match="draft_supervision"):
         S.RoundSFTConfig(draft_supervision="calls").validate()
     with pytest.raises(ValueError, match="draft_supervision"):
-        with S.sft_context("paper", "none"):
+        with S.sft_context("paper", "nothing"):
             pass
     # "none": no row trains its draft; commit rows keep ANSWER_X, call rows keep the tool call.
     with S.sft_context("paper", "none"):
