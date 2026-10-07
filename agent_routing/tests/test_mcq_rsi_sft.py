@@ -161,6 +161,14 @@ def test_commit_rows_draft_supervision_masks_only_the_call_rows_drafts(tmp_path)
     with pytest.raises(ValueError, match="draft_supervision"):
         with S.sft_context("paper", "none"):
             pass
+    # "none": no row trains its draft; commit rows keep ANSWER_X, call rows keep the tool call.
+    with S.sft_context("paper", "none"):
+        ds3 = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
+    assert len(ds3) == len(rows)
+    for row, f, f_full in zip(rows, ds3, full):
+        sup = tok.decode([t for t in f["labels"] if t != -100])
+        assert "DRAFT_ANSWER_" not in sup and sum(t != -100 for t in f["labels"]) < sum(t != -100 for t in f_full["labels"])
+        assert ("_tool" in sup) == (row["decision_type"] == "call") and ("ANSWER_" in sup) == (row["decision_type"] != "call")
     # Also under the evolve tool container (another prompt render, which "all" leaves unpatched): the same rule.
     with S.sft_context("evolve", "commit_rows"):
         ds2 = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))

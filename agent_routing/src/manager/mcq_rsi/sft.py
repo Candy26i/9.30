@@ -40,8 +40,12 @@ SFT_VERSION = "mcq_rsi_sft/1"
 CONTEXTS = ("paper", "evolve")
 # Which rows' DRAFT_ANSWER_X tokens are trained. "all": every row (the paper's SFT). "commit_rows": only commit and
 # commit_after_call rows (correct drafts); a call row's draft is the manager's own wrong draft, which "all" teaches
-# back to the manager round after round (MedQA/AQuA drafts drifted toward one letter, 2026-10-06).
-DRAFT_SUPERVISION = ("all", "commit_rows")
+# back to the manager round after round (MedQA/AQuA drafts drifted toward one letter, 2026-10-06). "none": no row's
+# draft (the anchor's ``route_only``): only the routing suffix is trained, so commit and call rows carry comparable
+# loss ("commit_rows" leaves commit rows with far more supervised tokens than call rows, and the v2 runs on AQuA
+# static and MMLU-Pro round 2 drifted toward committing, 2026-10-07).
+DRAFT_SUPERVISION = ("all", "commit_rows", "none")
+ANCHOR_MODE_OF = {"all": "full", "commit_rows": "route_only_calls", "none": "route_only"}
 DECISION_TYPES = ("commit", "call", "commit_after_call")
 _DRAFT_RE = re.compile(r"^DRAFT_ANSWER_([A-Z])")
 _PATCH_LOCK = threading.Lock()
@@ -265,7 +269,7 @@ def sft_context(context: str = "paper", draft_supervision: str = "all"):
     reach ``build_anchor_features`` as a tuple (see module docstring); evolve.py is
     not edited and nothing else changes. ``commit_rows`` tokenises with the
     ``route_only_calls`` anchor mode instead of ``full``: call rows get no loss on their
-    ``DRAFT_ANSWER_X`` (``DRAFT_SUPERVISION``).
+    ``DRAFT_ANSWER_X``; ``none`` uses ``route_only``, no draft is trained (``DRAFT_SUPERVISION``).
     """
     if context not in CONTEXTS:
         raise ValueError(f"context must be one of {CONTEXTS}")
@@ -284,7 +288,7 @@ def sft_context(context: str = "paper", draft_supervision: str = "all"):
                 return original(rows, tok, max_seq_len, tools=tools)
             from datasets import Dataset
             from ..routing_anchor import build_anchor_features
-            features, stats = build_anchor_features(rows, tok, max_seq_len, "route_only_calls", tools)
+            features, stats = build_anchor_features(rows, tok, max_seq_len, ANCHOR_MODE_OF[draft_supervision], tools)
             if len(features) != len(rows):
                 raise ValueError(f"Manager SFT contains empty or overlength targets; no silent truncation: {stats}")
             return Dataset.from_list(features)
