@@ -209,6 +209,8 @@ the A100 pod (2026-10-03):
 [MCQ_RSI/PREFLIGHT] medqa/verifier (base advisors): n=20 match=0.00 sim=0.66 prefix=0.24 -> PASS (similar)
 ```
 
+**MMLU-Pro v2 (user decision 2026-10-07): `min_similarity` 0.45** in `configs/mcq_rsi_mmlu_pro_v2.json`: the base reasoner replay scored 0.49 on the second pod against 0.50 on the first, the same long-output drift as GPQA below.
+
 **GPQA (operator decision 2026-10-03): `min_similarity` 0.35.** On GPQA the base model is closer than the
 trained LoRA to the recorded paper outputs on 100% of the items for every role:
 

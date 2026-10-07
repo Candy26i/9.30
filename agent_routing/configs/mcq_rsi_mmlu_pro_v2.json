@@ -1,6 +1,6 @@
 {
   "bench": "mmlu_pro",
-  "_comment": "MCQ RSI controller config (docs/MCQ_RSI_RUNBOOK.md; design §3). Paths are on the RunPod network volume. test_paper is the paper-reconstructed set (overlaps dev/collection; reported flagged). | v2 (2026-10-06): no GRPO (dynamic_sft, static_sft) and sft.draft_supervision = commit_rows, so the SFT never trains the manager's own wrong draft (the MedQA/AQuA draft drift).",
+  "_comment": "MCQ RSI controller config (docs/MCQ_RSI_RUNBOOK.md; design §3). Paths are on the RunPod network volume. test_paper is the paper-reconstructed set (overlaps dev/collection; reported flagged). | v2 (2026-10-06): no GRPO (dynamic_sft, static_sft) and sft.draft_supervision = commit_rows, so the SFT never trains the manager's own wrong draft (the MedQA/AQuA draft drift). | preflight.min_similarity 0.45 (user decision 2026-10-07: the base reasoner replay scored 0.49 on the new pod, 0.50 on the previous one; an operational key outside the run signature).",
   "base_model": "Qwen/Qwen3.5-9B",
   "base_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
   "import_dir": "/workspace/mcq_rsi/import",
@@ -109,7 +109,7 @@
     "min_match": 0.9,
     "min_lora_effect": 0.5,
     "min_closer": 0.75,
-    "min_similarity": 0.5,
+    "min_similarity": 0.45,
     "seed": 0
   },
   "wandb": {
