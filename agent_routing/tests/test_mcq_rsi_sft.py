@@ -161,10 +161,13 @@ def test_commit_rows_draft_supervision_masks_only_the_call_rows_drafts(tmp_path)
     with pytest.raises(ValueError, match="draft_supervision"):
         with S.sft_context("paper", "none"):
             pass
-    # Also under the evolve tool container, which the "all" mode leaves unpatched.
+    # Also under the evolve tool container (another prompt render, which "all" leaves unpatched): the same rule.
     with S.sft_context("evolve", "commit_rows"):
         ds2 = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
-    assert [f["labels"] for f in ds2] == [f["labels"] for f in ds]
+    assert len(ds2) == len(rows)
+    for row, f in zip(rows, ds2):
+        sup = tok.decode([t for t in f["labels"] if t != -100])
+        assert ("DRAFT_ANSWER_" not in sup) == (row["decision_type"] == "call") and ("_tool" in sup) == (row["decision_type"] == "call")
 
 
 def test_continuation_keeps_lora_config_and_loads(ckpt, tmp_path, monkeypatch):
