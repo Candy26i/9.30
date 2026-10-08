@@ -541,3 +541,20 @@ $PY scripts/mcq_rsi_analysis.py tables --run-dir /workspace/mcq_rsi/runs/mmlu_pr
 `tables` compares dynamic against static on the test pools. To compare against `S_1` or the round-3 finals, pass `compare --a <run>/final/<label>/test --b <r5 run>/final/<arm>/test`. The test ids are the same.
 
 The wrapper's `main` step always uses `configs/mcq_rsi_$BENCH.json`, so start the continuation run directly, as above, inside tmux. Its final test can go through the wrapper: `BENCH=mmlu_pro RUN_DIR=/workspace/mcq_rsi/runs/mmlu_pro_r5 REUSE_TEST="..." bash scripts/runpod_mcq_rsi.sh bg final-test`.
+
+**5. Lessons from the v3 continuations (medqa/aqua/mmlu_pro `_v3r5`, 2026-10-08).**
+
+- The same recipe continues a v2/v3 run: take `config_full` from `runs/<bench>_v3/rsi_run.json`, set `arms=["dynamic_sft","static_sft"]`
+  (no GRPO stages are planned for these arms) and `continue_from={"run_dir": ".../<bench>_v3", "round": 3}`. The plan is 16 stages:
+  two `r3/<arm>/source`, `prefetch/advisors`, then collect/select/SFT/dev per round for dynamic_sft and SFT/dev for static_sft.
+- **Do not create the run directory before `run` starts.** `start` refuses a non-empty directory without `rsi_run.json`, so an `acks.json`
+  written in advance (to pre-record validity acknowledgements) blocks the start. Record acknowledgements right after `rsi_run.json` appears.
+- MMLU-Pro's round-4 static SFT peaks near 60 GB; keep it alone on a GPU (the advisors' vLLM holds ~36 GB on the other card).
+- Timing on 2×A100-80GB with the restored advisor cache: MedQA 2.6 h and AQuA 3.8 h for rounds 4–5 (two arms), MMLU-Pro 2.9 h;
+  locked tests 1.0–1.6 h per run (`--reuse-test`, two pools for MMLU-Pro).
+- Results and the comparison scripts are recorded in `docs/mcq_rsi_results/` (page sections 8–9).
+
+## 18. Results record
+
+`docs/mcq_rsi_results/README.md` lists the results page, the per-run comparison outputs and the locked-test outputs of the v2/v3/v3r5
+runs. Pod-side supervisors, backup loops and checks used for each pod are in `scripts/pod_ops/` (README there).
