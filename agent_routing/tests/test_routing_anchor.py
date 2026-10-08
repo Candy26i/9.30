@@ -108,6 +108,26 @@ class RoutingAnchorMaskTest(unittest.TestCase):
                 self.assertNotIn("DRAFT_ANSWER_B", supervised)
                 self.assertIn("ANSWER_B", supervised)
 
+    def test_route_only_calls_masks_the_draft_of_call_rows_only(self):
+        call = {"decision_type": "call", "prompt": _base_prompt(),
+                "response": [{"role": "assistant", "content": "DRAFT_ANSWER_A",
+                              "tool_calls": [{"id": "x", "type": "function",
+                                              "function": {"name": "reasoner_tool", "arguments": "{}"}}]}]}
+        features, stats = tokenize_anchor_row(call, self.tok, 4096, "route_only_calls")
+        supervised = self._supervised_text(features)
+        self.assertNotIn("DRAFT_ANSWER_A", supervised)
+        self.assertIn("TOOL:reasoner_tool", supervised)
+        self.assertEqual(features["labels"], tokenize_anchor_row(call, self.tok, 4096, "route_only")[0]["labels"])
+        for decision_type in ("commit", "commit_after_call"):
+            with self.subTest(decision_type=decision_type):
+                row = {"decision_type": decision_type, "prompt": _base_prompt(),
+                       "response": [{"role": "assistant", "content": "DRAFT_ANSWER_B\nANSWER_B"}]}
+                features, _ = tokenize_anchor_row(row, self.tok, 4096, "route_only_calls")
+                self.assertIn("DRAFT_ANSWER_B", self._supervised_text(features))
+                self.assertEqual(features["labels"], tokenize_anchor_row(row, self.tok, 4096, "full")[0]["labels"])
+        with self.assertRaises(ValueError):
+            tokenize_anchor_row(call, self.tok, 4096, "route_only_call")
+
     def test_route_only_rejects_rows_without_draft(self):
         row = {
             "decision_type": "commit",

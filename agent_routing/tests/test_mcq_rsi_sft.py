@@ -131,6 +131,53 @@ def ckpt(tmp_path_factory):
     return root
 
 
+def test_commit_rows_draft_supervision_masks_only_the_call_rows_drafts(tmp_path):
+    """``sft.draft_supervision = "commit_rows"``: the SFT tokeniser gives call rows no loss on their (wrong)
+    DRAFT_ANSWER_X and leaves commit / commit_after_call rows exactly as the paper's full supervision."""
+    from src.manager import evolve
+    from src.manager.routing_anchor import build_anchor_features
+    tok, rows = tiny_tokenizer(), label_rows(tmp_path)
+    tools = S.sft_tools("paper")
+    full, _ = build_anchor_features(rows, tok, 4096, "full", tools)
+    with S.sft_context("paper", "commit_rows"):
+        ds = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
+    with S.sft_context("paper"):
+        same = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
+    assert len(ds) == len(rows) == len(same)
+    masked = 0
+    for row, f_full, f_masked, f_same in zip(rows, full, ds, same):
+        assert f_same["labels"] == f_full["labels"]  # "all" is the paper's tokenisation
+        sup = tok.decode([t for t in f_masked["labels"] if t != -100])
+        if row["decision_type"] == "call":
+            assert "DRAFT_ANSWER_" not in sup and "_tool" in sup
+            assert sum(t != -100 for t in f_masked["labels"]) < sum(t != -100 for t in f_full["labels"])
+            masked += 1
+        else:
+            assert f_masked["labels"] == f_full["labels"] and "DRAFT_ANSWER_" in sup
+    assert masked > 0
+    assert S.RoundSFTConfig(draft_supervision="commit_rows").draft_supervision == "commit_rows"
+    with pytest.raises(ValueError, match="draft_supervision"):
+        S.RoundSFTConfig(draft_supervision="calls").validate()
+    with pytest.raises(ValueError, match="draft_supervision"):
+        with S.sft_context("paper", "nothing"):
+            pass
+    # "none": no row trains its draft; commit rows keep ANSWER_X, call rows keep the tool call.
+    with S.sft_context("paper", "none"):
+        ds3 = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
+    assert len(ds3) == len(rows)
+    for row, f, f_full in zip(rows, ds3, full):
+        sup = tok.decode([t for t in f["labels"] if t != -100])
+        assert "DRAFT_ANSWER_" not in sup and sum(t != -100 for t in f["labels"]) < sum(t != -100 for t in f_full["labels"])
+        assert ("_tool" in sup) == (row["decision_type"] == "call") and ("ANSWER_" in sup) == (row["decision_type"] != "call")
+    # Also under the evolve tool container (another prompt render, which "all" leaves unpatched): the same rule.
+    with S.sft_context("evolve", "commit_rows"):
+        ds2 = evolve._tokenize_manager_sft(rows, tok, 4096, tools=list(tools))
+    assert len(ds2) == len(rows)
+    for row, f in zip(rows, ds2):
+        sup = tok.decode([t for t in f["labels"] if t != -100])
+        assert ("DRAFT_ANSWER_" not in sup) == (row["decision_type"] == "call") and ("_tool" in sup) == (row["decision_type"] == "call")
+
+
 def test_continuation_keeps_lora_config_and_loads(ckpt, tmp_path, monkeypatch):
     import torch
     from safetensors.torch import load_file
@@ -158,6 +205,7 @@ def test_continuation_keeps_lora_config_and_loads(ckpt, tmp_path, monkeypatch):
     assert report["tokenization_parity"]["input_mismatch"] == 0 and report["labels"]["rows"] > 0
     assert report["training_metrics"]["optimizer_steps"] == 2
     assert report["config"]["num_train_epochs"] == 3 and report["config"]["learning_rate"] == 1e-5
+    assert report["config"]["draft_supervision"] == "all"  # the default: the paper's tokenisation
     before, after = load_file(str(ckpt / "g_prev" / "adapter_model.safetensors")), load_file(str(model_dir / "adapter_model.safetensors"))
     assert set(before) == set(after) and any(not torch.equal(before[k], after[k]) for k in before)
     # The continued adapter loads through the MCQ manager loader (the eval/collection path).

@@ -1,0 +1,557 @@
+<title>MARGENT 多轮 RSI 结果</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&display=swap">
+<style>
+/* Layout: one reading column (~46rem) for prose; tables and the figure use the wider frame (~64rem). */
+:root {
+  --bg: #f5f6f9;
+  --surface: #ffffff;
+  --ink: #151821;
+  --ink-2: #4a5161;
+  --ink-3: #737a8a;
+  --rule: #dde1e8;
+  --accent: #3a45a6;
+  --hl: #e8eaf8;
+  --series-1: #2a78d6;   /* dynamic family */
+  --series-2: #eb6834;   /* static family */
+  --series-3: #1baf7a;   /* success */
+  --neutral-mark: #6b7180; /* S_1 */
+  --font-display: "IBM Plex Serif", "Noto Serif SC", "Songti SC", serif;
+  --font-body: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --measure: 46rem;
+  --wide: 64rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111319; --surface: #181b23; --ink: #e8ebf2; --ink-2: #b3b9c6; --ink-3: #858c9b;
+    --rule: #2b303c; --accent: #9aa2f2; --hl: #252a45;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --neutral-mark: #9aa0ad;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111319; --surface: #181b23; --ink: #e8ebf2; --ink-2: #b3b9c6; --ink-3: #858c9b;
+  --rule: #2b303c; --accent: #9aa2f2; --hl: #252a45;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --neutral-mark: #9aa0ad;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.7; padding-inline: 16px; padding-block: 0 4rem;
+}
+.page { max-width: var(--wide); margin-inline: auto; }
+.prose { max-width: var(--measure); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: clamp(1.9rem, 4.2vw, 2.6rem); font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 600; }
+h3 { font-size: 1.08rem; font-weight: 600; margin-top: 1.6rem; }
+p { margin: 0.7rem 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--hl); padding: 0.05em 0.35em; border-radius: 4px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+
+header.masthead { padding-block: 3rem 1.5rem; border-bottom: 1px solid var(--rule); display: grid; gap: 0.8rem; }
+.lede { font-size: 1.08rem; color: var(--ink-2); max-width: var(--measure); margin: 0; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: 0.9rem; padding-block: 1rem; border-bottom: 1px solid var(--rule); }
+nav.toc a { color: var(--ink-2); text-decoration: none; }
+nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+section { padding-block: 2.6rem 0.4rem; scroll-margin-top: 1rem; }
+section > h2 { display: flex; gap: 0.7rem; align-items: baseline; }
+.secno { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-3); font-weight: 400; }
+
+.findings { list-style: none; padding: 0; margin: 1.2rem 0 0; display: grid; gap: 0.9rem; max-width: var(--measure); }
+.findings li { display: grid; grid-template-columns: 7.2rem 1fr; gap: 1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--rule); }
+.findings li:last-child { border-bottom: 0; }
+.findings .k { font-size: 0.82rem; color: var(--ink-3); letter-spacing: 0.04em; padding-top: 0.15rem; }
+.findings .v { min-width: 0; }
+@media (max-width: 560px) { .findings li { grid-template-columns: 1fr; gap: 0.2rem; } }
+
+.callout { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.2rem; margin: 1.2rem 0; max-width: var(--measure); }
+.callout p:first-child { margin-top: 0; } .callout p:last-child { margin-bottom: 0; }
+
+ol.pipeline { list-style: none; counter-reset: step; padding: 0; margin: 1.2rem 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: 0.6rem; }
+ol.pipeline li { counter-increment: step; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 0.75rem 0.85rem; font-size: 0.9rem; line-height: 1.55; min-width: 0; }
+ol.pipeline li::before { content: counter(step); font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); display: block; margin-bottom: 0.2rem; }
+ol.pipeline b { display: block; font-weight: 600; margin-bottom: 0.15rem; }
+
+.table-wrap { overflow-x: auto; margin: 1rem 0 0.4rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+thead th { font-weight: 600; color: var(--ink-2); font-size: 0.8rem; letter-spacing: 0.03em; background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
+tbody th { font-weight: 500; white-space: nowrap; }
+.table-wrap tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.table-wrap thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg); }
+td.num, th.num { text-align: right; white-space: nowrap; }
+td.wrap { white-space: normal; min-width: 14rem; }
+.sig { font-weight: 600; background: var(--hl); border-radius: 4px; padding: 0.05em 0.3em; }
+.calls { color: var(--ink-3); font-size: 0.85em; }
+tr.group td { background: var(--bg); font-weight: 600; font-size: 0.82rem; color: var(--ink-2); letter-spacing: 0.03em; }
+.caption { font-size: 0.85rem; color: var(--ink-2); margin: 0.3rem 0 0; max-width: var(--measure); }
+
+/* figure: cost vs accuracy, small multiples */
+.figure { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1rem 0.6rem; margin: 1.2rem 0 0; position: relative; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.84rem; color: var(--ink-2); margin-bottom: 0.4rem; }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend svg { flex: none; }
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1.4rem; }
+@media (max-width: 680px) { .panels { grid-template-columns: 1fr; } }
+.panel { min-width: 0; }
+.panel h4 { margin: 0 0 0.2rem; font-family: var(--font-body); font-size: 0.92rem; font-weight: 600; }
+.panel h4 small { font-weight: 400; color: var(--ink-3); font-size: 0.8rem; }
+.panel svg { width: 100%; height: auto; display: block; overflow: visible; }
+.axis text { fill: var(--ink-3); font-size: 10px; font-family: var(--font-body); }
+.axis line { stroke: var(--rule); }
+.grid line { stroke: var(--rule); stroke-dasharray: 2 3; }
+.axis-title { fill: var(--ink-3); font-size: 10px; font-family: var(--font-body); }
+.mark:focus { outline: none; }
+.mark:focus .hit, .mark:hover .hit { fill: var(--hl); }
+.anno { fill: var(--ink-2); font-size: 10px; font-family: var(--font-body); }
+.tooltip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.8rem; line-height: 1.45; padding: 0.45rem 0.6rem; border-radius: 6px; max-width: 15rem; z-index: 5; }
+.tooltip b { font-weight: 600; }
+
+dl.terms { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; margin: 1rem 0; max-width: var(--measure); font-size: 0.93rem; }
+dl.terms dt { font-weight: 600; white-space: nowrap; }
+dl.terms dd { margin: 0; color: var(--ink-2); min-width: 0; }
+@media (max-width: 560px) { dl.terms { grid-template-columns: 1fr; } dl.terms dd { margin-bottom: 0.4rem; } }
+
+ul.plain { padding-left: 1.2rem; margin: 0.6rem 0; max-width: var(--measure); }
+ul.plain li { margin: 0.4rem 0; }
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--ink-3); }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <div class="eyebrow">MARGENT 后续实验 · 2026 年 10 月 · Qwen3.5-9B</div>
+  <h1>MARGENT 多轮 RSI 结果</h1>
+  <p class="lede">这页写给读过 MARGENT 论文、但没跟进之后工作的人。论文训练了一个 manager，判断每道题要不要调用 Extractor、Reasoner、Verifier 这三个子模型（论文里叫 advisor）。之后我们做了两件事。一是查清了论文实验里子模型的真实设置。二是在论文的四个多选基准上加了多轮自我改进（RSI），并做了消融。下面先给结论，再讲方法、数据和需要注意的地方。</p>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <a href="#summary">结论速览</a><a href="#changes">相对论文的变化</a><a href="#setup">实验设置</a><a href="#repro">复现检查</a><a href="#main">主结果</a><a href="#select">调用是否挑对了题</a><a href="#grpo">GRPO 与消融</a><a href="#rounds">多跑两轮</a><a href="#caveats">局限</a><a href="#data">数据与代码</a>
+</nav>
+
+<section id="summary">
+  <h2><span class="secno">0</span>结论速览</h2>
+  <ul class="findings">
+    <li><div class="k">复现</div><div class="v">论文的 manager（下文叫 S₁）在我们的流程里能复现论文。GPQA 和 AQuA 在锁定测试（事先登记、每个模型只测一次的测试集）上和论文一致，分别是 54.0 对 54.0、77.2 对 76.8。MedQA 和 AQuA 的 dev 准确率比论文低 2.5 和 5.2 个点，人工核对后放行（第 3 节）。论文实验里的子模型实际上是基础模型加角色提示词，本文沿用这个设置（第 1 节）。</div></li>
+    <li><div class="k">dynamic 对 S₁</div><div class="v">每轮用当前模型重新收集数据、重新选标签的 dynamic 跑到第 3 轮后，四个基准上的准确率都没有显著低于 S₁。每题调用次数都有显著变化：MedQA 少 36%，MMLU-Pro 少 22%，AQuA 多 13%，GPQA 多 23%。</div></li>
+    <li><div class="k">dynamic 对 static</div><div class="v">static 每轮复用 S₁ 原来的训练标签，不重新收集。两者谁更好取决于基准。MMLU-Pro 上 dynamic 显著更好，<code>test</code> 上的差距从第 3 轮的 5.6 个点扩大到第 5 轮的 8.8 个点。AQuA 第 3 轮 dynamic 高 4.3 个点，处在显著的边界上，第 5 轮两者打平。MedQA 第 5 轮 static 显著更好（+4.0），原因是 dynamic 的选标签规则会把 manager 自己的错误草稿当作训练目标，几轮之后草稿向字母 B 坍缩（7.1 节）。GPQA 差别不显著。</div></li>
+    <li><div class="k">挑题能力</div><div class="v">在 dev 上固定调用次数、和随机调用比较：dynamic 在 MedQA 和 MMLU-Pro 的第 3、5 轮以及 AQuA 第 5 轮都高于随机，说明它挑的题比随机好。AQuA 第 3 轮刚好落在随机区间的上沿，GPQA 都在区间内。S₁ 在 MedQA 上本来就高于随机，static 只在 MedQA 第 5 轮高于随机。</div></li>
+    <li><div class="k">success</div><div class="v">只要最终答对就当示范的 success 准确率最高：MMLU-Pro <code>test</code> 71.0、AQuA 83.9，都显著高于 S₁。代价是几乎每题都调用（每题 0.93–1.00 次）。</div></li>
+    <li><div class="k">GRPO</div><div class="v">每轮 SFT 之后的 GRPO 经常因为拿不到训练信号被拒（MedQA 7 次全拒），主实验 22 次 GRPO 里有 12 次被回退保护截断。锁定测试上没有找到 GRPO 有显著贡献的干净证据（第 6 节）。</div></li>
+    <li><div class="k">更多轮次</div><div class="v">从第 3 轮接着跑到第 5 轮，只有 MMLU-Pro 的 dynamic 显著变好（<code>test</code> +3.0，<code>test_paper</code> +3.8）。AQuA 和 MedQA 两组都没有显著提升。GPQA 没有剩余的题，没有跑。</div></li>
+  </ul>
+</section>
+
+<section id="changes">
+  <h2><span class="secno">1</span>相对论文的变化</h2>
+  <div class="prose">
+    <h3>1.1 论文里的子模型其实是基础模型</h3>
+    <p>论文为每个基准训练了三个子模型 LoRA（Extractor、Reasoner、Verifier），用 vLLM 加载后调用。我们发现 vLLM 0.26 加载多模态的 <code>Qwen3_5ForConditionalGeneration</code> 时，会静默丢掉键名为 <code>base_model.model.model.layers.*</code> 的 LoRA 权重。所以论文实验中的子模型实际是基础模型加上各自角色的提示词，论文的数字、S₁ 和它的第 1 轮训练标签都来自这个设置。把键名改成 <code>language_model</code> 后 LoRA 才真正生效。</p>
+    <p>我们接着在每个角色 754 道 dev 题上做了 A/B 测试，比较基础子模型、真正加载的论文 LoRA，以及用验证集加早停重新训练的 v2 LoRA。两种 LoRA 都没有明显好于基础模型，而且训练过的 Verifier 都会把更多原本答对的题改错。因此本文所有实验都使用基础子模型，数字可以直接和论文对照。</p>
+
+    <h3>1.2 从单轮训练到多轮自我改进</h3>
+    <p>论文训练一次 manager 就结束了，那个模型在本文里叫 S₁。第 1 轮不重新收集数据，也不做 SFT，只在 S₁ 上做一次 FA-GRPO，通过 dev 验收后得到 G₁，各组共用。从第 2 轮起，各组每轮重复下面五步，第 k 轮从上一轮的结果 G<sub>k−1</sub> 开始。所以第 3 轮的模型经过了 2 次按组重新选标签和 SFT，第 5 轮的模型经过了 4 次。</p>
+  </div>
+  <ol class="pipeline" aria-label="第 2 轮起每一轮的步骤">
+    <li><b>重新收集</b>用 G<sub>k−1</sub> 对本轮的收集题先出初稿，再把每种调用方式都试一遍，记录哪些能答对。这就是论文的反事实收集。static 不做这一步。</li>
+    <li><b>选标签</b>按该组的规则，为每道题选一条示范轨迹（见 1.3 的表）。</li>
+    <li><b>SFT</b>从 G<sub>k−1</sub> 继续做 SFT，得到 S<sub>k</sub>。</li>
+    <li><b>FA-GRPO</b>从 S<sub>k</sub> 出发做最多 64 步强化学习（方法见下段），得到候选 G<sub>k</sub>。</li>
+    <li><b>dev 验收</b>候选同时满足下面五条才被采用，否则这一轮用 S<sub>k</sub>。</li>
+  </ol>
+  <div class="prose">
+    <p>五条验收条件：dev 准确率比 S<sub>k</sub> 低不超过 1 个点；每题调用比 S<sub>k</sub> 多不超过 0.15 次；call gap 不低于 S<sub>k</sub> 的一半（call gap 是初稿答错的题的调用率减去初稿答对的题的调用率，衡量调用是否用在该用的地方）；dev 上没有无效答案；训练信号不低于 15%（见第 6 节）。</p>
+    <p>FA-GRPO（finite-action GRPO）是针对这个任务设计的 GRPO。manager 每一步可选的动作有限，所以奖励期望可以精确求和，不用采样。策略梯度只用来训练 manager 拿到子模型输出后怎样修改答案。要不要调用这一步不加策略梯度，只用 KL 约束它贴近 S<sub>k</sub>，另外加一项权重 0.03、只针对路由的 SFT 锚定损失。原因是在答对得 1 分、调用不扣分的奖励下，每题都调用永远是最优策略，直接优化调用决策会重现论文附录 D 里调用次数暴增的崩溃。训练中每 8 步检查一次，调用率变化超过 0.10 或 KL 超过 0.05 时，退回上一个合格的检查点（或 S<sub>k</sub>），并结束这一轮 GRPO。</p>
+
+    <h3>1.3 四种选标签规则（实验组）</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>组</th><th>每轮重新收集</th><th>每道题的示范怎么选</th><th>这一组用来检验什么</th></tr></thead>
+      <tbody>
+        <tr><th>dynamic</th><td>是</td><td class="wrap">初稿已对时直接提交，不调用。初稿错时，选<strong>最短</strong>的能答对的调用方式。怎么都救不回来的题丢掉。提交示范（commit）的数量最多是救回示范（rescue）的 ρ 倍，多出的随机丢掉。ρ 沿用论文：MedQA 3，MMLU-Pro 和 GPQA 2，AQuA 1。</td><td class="wrap">论文的边际价值原则，每轮按当前模型的错误重新教</td></tr>
+        <tr><th>static</th><td>否</td><td class="wrap">每轮都用 S₁ 当初训练用的那份标签文件，一字不改，从上一轮模型出发在这份标签上再做一次 SFT。</td><td class="wrap">重新收集数据有没有必要</td></tr>
+        <tr><th>success</th><td>是</td><td class="wrap">使用和 dynamic 相同的题（同样按 ρ 截断），但每道题在所有最终答对的做法里随机选一个当示范。初稿已对时，直接提交和调用任一子模型后仍答对的做法都在候选里。</td><td class="wrap">不计调用成本时准确率能到多少</td></tr>
+        <tr><th>dynamic_sft</th><td>是</td><td class="wrap">同 dynamic，但不做 GRPO：第 1 轮直接用 S₁，之后每轮只做 SFT。</td><td class="wrap">GRPO 本身贡献了多少</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="setup">
+  <h2><span class="secno">2</span>实验设置</h2>
+  <div class="prose">
+    <p>四个基准和论文相同。主实验跑 3 轮：dynamic 和 static，MedQA 另有 success。success 和 dynamic_sft 在 MMLU-Pro、GPQA、AQuA 上单独跑了消融（第 6 节），第 4–5 轮见第 7 节。每组只有一个随机种子。</p>
+    <p>每个模型在锁定测试上只测一次，测哪些模型在测之前就登记好。消融运行里按登记的理由又测了一次 S₁，逐题结果和主实验完全相同。dev 用来做每轮验收，也用来做第 3 节的复现对照和第 5 节的挑题分析；模型之间的准确率比较都用锁定测试。</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>基准</th><th class="num">锁定测试</th><th class="num">dev</th><th class="num">每轮收集题</th><th class="num">每轮 GRPO 题</th><th>备注</th></tr></thead>
+      <tbody>
+        <tr><th>MedQA</th><td class="num">500</td><td class="num">200</td><td class="num">400</td><td class="num">256</td><td class="wrap"></td></tr>
+        <tr><th>MMLU-Pro</th><td class="num">500 + 500</td><td class="num">200</td><td class="num">400</td><td class="num">256</td><td class="wrap"><code>test</code> 是新抽的 500 题，和本文所有的收集题、GRPO 题、dev 题以及子模型的训练数据都不重叠。<code>test_paper</code> 是按论文方式重建的 500 题，包含全部 200 道 dev 题、68 道第 1 轮收集题、第 1–3 轮 GRPO 题中的 47、50、31 道；只有 104 道题没在别处出现过（见 4.3）。</td></tr>
+        <tr><th>GPQA Diamond</th><td class="num">100</td><td class="num">100</td><td class="num">200</td><td class="num">146</td><td class="wrap">没有多余的新题：第 2、3 轮重复使用第 1 轮的收集题和 GRPO 题</td></tr>
+        <tr><th>AQuA</th><td class="num">254</td><td class="num">254</td><td class="num">400</td><td class="num">256</td><td class="wrap"></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">第 1–3 轮的 GRPO 题来自论文原来的 GRPO 题池，第 4–5 轮改从新题里抽取（见第 7 节）。</p>
+  <dl class="terms">
+    <dt>S₁</dt><dd>所有实验的起点。GPQA 和 AQuA 是论文锁定的 manager。MedQA 锁定的 <code>sft_3.0_s1</code> 不在 HF 上，这里用同一配置训练的替代模型（<code>d2_400/sft_3.0</code>，seed 0）；MMLU-Pro 用论文资产里的 depth-2 <code>sft_2.0</code>。</dd>
+    <dt>S<sub>k</sub> / G<sub>k</sub></dt><dd>第 k 轮 SFT 之后 / 验收之后的模型。GRPO 被拒时 G<sub>k</sub> = S<sub>k</sub>。</dd>
+    <dt>每题调用</dt><dd>平均每道题调用子模型的次数。一道题可以调用不止一次，所以它可以大于调用率（至少调用一次的题目占比）。论文表格里的 Calls 列大多对应这个量。</dd>
+    <dt>显著</dt><dd>配对 bootstrap（10,000 次重抽）双侧 p &lt; 0.05，表中加底色。McNemar 精确检验的结果在各运行的 <code>analysis/paired_tests.csv</code> 里；标 † 的两处只在 bootstrap 下显著，McNemar p 在 0.05–0.07，属于边界结果。</dd>
+    <dt>强制调用评估</dt><dd>让某个子模型在每道 dev 题上都被调用一次并记录结果，用于第 5 节的重放。</dd>
+    <dt>相同预算对比随机</dt><dd>论文 §4.4 的 matched-budget replay。固定每个子模型被调用的次数，随机换一批题来调用，重复 2,000 次，得到随机调用的 95% 区间。策略严格高于区间上沿，说明它挑的题比随机好。在 dev 上计算。</dd>
+  </dl>
+</section>
+
+<section id="repro">
+  <h2><span class="secno">3</span>复现检查</h2>
+  <p class="prose">先确认 S₁ 在我们的流程里能复现论文。下表是第 1 轮 S₁ 的结果和论文的对照（准确率 % / 每题调用）。MedQA 和 MMLU-Pro 只有论文的 dev 数字可以对照。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>基准</th><th>对照的数据</th><th class="num">论文</th><th class="num">本文 S₁</th></tr></thead>
+      <tbody>
+        <tr><th>MedQA</th><td>dev</td><td class="num">82.0 / 0.405</td><td class="num">79.5 / 0.375</td></tr>
+        <tr><th>MMLU-Pro</th><td>dev</td><td class="num">64.5 / 0.360</td><td class="num">63.0 / 0.325</td></tr>
+        <tr><th>GPQA</th><td>锁定测试（Diamond-100）</td><td class="num">54.0 / 0.51</td><td class="num">54.0 / 0.53</td></tr>
+        <tr><th>AQuA</th><td>锁定测试</td><td class="num">76.8 / 0.78</td><td class="num">77.2 / 0.776</td></tr>
+        <tr><th>AQuA</th><td>dev</td><td class="num">78.0 / 0.894</td><td class="num">72.8 / 0.795</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">自动检查的容差是准确率 ±2 个点、调用 ±0.05。MedQA 和 AQuA 的 dev 准确率超出容差（−2.5 和 −5.2 个点），经人工核对后放行；MedQA 的 S₁ 是替代模型（见第 2 节），可能是偏差的一个来源。AQuA 在锁定测试上和论文一致。论文 AQuA 的 Calls 列可能是调用率，本文报告的是每题调用次数。</p>
+</section>
+
+<section id="main">
+  <h2><span class="secno">4</span>主结果</h2>
+  <p class="prose">下图把每个模型画成一个点：横轴是每题调用次数（成本），纵轴是锁定测试准确率，越靠左上越好。实心是第 3 轮，空心是第 5 轮，虚线连接同一组的第 3 轮和第 5 轮。把鼠标移到点上（手机上轻点）可以看具体数值。</p>
+
+  <figure class="figure" id="fig-cost" aria-label="成本与准确率：四个基准">
+    <div class="legend" id="legend"></div>
+    <p class="caption" style="margin:0 0 0.6rem">纵轴：锁定测试准确率（%）；横轴：每题调用次数。</p>
+    <div class="panels" id="panels"></div>
+    <div class="tooltip" id="tip" hidden></div>
+  </figure>
+  <p class="caption">MMLU-Pro 用的是 <code>test</code>，它的 dynamic 第 3 轮（64.0 / 0.28）和 dynamic_sft（64.6 / 0.28）几乎重合。MedQA 没有单独跑 dynamic_sft，因为它的 GRPO 一次都没被采用，dynamic 本身就等于只做 SFT。GPQA 没有第 5 轮。每个面板的纵轴范围不同。</p>
+
+  <h3>4.1 第 3 轮锁定测试</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>模型</th><th class="num">MedQA</th><th class="num">MMLU-Pro test</th><th class="num">MMLU-Pro test_paper（与训练题重叠）</th><th class="num">GPQA</th><th class="num">AQuA</th></tr></thead>
+      <tbody>
+        <tr><th>S₁</th><td class="num">78.6 <span class="calls">0.38</span></td><td class="num">63.4 <span class="calls">0.36</span></td><td class="num">59.6 <span class="calls">0.35</span></td><td class="num">54.0 <span class="calls">0.53</span></td><td class="num">77.2 <span class="calls">0.78</span></td></tr>
+        <tr><th>dynamic</th><td class="num">77.6 <span class="calls">0.24</span></td><td class="num">64.0 <span class="calls">0.28</span></td><td class="num">62.8 <span class="calls">0.28</span></td><td class="num">50.0 <span class="calls">0.65</span></td><td class="num">80.3 <span class="calls">0.87</span></td></tr>
+        <tr><th>static</th><td class="num">79.0 <span class="calls">0.35</span></td><td class="num">58.4 <span class="calls">0.24</span></td><td class="num">56.2 <span class="calls">0.24</span></td><td class="num">48.0 <span class="calls">0.60</span></td><td class="num">76.0 <span class="calls">0.72</span></td></tr>
+        <tr><th>success</th><td class="num">80.2 <span class="calls">1.00</span></td><td class="num">71.0 <span class="calls">0.93</span></td><td class="num">69.0 <span class="calls">0.92</span></td><td class="num">56.0 <span class="calls">1.00</span></td><td class="num">83.9 <span class="calls">1.00</span></td></tr>
+        <tr><th>dynamic_sft</th><td class="num"><span class="calls">同 dynamic</span></td><td class="num">64.6 <span class="calls">0.28</span></td><td class="num">58.6 <span class="calls">0.27</span></td><td class="num">53.0 <span class="calls">0.64</span></td><td class="num">79.5 <span class="calls">0.82</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">每格是准确率（%），小字是每题调用次数。题数：MedQA 500、MMLU-Pro 各 500、GPQA 100、AQuA 254。MMLU-Pro、GPQA、AQuA 的 success 和 dynamic_sft 来自单独的消融运行。</p>
+
+  <h3>4.2 第 3 轮的配对比较</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>比较</th><th class="num">MedQA</th><th class="num">MMLU-Pro test</th><th class="num">MMLU-Pro test_paper</th><th class="num">GPQA</th><th class="num">AQuA</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="6">准确率差（个点），括号里是 p</td></tr>
+        <tr><th>dynamic − S₁</th><td class="num">−1.0 (0.44)</td><td class="num">+0.6 (0.78)</td><td class="num">+3.2 (0.07)</td><td class="num">−4.0 (0.30)</td><td class="num">+3.1 (0.13)</td></tr>
+        <tr><th>static − S₁</th><td class="num">+0.4 (0.68)</td><td class="num"><span class="sig">−5.0 (&lt;0.001)</span></td><td class="num"><span class="sig">−3.4 (0.006)</span></td><td class="num"><span class="sig">−6.0 (0.03)†</span></td><td class="num">−1.2 (0.60)</td></tr>
+        <tr><th>dynamic − static</th><td class="num">−1.4 (0.27)</td><td class="num"><span class="sig">+5.6 (0.003)</span></td><td class="num"><span class="sig">+6.6 (&lt;0.001)</span></td><td class="num">+2.0 (0.65)</td><td class="num"><span class="sig">+4.3 (0.04)†</span></td></tr>
+        <tr class="group"><td colspan="6">每题调用的变化</td></tr>
+        <tr><th>dynamic − S₁</th><td class="num"><span class="sig">−0.14</span></td><td class="num"><span class="sig">−0.08</span></td><td class="num"><span class="sig">−0.06</span></td><td class="num"><span class="sig">+0.12</span></td><td class="num"><span class="sig">+0.10</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">† 只在 bootstrap 下显著：GPQA static − S₁ 的 McNemar p = 0.07，AQuA dynamic − static 的 McNemar p = 0.05。调用次数的变化全部显著（95% 置信区间不含 0）。</p>
+
+  <h3 id="clean">4.3 MMLU-Pro 论文测试集的干净子集</h3>
+  <p class="prose"><code>test_paper</code> 里有 396 道题在 dev、收集题、GRPO 题或子模型的训练数据里出现过。其中 dev 的 200 题参与了每轮的 GRPO 验收，GRPO 题在 GRPO 训练中用过。下表只用 <code>test_paper</code> 里 104 道没在别处出现过的题，重算主要比较。题数少，置信区间宽。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>比较（104 道干净题）</th><th class="num">准确率差</th><th class="num">p</th><th class="num">对照：全部 500 题</th></tr></thead>
+      <tbody>
+        <tr><th>dynamic − S₁（第 3 轮）</th><td class="num">+6.7</td><td class="num">0.11</td><td class="num">+3.2 (0.07)</td></tr>
+        <tr><th>static − S₁（第 3 轮）</th><td class="num">−4.8</td><td class="num">0.11</td><td class="num">−3.4 (0.006)</td></tr>
+        <tr><th>dynamic − static（第 3 轮）</th><td class="num"><span class="sig">+11.5</span></td><td class="num"><span class="sig">0.002</span></td><td class="num">+6.6 (&lt;0.001)</td></tr>
+        <tr><th>dynamic_sft − dynamic</th><td class="num">−4.8</td><td class="num">0.16</td><td class="num">−4.2 (0.002)</td></tr>
+        <tr><th>success − S₁</th><td class="num">+8.7</td><td class="num">0.06</td><td class="num">+9.4 (&lt;0.001)</td></tr>
+        <tr><th>dynamic 第 5 轮 − S₁</th><td class="num"><span class="sig">+9.6</span></td><td class="num"><span class="sig">0.03</span></td><td class="num">+7.0 (&lt;0.001)</td></tr>
+        <tr><th>dynamic 第 5 轮 − 第 3 轮</th><td class="num">+2.9</td><td class="num">0.45</td><td class="num">+3.8 (0.01)</td></tr>
+        <tr><th>第 5 轮 dynamic − static</th><td class="num"><span class="sig">+11.5</span></td><td class="num"><span class="sig">0.02</span></td><td class="num">+9.6 (&lt;0.001)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">dynamic 对 static 的优势和第 5 轮 dynamic 对 S₁ 的提升在干净子集上依然显著。去掉 GRPO 的影响（dynamic_sft − dynamic）在干净子集上不显著，在不重叠的 <code>test</code> 上也不显著（+0.6，p = 0.71）。</p>
+</section>
+
+<section id="select">
+  <h2><span class="secno">5</span>调用是否挑对了题</h2>
+  <p class="prose">调用少了、准确率没掉，可能是模型学会了挑题，也可能只是题目本身容易。相同预算对比随机可以区分这两种情况：固定每个子模型被调用的次数，随机换题，看策略是否高于随机的 95% 区间。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>基准</th><th>模型</th><th class="num">重放准确率</th><th class="num">随机 95% 区间</th><th class="num">随机 ≥ 策略的比例</th><th>高于随机</th></tr></thead>
+      <tbody>
+        <tr><th rowspan="5">MedQA</th><td>S₁</td><td class="num">80.0</td><td class="num">72.5–78.5</td><td class="num">0.004</td><td><span class="sig">是</span></td></tr>
+        <tr><td>dynamic 第 3 轮</td><td class="num">78.0</td><td class="num">71.0–76.0</td><td class="num">0.001</td><td><span class="sig">是</span></td></tr>
+        <tr><td>static 第 3 轮</td><td class="num">79.5</td><td class="num">73.5–79.5</td><td class="num">0.04</td><td>否（等于上沿）</td></tr>
+        <tr><td>dynamic 第 5 轮</td><td class="num">75.0</td><td class="num">65.0–70.5</td><td class="num">&lt;0.001</td><td><span class="sig">是</span></td></tr>
+        <tr><td>static 第 5 轮</td><td class="num">79.0</td><td class="num">73.0–78.5</td><td class="num">0.02</td><td><span class="sig">是</span></td></tr>
+        <tr><th rowspan="6">MMLU-Pro</th><td>S₁</td><td class="num">59.0</td><td class="num">55.5–62.0</td><td class="num">0.48</td><td>否</td></tr>
+        <tr><td>dynamic 第 3 轮</td><td class="num">61.5</td><td class="num">54.5–60.5</td><td class="num">0.004</td><td><span class="sig">是</span></td></tr>
+        <tr><td>static 第 3 轮</td><td class="num">56.5</td><td class="num">54.0–59.5</td><td class="num">0.64</td><td>否</td></tr>
+        <tr><td>dynamic_sft 第 3 轮</td><td class="num">59.5</td><td class="num">52.0–58.0</td><td class="num">&lt;0.001</td><td><span class="sig">是</span></td></tr>
+        <tr><td>success 第 3 轮</td><td class="num">67.5</td><td class="num">57.5–64.5</td><td class="num">0.001</td><td><span class="sig">是</span></td></tr>
+        <tr><td>dynamic 第 5 轮</td><td class="num">63.5</td><td class="num">56.5–62.5</td><td class="num">0.007</td><td><span class="sig">是</span></td></tr>
+        <tr><th rowspan="3">AQuA</th><td>dynamic 第 3 轮</td><td class="num">72.8</td><td class="num">68.9–72.8</td><td class="num">0.04</td><td>否（等于上沿）</td></tr>
+        <tr><td>success 第 3 轮</td><td class="num">75.6</td><td class="num">75.6–76.4</td><td class="num">1.00</td><td>否（几乎每题都调 Verifier）</td></tr>
+        <tr><td>dynamic 第 5 轮</td><td class="num">71.7</td><td class="num">65.4–70.9</td><td class="num">0.008</td><td><span class="sig">是</span></td></tr>
+        <tr><th>GPQA</th><td>所有模型</td><td class="num" colspan="3">都落在随机区间内</td><td>否</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">重放准确率的算法：策略调用过的每道题，按强制调用它第一个子模型时的结果计分，其余题保留策略自己的结果。所以它和第 3 节的 dev 准确率不同，例如 MMLU-Pro 的 S₁ 是 59.0 对 63.0。倒数第二列是 2,000 次随机分配中准确率不低于策略的比例，和第 4 节配对检验的 p 不是同一个量；“高于随机”只看策略是否严格高于区间上沿，所以这一列为 0.04 的行也可能判为否。题数：MedQA、MMLU-Pro 200，AQuA 254，GPQA 100。表中略去的模型都不高于随机：MedQA 的 success，MMLU-Pro 第 5 轮的 static，AQuA 的 S₁、static（第 3、5 轮）和 dynamic_sft。有效答案率低于 0.90 的强制调用评估不参与重放（AQuA 各模型的 Extractor，AQuA static 的 Reasoner，GPQA success 和 MedQA 第 5 轮 static 的 Extractor），策略首先调用这些子模型的题保留策略本身的结果。dev 也参与了 GRPO 验收，所以这一节的结论不如锁定测试上的结论独立。</p>
+</section>
+
+<section id="grpo">
+  <h2><span class="secno">6</span>GRPO 与消融</h2>
+  <p class="prose">训练信号指 GRPO 训练状态中，模型看到子模型输出后答对概率在 2% 到 98% 之间的那部分所占的比例。只有这部分状态能产生梯度，比例低于 15% 时候选直接被拒。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>基准（主实验 3 轮）</th><th class="num">采用 / 总数</th><th class="num">训练信号</th><th>被采用时 dev 准确率变化</th><th>被拒原因</th></tr></thead>
+      <tbody>
+        <tr><th>MedQA</th><td class="num">0 / 7</td><td class="num">4–12%</td><td>无</td><td>7 次都是训练信号不足</td></tr>
+        <tr><th>MMLU-Pro</th><td class="num">2 / 5</td><td class="num">9–22%</td><td>+2.5、+1.0（都在 dynamic）</td><td>2 次信号不足，1 次候选有 1 题无效答案</td></tr>
+        <tr><th>GPQA</th><td class="num">4 / 5</td><td class="num">20–26%</td><td>+1、0、0、+2</td><td>1 次 dev 准确率低 5 个点</td></tr>
+        <tr><th>AQuA</th><td class="num">4 / 5</td><td class="num">19–50%</td><td>+1.6、0、+2.4、0</td><td>1 次 dev 准确率低 4.7 个点</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">总数等于第 1 轮共用的 1 次，加上第 2、3 轮每组各 1 次。MedQA 主实验有 dynamic、static、success 三组，所以是 7 次；其他基准有两组，是 5 次。dev 准确率变化是候选 G<sub>k</sub> 相对同一轮 S<sub>k</sub> 的差。</p>
+  <ul class="plain">
+    <li>被采用的 GRPO 模型里没有出现调用暴增。这一方面因为 GRPO 不训练调用决策，另一方面靠回退保护：主实验 22 次 GRPO 里有 12 次因调用率或 KL 超限被回退截断。</li>
+    <li>被采用时 dev 上的提升很小，主实验中是 0 到 2.5 个点。</li>
+    <li>MedQA 上 GRPO 从未被采用，所以 MedQA 的 dynamic 和 static 实际上只靠 SFT。</li>
+  </ul>
+
+  <h3 id="ablation">6.1 消融：去掉 GRPO（dynamic_sft）和只看结果（success）</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>比较（锁定测试）</th><th class="num">MedQA</th><th class="num">MMLU-Pro test</th><th class="num">MMLU-Pro test_paper</th><th class="num">GPQA</th><th class="num">AQuA</th></tr></thead>
+      <tbody>
+        <tr><th>dynamic_sft − dynamic</th><td class="num"><span class="calls">相同</span></td><td class="num">+0.6 (0.71)</td><td class="num"><span class="sig">−4.2 (0.002)</span>*</td><td class="num">+3.0 (0.40)</td><td class="num">−0.8 (0.71)</td></tr>
+        <tr><th>success − S₁</th><td class="num">+1.6 (0.24)</td><td class="num"><span class="sig">+7.6 (&lt;0.001)</span></td><td class="num"><span class="sig">+9.4 (&lt;0.001)</span></td><td class="num">+2.0 (0.72)</td><td class="num"><span class="sig">+6.7 (0.002)</span></td></tr>
+        <tr><th>success − dynamic</th><td class="num">+2.6 (0.06)</td><td class="num"><span class="sig">+7.0 (&lt;0.001)</span></td><td class="num"><span class="sig">+6.2 (&lt;0.001)</span></td><td class="num">+6.0 (0.13)</td><td class="num"><span class="sig">+3.5 (0.02)</span></td></tr>
+        <tr><th>success 每题调用</th><td class="num">1.00</td><td class="num">0.93</td><td class="num">0.92</td><td class="num">1.00</td><td class="num">1.00</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">准确率差（个点），括号里是 p。* <code>test_paper</code> 和 dev、GRPO 训练题重叠，dynamic 的 GRPO 训练过其中一部分题；在 104 道干净题上这个差是 −4.8（p = 0.16），在不重叠的 <code>test</code> 上是 +0.6，都不显著（见 4.3）。success 的提升多半来自调用更多。在 AQuA 上它几乎每题都调 Verifier；在 MedQA 和 GPQA 上，它也不比同样调用次数的随机调用好。只有在 MMLU-Pro 上，它在多调用的同时也挑对了题。</p>
+</section>
+
+<section id="rounds">
+  <h2><span class="secno">7</span>多跑两轮（第 4–5 轮）</h2>
+  <p class="prose">从主实验第 3 轮的模型 G₃ 接着跑 dynamic 和 static 两组。dynamic 每轮用 400 道新的收集题，两组每轮都用 256 道新的 GRPO 题。GPQA 没有剩余的题，没有跑。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>锁定测试</th><th class="num">MedQA</th><th class="num">MMLU-Pro test</th><th class="num">MMLU-Pro test_paper</th><th class="num">AQuA</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="5">准确率 / 每题调用</td></tr>
+        <tr><th>dynamic 第 3 轮</th><td class="num">77.6 <span class="calls">0.24</span></td><td class="num">64.0 <span class="calls">0.28</span></td><td class="num">62.8 <span class="calls">0.28</span></td><td class="num">80.3 <span class="calls">0.87</span></td></tr>
+        <tr><th>dynamic 第 5 轮</th><td class="num">76.4 <span class="calls">0.27</span></td><td class="num">67.0 <span class="calls">0.44</span></td><td class="num">66.6 <span class="calls">0.44</span></td><td class="num">78.0 <span class="calls">0.78</span></td></tr>
+        <tr><th>static 第 3 轮</th><td class="num">79.0 <span class="calls">0.35</span></td><td class="num">58.4 <span class="calls">0.24</span></td><td class="num">56.2 <span class="calls">0.24</span></td><td class="num">76.0 <span class="calls">0.72</span></td></tr>
+        <tr><th>static 第 5 轮</th><td class="num">80.4 <span class="calls">0.34</span></td><td class="num">58.2 <span class="calls">0.27</span></td><td class="num">57.0 <span class="calls">0.26</span></td><td class="num">78.0 <span class="calls">0.74</span></td></tr>
+        <tr class="group"><td colspan="5">准确率差（个点），括号里是 p</td></tr>
+        <tr><th>dynamic：第 5 − 第 3 轮</th><td class="num">−1.2 (0.38)</td><td class="num"><span class="sig">+3.0 (0.03)</span></td><td class="num"><span class="sig">+3.8 (0.01)</span></td><td class="num">−2.4 (0.21)</td></tr>
+        <tr><th>static：第 5 − 第 3 轮</th><td class="num">+1.4 (0.06)</td><td class="num">−0.2 (0.93)</td><td class="num">+0.8 (0.54)</td><td class="num">+2.0 (0.30)</td></tr>
+        <tr><th>dynamic 第 5 轮 − S₁</th><td class="num">−2.2 (0.16)</td><td class="num">+3.6 (0.053)</td><td class="num"><span class="sig">+7.0 (&lt;0.001)</span></td><td class="num">+0.8 (0.81)</td></tr>
+        <tr><th>static 第 5 轮 − S₁</th><td class="num">+1.8 (0.06)</td><td class="num"><span class="sig">−5.2 (&lt;0.001)</span></td><td class="num">−2.6 (0.055)</td><td class="num">+0.8 (0.75)</td></tr>
+        <tr><th>第 5 轮 dynamic − static</th><td class="num"><span class="sig">−4.0 (0.004)</span></td><td class="num"><span class="sig">+8.8 (&lt;0.001)</span></td><td class="num"><span class="sig">+9.6 (&lt;0.001)</span></td><td class="num">0.0 (1.00)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="plain">
+    <li><strong>MMLU-Pro：</strong>dynamic 继续变好，调用从每题 0.28 次增加到 0.44 次，仍不到 success（0.93）的一半。它和 static 的差距在 <code>test</code> 上从 5.6 扩大到 8.8 个点，在 <code>test_paper</code> 上从 6.6 扩大到 9.6 个点。在 <code>test_paper</code> 的 104 道干净题上，第 5 轮 dynamic 比 static 高 11.5 个点（p = 0.02），比 S₁ 高 9.6 个点（p = 0.03）。</li>
+    <li><strong>AQuA：</strong>两组都没有显著变化，第 5 轮打平。dynamic 的准确率略降，调用显著减少了 0.10。</li>
+    <li><strong>MedQA：</strong>第 5 轮 static 显著好于 dynamic（+4.0）。逐题拆开看，差距来自两处大小相当的损失：dynamic 的初稿变差了（S₁ 73.4%、第 3 轮 71.6%、第 5 轮 67.4%，static 保持在 72–74%），以及 dynamic 在初稿错的题上少调用了子模型（这类题 static 救回、dynamic 没救回的净差是 11 题）。初稿变差的原因见 7.1。</li>
+    <li>第 4–5 轮的 GRPO：MedQA 4 次全拒，MMLU-Pro 4 次采用 1 次，AQuA 4 次采用 3 次。</li>
+  </ul>
+  <h3 id="drift">7.1 MedQA 上 dynamic 的初稿为什么变差</h3>
+  <p class="prose">dynamic 的救回示范（call 行）把 manager 自己的错误草稿原样写进训练目标：响应是 <code>DRAFT_ANSWER_X</code> 加一次调用，X 就是模型答错时给出的字母，损失同时覆盖草稿和调用。模型答错时偏向给出 B，于是每轮的救回示范里 B 的比例越来越高，SFT 又把它学回去。static 每轮重用 S₁ 的那份标签，错误草稿里 B 只占 25%，而且不随轮数变化。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>MedQA</th><th class="num">S₁ / 第 1 轮</th><th class="num">第 2 轮</th><th class="num">第 3 轮</th><th class="num">第 4 轮</th><th class="num">第 5 轮</th></tr></thead>
+      <tbody>
+        <tr><th>dynamic 救回示范里错误草稿为 B 的比例</th><td class="num">–</td><td class="num">36%</td><td class="num">51%</td><td class="num">50%</td><td class="num">68%</td></tr>
+        <tr><th>dynamic 在 dev 上给出 B 的题数（200 题，正确答案为 B 的有 47 题）</th><td class="num">55</td><td class="num">61</td><td class="num">67</td><td class="num">79</td><td class="num">86</td></tr>
+        <tr><th>dynamic 在 dev 上的初稿准确率</th><td class="num">70.0</td><td class="num">71.5</td><td class="num">70.0</td><td class="num">66.5</td><td class="num">63.5</td></tr>
+        <tr><th>static 在 dev 上给出 B 的题数</th><td class="num">55</td><td class="num">54</td><td class="num">54</td><td class="num">57</td><td class="num">55</td></tr>
+        <tr><th>static 在 dev 上的初稿准确率</th><td class="num">70.0</td><td class="num">73.0</td><td class="num">72.0</td><td class="num">71.0</td><td class="num">72.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">dev 上的数字取每轮 SFT 模型的评估（MedQA 的 GRPO 全部被拒，所以它就是该轮的最终模型）。锁定测试上同样：S₁ 在 500 题里给出 B 142 次，dynamic 第 5 轮 213 次（正确答案为 B 的有 113 题），配对 McNemar p &lt; 10⁻¹⁹；static 第 5 轮 135 次。S₁ 初稿对、dynamic 第 5 轮初稿错的 46 题里，41 题 dynamic 给的是 B；它在其中 39 题上调用了子模型，救回 31 题，所以这个坍缩有一部分被调用补回来了。</p>
+  <ul class="plain">
+    <li><strong>AQuA 上同样的坍缩更严重，但被调用掩盖了。</strong>AQuA 的 ρ = 1，救回示范占训练行的多数，其中错误草稿为 B 的比例是 51–64%。dynamic 在锁定测试上给出 B 的比例从 S₁ 的 44% 升到第 3 轮 62%、第 5 轮 70%（正确答案为 B 的只有 23%），static 保持 46–47%。因为 AQuA 的 manager 对 80–90% 的题都调用 Verifier，初稿错了多半能被纠正，所以准确率没有像 MedQA 那样下降。</li>
+    <li><strong>MMLU-Pro 和 GPQA 没有明显坍缩。</strong>MMLU-Pro 有 10 个选项，错误草稿分散，救回示范里最多的字母只占 26–33%；dynamic 在锁定测试上给出 B 的比例从 23% 变到 25%，初稿准确率不变。GPQA 的变化也在几个百分点以内。</li>
+    <li><strong>另一半损失是少调用。</strong>在 dev 上，dynamic 第 5 轮有 26 道初稿错且没调用的题，其中 17 道强制调用某个子模型就能答对（Verifier 能救 13 道）；static 第 5 轮是 23 道里 12 道，S₁ 是 20 道里 11 道。dynamic 第 5 轮的调用还转向了 Extractor（锁定测试上 92 次，Reasoner 38 次，Verifier 6 次），而 Extractor 是三个子模型里救回率最低的。</li>
+    <li><strong>这是选标签规则的问题，不是重新收集的问题。</strong>一个直接的修法是在救回示范里不对 <code>DRAFT_ANSWER_X</code> 计算损失，只训练它后面的调用决策；代码里 GRPO 的锚定损失已经有这种 <code>route_only</code> 掩码。这个修法还没有跑过。</li>
+  </ul>
+  <div class="callout">
+    <p><strong>跨第 3/4 轮的比较要谨慎。</strong>论文的 GRPO 题池在前三轮用完了，第 4–5 轮的 GRPO 题从新题里抽取。前三轮每批 256 道题里有 50–92 道出现在子模型 LoRA 的 SFT 数据里（实际调用的是基础子模型，但在这些题上调用几乎总是有用），第 4–5 轮只有 0–6 道。所以第 4–5 轮调用率的变化可能部分来自 GRPO 题构成的变化，不能直接说明多轮训练已经到头。</p>
+  </div>
+</section>
+
+<section id="caveats">
+  <h2><span class="secno">8</span>局限和需要注明的地方</h2>
+  <ul class="plain">
+    <li><strong>单种子，未做多重比较校正。</strong>表中的 p 值都是单次比较的结果；标 † 的两处在 McNemar 下不显著。</li>
+    <li><strong>MMLU-Pro 的 <code>test_paper</code> 和训练题重叠。</strong>dev 的 200 题全部在 <code>test_paper</code> 里，GRPO 每轮也在其中 31–50 道题上训练过，只有 104 题是干净的。<code>test_paper</code> 上的数字偏乐观，应以 <code>test</code> 和第 4.3 节的干净子集为准。</li>
+    <li><strong>GPQA 太小。</strong>100 题的测试集上，6 个点的差也只是勉强显著（static − S₁，bootstrap p = 0.03，McNemar p = 0.07），success 比 dynamic 高 6 个点也不显著（p = 0.13）。训练题每轮重复使用，GPQA 的结果只能作参考。</li>
+    <li><strong>训练不能逐位复现。</strong>同一个模型重新评估，逐题结果完全相同；SFT 和 GRPO 重跑不一定相同。例如 MMLU-Pro 第 2 轮用同一份标签、同一个起点做的两次 SFT，dev 上分别是 60.0 / 0.275 和 60.5 / 0.255；GPQA 消融里第 1 轮的 GRPO 在第 8 步被回退到起点，而主实验中同一步训练到了第 64 步。所以消融和主实验的差别里也包含训练本身的随机波动。success 消融是单独的运行，它第 1 轮的 GRPO 和主实验不完全相同；dynamic_sft 不做 GRPO，直接从 S₁ 开始第 2 轮。</li>
+    <li><strong>无效答案的放行规则是中途加的。</strong>MMLU-Pro 第 5 轮 dynamic 的 SFT dev 评估因 1 道题没有给出可解析的答案而停下后，我们加了一条规则：如果唯一的问题是无法解析的答案、且有效答案率不低于 0.99，经操作者逐个确认后，这道题按答错计入，评估继续，报告中标为 ACKNOWLEDGED。规则只用于 SFT 模型的 dev 评估和锁定测试。按这条规则放行的有 4 次评估，各 1 道题：MMLU-Pro 第 5 轮 dynamic 的 SFT dev 评估和 <code>test_paper</code> 锁定测试，MedQA 第 4、5 轮 static 的 SFT dev 评估。另有 5 次 GRPO 候选在 dev 上出现 1–2 道无效答案，按验收条件直接被拒。为此 MMLU-Pro 第 5 轮中途更新过一次代码，只涉及这条规则的判断逻辑，变更记录在运行目录的 <code>rsi_code_override.json</code> 里；MedQA 第 4–5 轮开跑时规则已经存在。</li>
+    <li><strong>dynamic 的救回示范会复制 manager 自己的错误草稿。</strong>这在 MedQA 和 AQuA 上造成了初稿向 B 坍缩（7.1 节）。dynamic 的所有结果都带着这个效应；修掉它之后 dynamic 的数字可能会变。</li>
+    <li><strong>第 1 轮与论文的偏差是人工放行的</strong>，MedQA 的 S₁ 是替代模型（见第 2、3 节）。</li>
+    <li><strong>dev 很小</strong>（100–254 题），而且参与了 GRPO 验收。模型之间的准确率比较都以锁定测试为准；第 5 节的挑题分析只在 dev 上做过，结论更弱。</li>
+  </ul>
+</section>
+
+<section id="data">
+  <h2><span class="secno">9</span>数据与代码</h2>
+  <ul class="plain">
+    <li>全部运行（配置、每轮的模型、dev 和锁定测试结果、逐题输出、统计表）：<a href="https://huggingface.co/MaliDDD/margent-mcq-rsi" rel="noopener">huggingface.co/MaliDDD/margent-mcq-rsi</a>。MedQA 第 4–5 轮在 <code>archives/medqa_r5_run_and_new_logs.tar</code> 里，需要解压。</li>
+    <li>代码：<a href="https://github.com/Candy26i/9.30" rel="noopener">github.com/Candy26i/9.30</a>，分支 <code>feat/mcq-rsi-controller</code>；操作手册在 <code>agent_routing/docs/MCQ_RSI_RUNBOOK.md</code>，子模型的诊断记录在其中的 D14 条。</li>
+    <li>重新训练的 v2 子模型（未在本文实验中使用）：<code>MaliDDD/agent-routing-advisors-{bench}-9b-v2</code>。</li>
+  </ul>
+  <footer>
+    运行目录：medqa_main、mmlu_pro_main、gpqa_main、aqua_main（主实验）；mmlu_pro_abl、aqua_abl、gpqa_abl（消融）；mmlu_pro_r5、aqua_r5、medqa_r5（第 4–5 轮）。所有数字取自这些目录的 <code>report.json</code>、<code>final/*/final.json</code> 和 <code>analysis/</code>。跨运行的配对比较和第 4.3 节的干净子集，用 <code>scripts/mcq_rsi_analysis.py compare</code> 在逐题结果上计算。7.1 节的数字来自各轮的 <code>select/labels.jsonl</code>、<code>collect/counterfactual_records.jsonl</code>、dev 评估和强制调用评估的逐题文件。
+  </footer>
+</section>
+
+</div>
+
+<script>
+(function () {
+  // Locked-test accuracy (%) and calls per question. MMLU-Pro: the "test" pool.
+  var DATA = [
+    { name: "MedQA", n: 500, pts: [
+      { id: "s1", acc: 78.6, calls: 0.378 }, { id: "dyn3", acc: 77.6, calls: 0.242 }, { id: "sta3", acc: 79.0, calls: 0.350 },
+      { id: "suc", acc: 80.2, calls: 1.000 }, { id: "dyn5", acc: 76.4, calls: 0.272 }, { id: "sta5", acc: 80.4, calls: 0.342 } ] },
+    { name: "MMLU-Pro", sub: "test", n: 500, pts: [
+      { id: "s1", acc: 63.4, calls: 0.360 }, { id: "dyn3", acc: 64.0, calls: 0.280 }, { id: "sta3", acc: 58.4, calls: 0.244 },
+      { id: "suc", acc: 71.0, calls: 0.934 }, { id: "dsft", acc: 64.6, calls: 0.278 }, { id: "dyn5", acc: 67.0, calls: 0.438 },
+      { id: "sta5", acc: 58.2, calls: 0.266 } ] },
+    { name: "GPQA Diamond", n: 100, pts: [
+      { id: "s1", acc: 54.0, calls: 0.530 }, { id: "dyn3", acc: 50.0, calls: 0.650 }, { id: "sta3", acc: 48.0, calls: 0.600 },
+      { id: "suc", acc: 56.0, calls: 1.000 }, { id: "dsft", acc: 53.0, calls: 0.640 } ] },
+    { name: "AQuA", n: 254, pts: [
+      { id: "s1", acc: 77.2, calls: 0.776 }, { id: "dyn3", acc: 80.3, calls: 0.874 }, { id: "sta3", acc: 76.0, calls: 0.720 },
+      { id: "suc", acc: 83.9, calls: 1.000 }, { id: "dsft", acc: 79.5, calls: 0.819 }, { id: "dyn5", acc: 78.0, calls: 0.776 },
+      { id: "sta5", acc: 78.0, calls: 0.736 } ] }
+  ];
+  var KIND = {
+    s1:   { label: "S₁", color: "--neutral-mark", shape: "square", filled: true },
+    dyn3: { label: "dynamic 第 3 轮", color: "--series-1", shape: "circle", filled: true },
+    dyn5: { label: "dynamic 第 5 轮", color: "--series-1", shape: "circle", filled: false },
+    dsft: { label: "dynamic_sft 第 3 轮", color: "--series-1", shape: "triangle", filled: true },
+    sta3: { label: "static 第 3 轮", color: "--series-2", shape: "circle", filled: true },
+    sta5: { label: "static 第 5 轮", color: "--series-2", shape: "circle", filled: false },
+    suc:  { label: "success 第 3 轮", color: "--series-3", shape: "diamond", filled: true }
+  };
+  var ORDER = ["s1", "dyn3", "dyn5", "dsft", "sta3", "sta5", "suc"];
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function shape(g, kind, cx, cy, r) {
+    var k = KIND[kind], col = "var(" + k.color + ")";
+    var common = { fill: k.filled ? col : "var(--surface)", stroke: k.filled ? "var(--surface)" : col, "stroke-width": k.filled ? 2 : 2.5 };
+    if (k.shape === "circle") return el("circle", Object.assign({ cx: cx, cy: cy, r: r }, common), g);
+    if (k.shape === "square") return el("rect", Object.assign({ x: cx - r, y: cy - r, width: 2 * r, height: 2 * r, rx: 1.5 }, common), g);
+    if (k.shape === "diamond") return el("path", Object.assign({ d: "M" + cx + " " + (cy - r - 1.5) + "L" + (cx + r + 1.5) + " " + cy + "L" + cx + " " + (cy + r + 1.5) + "L" + (cx - r - 1.5) + " " + cy + "Z" }, common), g);
+    return el("path", Object.assign({ d: "M" + cx + " " + (cy - r - 1.5) + "L" + (cx + r + 1.5) + " " + (cy + r) + "L" + (cx - r - 1.5) + " " + (cy + r) + "Z" }, common), g);
+  }
+
+  var legend = document.getElementById("legend");
+  ORDER.forEach(function (id) {
+    var span = document.createElement("span");
+    var svg = el("svg", { width: 16, height: 16, viewBox: "0 0 16 16", "aria-hidden": "true" });
+    shape(svg, id, 8, 8, 5);
+    span.appendChild(svg);
+    span.appendChild(document.createTextNode(KIND[id].label));
+    legend.appendChild(span);
+  });
+
+  var W = 340, H = 230, M = { l: 38, r: 14, t: 10, b: 34 };
+  var tip = document.getElementById("tip"), fig = document.getElementById("fig-cost");
+  function showTip(html, target) {
+    tip.innerHTML = html; tip.hidden = false;
+    var fr = fig.getBoundingClientRect(), tr = target.getBoundingClientRect();
+    var x = tr.left - fr.left + tr.width / 2 + 10, y = tr.top - fr.top - 8;
+    var w = tip.offsetWidth;
+    if (x + w > fr.width - 8) x = tr.left - fr.left - w - 10;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  }
+  function hideTip() { tip.hidden = true; }
+
+  var panels = document.getElementById("panels");
+  DATA.forEach(function (b) {
+    var wrap = document.createElement("div"); wrap.className = "panel";
+    var h = document.createElement("h4");
+    h.textContent = b.name + " ";
+    var sm = document.createElement("small"); sm.textContent = (b.sub ? b.sub + " · " : "") + b.n + " 题";
+    h.appendChild(sm); wrap.appendChild(h);
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": b.name + "：准确率对每题调用次数" });
+    var accs = b.pts.map(function (p) { return p.acc; });
+    var lo = Math.floor((Math.min.apply(null, accs) - 1.5) / 2) * 2, hi = Math.ceil((Math.max.apply(null, accs) + 1.5) / 2) * 2;
+    var step = (hi - lo) > 16 ? 4 : 2;
+    var x = function (v) { return M.l + (v / 1.05) * (W - M.l - M.r); };
+    var y = function (v) { return M.t + (1 - (v - lo) / (hi - lo)) * (H - M.t - M.b); };
+    var grid = el("g", { "class": "grid" }, svg), axis = el("g", { "class": "axis" }, svg);
+    for (var t = lo; t <= hi + 1e-9; t += step) {
+      el("line", { x1: M.l, x2: W - M.r, y1: y(t), y2: y(t) }, grid);
+      var ty = el("text", { x: M.l - 6, y: y(t) + 3.5, "text-anchor": "end" }, axis); ty.textContent = t;
+    }
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      el("line", { x1: x(v), x2: x(v), y1: H - M.b, y2: H - M.b + 4 }, axis);
+      var tx = el("text", { x: x(v), y: H - M.b + 15, "text-anchor": "middle" }, axis); tx.textContent = String(v);
+    });
+    el("line", { x1: M.l, x2: W - M.r, y1: H - M.b, y2: H - M.b }, axis);
+    var xt = el("text", { "class": "axis-title", x: (M.l + W - M.r) / 2, y: H - 3, "text-anchor": "middle" }, svg); xt.textContent = "每题调用次数";
+    var byId = {}; b.pts.forEach(function (p) { byId[p.id] = p; });
+    [["dyn3", "dyn5", "--series-1"], ["sta3", "sta5", "--series-2"]].forEach(function (pair) {
+      var a = byId[pair[0]], c = byId[pair[1]];
+      if (a && c) el("line", { x1: x(a.calls), y1: y(a.acc), x2: x(c.calls), y2: y(c.acc), stroke: "var(" + pair[2] + ")", "stroke-width": 1.5, "stroke-dasharray": "3 3", opacity: 0.8 }, svg);
+    });
+    var s1 = byId.s1;
+    var lab = el("text", { "class": "anno", x: x(s1.calls) + 9, y: y(s1.acc) + 3.5 }, svg); lab.textContent = "S₁";
+    ORDER.forEach(function (id) {
+      var p = byId[id]; if (!p) return;
+      var g = el("g", { "class": "mark", tabindex: "0", role: "img",
+        "aria-label": b.name + " " + KIND[id].label + "：准确率 " + p.acc.toFixed(1) + "%，每题调用 " + p.calls.toFixed(2) }, svg);
+      el("circle", { "class": "hit", cx: x(p.calls), cy: y(p.acc), r: 11, fill: "transparent" }, g);
+      shape(g, id, x(p.calls), y(p.acc), 5);
+      var html = "<b>" + b.name + " · " + KIND[id].label + "</b><br>准确率 " + p.acc.toFixed(1) + "%<br>每题调用 " + p.calls.toFixed(3);
+      g.addEventListener("mouseenter", function () { showTip(html, g); });
+      g.addEventListener("focus", function () { showTip(html, g); });
+      g.addEventListener("mouseleave", hideTip);
+      g.addEventListener("blur", hideTip);
+    });
+    wrap.appendChild(svg); panels.appendChild(wrap);
+  });
+})();
+</script>

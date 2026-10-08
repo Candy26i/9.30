@@ -1,0 +1,123 @@
+### letters
+medqa_v2 S_1/test: n=500 acc=0.784 draft=0.734 calls=0.356 drafts={'A': 110, 'B': 142, 'C': 145, 'D': 103} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=1/106/71
+medqa_v2 dynamic_sft/test: n=500 acc=0.778 draft=0.732 calls=0.248 drafts={'A': 123, 'B': 144, 'C': 141, 'D': 92} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=40/81/3
+medqa_v2 static_sft/test: n=500 acc=0.798 draft=0.748 calls=0.300 drafts={'A': 115, 'B': 129, 'C': 139, 'D': 117} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=1/63/86
+mmlu_pro_v2 S_1/test: n=500 acc=0.640 draft=0.510 calls=0.354 drafts={'A': 37, 'B': 115, 'C': 91, 'D': 64, 'E': 29, 'F': 47, 'G': 28, 'H': 23, 'I': 37, 'J': 29} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=9/18/150
+mmlu_pro_v2 S_1/test_paper: n=500 acc=0.596 draft=0.494 calls=0.348 drafts={'A': 35, 'B': 96, 'C': 77, 'D': 58, 'E': 39, 'F': 51, 'G': 43, 'H': 44, 'I': 30, 'J': 27} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=6/27/141
+mmlu_pro_v2 dynamic_sft/test: n=500 acc=0.606 draft=0.512 calls=0.236 drafts={'A': 37, 'B': 121, 'C': 93, 'D': 58, 'E': 25, 'F': 44, 'G': 34, 'H': 26, 'I': 38, 'J': 24} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=20/3/95
+mmlu_pro_v2 dynamic_sft/test_paper: n=500 acc=0.572 draft=0.492 calls=0.232 drafts={'A': 31, 'B': 109, 'C': 84, 'D': 55, 'E': 36, 'F': 46, 'G': 54, 'H': 40, 'I': 28, 'J': 17} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=32/6/78
+mmlu_pro_v2 static_sft/test: n=500 acc=0.590 draft=0.510 calls=0.284 drafts={'A': 42, 'B': 105, 'C': 81, 'D': 60, 'E': 34, 'F': 54, 'G': 32, 'H': 23, 'I': 39, 'J': 30} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=16/18/108
+mmlu_pro_v2 static_sft/test_paper: n=500 acc=0.570 draft=0.500 calls=0.306 drafts={'A': 39, 'B': 90, 'C': 75, 'D': 57, 'E': 43, 'F': 68, 'G': 38, 'H': 38, 'I': 31, 'J': 21} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=11/31/111
+gpqa_v2 S_1/test: n=100 acc=0.540 draft=0.410 calls=0.520 drafts={'A': 9, 'B': 38, 'C': 39, 'D': 14} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=1/9/42
+gpqa_v2 dynamic_sft/test: n=100 acc=0.480 draft=0.370 calls=0.580 drafts={'A': 5, 'B': 41, 'C': 41, 'D': 13} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=2/21/35
+gpqa_v2 static_sft/test: n=100 acc=0.510 draft=0.420 calls=0.380 drafts={'A': 12, 'B': 37, 'C': 31, 'D': 20} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=0/10/28
+aqua_v2 S_1/test: n=254 acc=0.776 draft=0.362 calls=0.780 drafts={'A': 28, 'B': 112, 'C': 86, 'D': 21, 'E': 7} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=0/1/197
+aqua_v2 dynamic_sft/test: n=254 acc=0.827 draft=0.370 calls=0.890 drafts={'A': 21, 'B': 137, 'C': 71, 'D': 14, 'E': 11} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=0/1/225
+aqua_v2 static_sft/test: n=254 acc=0.689 draft=0.362 calls=0.650 drafts={'A': 27, 'B': 98, 'C': 90, 'D': 24, 'E': 15} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=1/4/160
+medqa_v3 S_1/test: n=500 acc=0.784 draft=0.734 calls=0.356 drafts={'A': 110, 'B': 142, 'C': 145, 'D': 103} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=1/106/71
+medqa_v3 dynamic_sft/test: n=500 acc=0.786 draft=0.748 calls=0.148 drafts={'A': 120, 'B': 129, 'C': 140, 'D': 111} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=0/74/0
+medqa_v3 static_sft/test: n=500 acc=0.786 draft=0.756 calls=0.270 drafts={'A': 119, 'B': 134, 'C': 137, 'D': 110} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=0/62/73
+mmlu_pro_v3 S_1/test: n=500 acc=0.640 draft=0.510 calls=0.354 drafts={'A': 37, 'B': 115, 'C': 91, 'D': 64, 'E': 29, 'F': 47, 'G': 28, 'H': 23, 'I': 37, 'J': 29} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=9/18/150
+mmlu_pro_v3 S_1/test_paper: n=500 acc=0.596 draft=0.494 calls=0.348 drafts={'A': 35, 'B': 96, 'C': 77, 'D': 58, 'E': 39, 'F': 51, 'G': 43, 'H': 44, 'I': 30, 'J': 27} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=6/27/141
+mmlu_pro_v3 dynamic_sft/test: n=500 acc=0.644 draft=0.510 calls=0.270 drafts={'A': 44, 'B': 134, 'C': 82, 'D': 61, 'E': 28, 'F': 39, 'G': 29, 'H': 23, 'I': 34, 'J': 26} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=0/6/129
+mmlu_pro_v3 dynamic_sft/test_paper: n=500 acc=0.598 draft=0.478 calls=0.274 drafts={'A': 41, 'B': 133, 'C': 69, 'D': 56, 'E': 38, 'F': 39, 'G': 38, 'H': 34, 'I': 29, 'J': 23} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=0/11/126
+mmlu_pro_v3 static_sft/test: n=500 acc=0.580 draft=0.506 calls=0.262 drafts={'A': 38, 'B': 121, 'C': 83, 'D': 66, 'E': 25, 'F': 47, 'G': 29, 'H': 23, 'I': 38, 'J': 30} truth={'A': 73, 'B': 53, 'C': 59, 'D': 56, 'E': 41, 'F': 41, 'G': 50, 'H': 38, 'I': 48, 'J': 41} E/R/V=11/16/104
+mmlu_pro_v3 static_sft/test_paper: n=500 acc=0.590 draft=0.484 calls=0.286 drafts={'A': 37, 'B': 124, 'C': 66, 'D': 55, 'E': 40, 'F': 45, 'G': 37, 'H': 41, 'I': 30, 'J': 25} truth={'A': 64, 'B': 53, 'C': 61, 'D': 55, 'E': 44, 'F': 50, 'G': 53, 'H': 45, 'I': 42, 'J': 33} E/R/V=11/18/114
+gpqa_v3 S_1/test: n=100 acc=0.540 draft=0.410 calls=0.520 drafts={'A': 9, 'B': 38, 'C': 39, 'D': 14} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=1/9/42
+gpqa_v3 dynamic_sft/test: n=100 acc=0.540 draft=0.410 calls=0.580 drafts={'A': 5, 'B': 36, 'C': 41, 'D': 18} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=1/21/36
+gpqa_v3 static_sft/test: n=100 acc=0.550 draft=0.420 calls=0.490 drafts={'A': 6, 'B': 36, 'C': 39, 'D': 19} truth={'A': 23, 'B': 28, 'C': 20, 'D': 29} E/R/V=0/15/34
+aqua_v3 S_1/test: n=254 acc=0.776 draft=0.362 calls=0.780 drafts={'A': 28, 'B': 112, 'C': 86, 'D': 21, 'E': 7} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=0/1/197
+aqua_v3 dynamic_sft/test: n=254 acc=0.780 draft=0.350 calls=0.791 drafts={'A': 22, 'B': 138, 'C': 74, 'D': 16, 'E': 4} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=0/0/201
+aqua_v3 static_sft/test: n=254 acc=0.748 draft=0.386 calls=0.728 drafts={'A': 37, 'B': 125, 'C': 71, 'D': 12, 'E': 9} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=1/5/179
+medqa_v3r5 dynamic_sft/test: n=500 acc=0.774 draft=0.734 calls=0.172 drafts={'A': 108, 'B': 141, 'C': 142, 'D': 109} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=36/48/2
+medqa_v3r5 static_sft/test: n=500 acc=0.810 draft=0.746 calls=0.368 drafts={'A': 110, 'B': 129, 'C': 139, 'D': 122} truth={'A': 145, 'B': 113, 'C': 141, 'D': 101} E/R/V=5/54/125
+aqua_v3r5 dynamic_sft/test: n=254 acc=0.717 draft=0.370 calls=0.720 drafts={'A': 44, 'B': 98, 'C': 84, 'D': 19, 'E': 9} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=0/1/182
+aqua_v3r5 static_sft/test: n=254 acc=0.772 draft=0.374 calls=0.764 drafts={'A': 31, 'B': 124, 'C': 80, 'D': 10, 'E': 9} truth={'A': 63, 'B': 58, 'C': 46, 'D': 53, 'E': 34} E/R/V=1/7/186
+### dev rounds
+medqa_v2       r2 dynamic_sft  acc 0.800 draft 0.715 call 0.290 cr|wrong 0.596 corr 0.105 corrupt 0.020 valid 1.000 adv {'extractor_tool': 3, 'reasoner_tool': 44, 'verifier_tool': 11}
+medqa_v2       r2 static_sft   acc 0.785 draft 0.710 call 0.275 cr|wrong 0.534 corr 0.095 corrupt 0.020 valid 1.000 adv {'extractor_tool': 3, 'reasoner_tool': 29, 'verifier_tool': 24}
+medqa_v2       r3 dynamic_sft  acc 0.790 draft 0.725 call 0.245 cr|wrong 0.491 corr 0.080 corrupt 0.015 valid 1.000 adv {'extractor_tool': 15, 'reasoner_tool': 34}
+medqa_v2       r3 static_sft   acc 0.805 draft 0.710 call 0.315 cr|wrong 0.603 corr 0.105 corrupt 0.020 valid 0.995 adv {'extractor_tool': 6, 'reasoner_tool': 26, 'verifier_tool': 36}  [ack]
+medqa_v2       r1 S1_dev       acc 0.790 draft 0.705 call 0.370 adv {'extractor_tool': 2, 'reasoner_tool': 40, 'verifier_tool': 32}
+mmlu_pro_v2    r2 dynamic_sft  acc 0.555 draft 0.545 call 0.070 cr|wrong 0.099 corr 0.030 corrupt 0.020 valid 1.000 adv {'extractor_tool': 1, 'reasoner_tool': 2, 'verifier_tool': 11}
+mmlu_pro_v2    r2 static_sft   acc 0.610 draft 0.555 call 0.265 cr|wrong 0.348 corr 0.065 corrupt 0.020 valid 1.000 adv {'extractor_tool': 3, 'reasoner_tool': 10, 'verifier_tool': 44}
+mmlu_pro_v2    r3 dynamic_sft  acc 0.605 draft 0.550 call 0.205 cr|wrong 0.300 corr 0.085 corrupt 0.030 valid 1.000 adv {'extractor_tool': 6, 'reasoner_tool': 3, 'verifier_tool': 32}
+mmlu_pro_v2    r3 static_sft   acc 0.610 draft 0.565 call 0.295 cr|wrong 0.379 corr 0.070 corrupt 0.025 valid 1.000 adv {'extractor_tool': 6, 'reasoner_tool': 13, 'verifier_tool': 46}
+mmlu_pro_v2    r1 S1_dev       acc 0.625 draft 0.555 call 0.305 adv {'extractor_tool': 2, 'reasoner_tool': 9, 'verifier_tool': 53}
+gpqa_v2        r2 dynamic_sft  acc 0.500 draft 0.390 call 0.610 cr|wrong 0.639 corr 0.160 corrupt 0.050 valid 1.000 adv {'reasoner_tool': 13, 'verifier_tool': 48}
+gpqa_v2        r2 static_sft   acc 0.510 draft 0.420 call 0.580 cr|wrong 0.603 corr 0.120 corrupt 0.030 valid 1.000 adv {'reasoner_tool': 17, 'verifier_tool': 41}
+gpqa_v2        r3 dynamic_sft  acc 0.460 draft 0.410 call 0.590 cr|wrong 0.627 corr 0.140 corrupt 0.090 valid 1.000 adv {'reasoner_tool': 31, 'verifier_tool': 28}
+gpqa_v2        r3 static_sft   acc 0.470 draft 0.400 call 0.440 cr|wrong 0.517 corr 0.110 corrupt 0.040 valid 1.000 adv {'reasoner_tool': 14, 'verifier_tool': 30}
+gpqa_v2        r1 S1_dev       acc 0.520 draft 0.410 call 0.620 adv {'reasoner_tool': 16, 'verifier_tool': 46}
+aqua_v2        r2 dynamic_sft  acc 0.803 draft 0.390 call 0.858 cr|wrong 0.929 corr 0.437 corrupt 0.024 valid 1.000 adv {'reasoner_tool': 2, 'verifier_tool': 216}
+aqua_v2        r2 static_sft   acc 0.705 draft 0.398 call 0.724 cr|wrong 0.791 corr 0.331 corrupt 0.024 valid 1.000 adv {'extractor_tool': 1, 'reasoner_tool': 5, 'verifier_tool': 185}
+aqua_v2        r3 dynamic_sft  acc 0.799 draft 0.370 call 0.913 cr|wrong 0.950 corr 0.469 corrupt 0.039 valid 1.000 adv {'reasoner_tool': 2, 'verifier_tool': 231}
+aqua_v2        r3 static_sft   acc 0.709 draft 0.382 call 0.638 cr|wrong 0.739 corr 0.343 corrupt 0.016 valid 1.000 adv {'reasoner_tool': 5, 'verifier_tool': 163}
+aqua_v2        r1 S1_dev       acc 0.732 draft 0.394 call 0.780 adv {'reasoner_tool': 2, 'verifier_tool': 199}
+medqa_v3       r2 dynamic_sft  acc 0.790 draft 0.715 call 0.285 cr|wrong 0.596 corr 0.100 corrupt 0.025 valid 1.000 adv {'extractor_tool': 2, 'reasoner_tool': 43, 'verifier_tool': 12}
+medqa_v3       r2 static_sft   acc 0.780 draft 0.725 call 0.250 cr|wrong 0.491 corr 0.075 corrupt 0.020 valid 1.000 adv {'extractor_tool': 3, 'reasoner_tool': 24, 'verifier_tool': 23}
+medqa_v3       r3 dynamic_sft  acc 0.790 draft 0.740 call 0.140 cr|wrong 0.346 corr 0.055 corrupt 0.005 valid 1.000 adv {'extractor_tool': 2, 'reasoner_tool': 26}
+medqa_v3       r3 static_sft   acc 0.795 draft 0.725 call 0.255 cr|wrong 0.509 corr 0.080 corrupt 0.015 valid 0.995 adv {'extractor_tool': 4, 'reasoner_tool': 24, 'verifier_tool': 27}  [ack]
+medqa_v3       r1 S1_dev       acc 0.790 draft 0.705 call 0.370 adv {'extractor_tool': 2, 'reasoner_tool': 40, 'verifier_tool': 32}
+mmlu_pro_v3    r2 dynamic_sft  acc 0.560 draft 0.525 call 0.105 cr|wrong 0.147 corr 0.045 corrupt 0.010 valid 1.000 adv {'extractor_tool': 1, 'reasoner_tool': 1, 'verifier_tool': 19}
+mmlu_pro_v3    r2 static_sft   acc 0.620 draft 0.555 call 0.220 cr|wrong 0.315 corr 0.070 corrupt 0.010 valid 1.000 adv {'extractor_tool': 1, 'reasoner_tool': 2, 'verifier_tool': 42}
+mmlu_pro_v3    r3 dynamic_sft  acc 0.625 draft 0.525 call 0.220 cr|wrong 0.326 corr 0.110 corrupt 0.010 valid 1.000 adv {'reasoner_tool': 3, 'verifier_tool': 41}
+mmlu_pro_v3    r3 static_sft   acc 0.610 draft 0.540 call 0.265 cr|wrong 0.380 corr 0.080 corrupt 0.015 valid 1.000 adv {'extractor_tool': 8, 'reasoner_tool': 9, 'verifier_tool': 41}
+mmlu_pro_v3    r1 S1_dev       acc 0.625 draft 0.555 call 0.305 adv {'extractor_tool': 2, 'reasoner_tool': 9, 'verifier_tool': 53}
+gpqa_v3        r2 dynamic_sft  acc 0.550 draft 0.440 call 0.610 cr|wrong 0.643 corr 0.130 corrupt 0.020 valid 1.000 adv {'reasoner_tool': 14, 'verifier_tool': 47}
+gpqa_v3        r2 static_sft   acc 0.540 draft 0.440 call 0.600 cr|wrong 0.696 corr 0.140 corrupt 0.040 valid 1.000 adv {'reasoner_tool': 18, 'verifier_tool': 42}
+gpqa_v3        r3 dynamic_sft  acc 0.530 draft 0.420 call 0.610 cr|wrong 0.638 corr 0.140 corrupt 0.030 valid 1.000 adv {'reasoner_tool': 26, 'verifier_tool': 35}
+gpqa_v3        r3 static_sft   acc 0.510 draft 0.450 call 0.470 cr|wrong 0.473 corr 0.110 corrupt 0.050 valid 1.000 adv {'reasoner_tool': 13, 'verifier_tool': 34}
+gpqa_v3        r1 S1_dev       acc 0.520 draft 0.410 call 0.620 adv {'reasoner_tool': 16, 'verifier_tool': 46}
+aqua_v3        r2 dynamic_sft  acc 0.748 draft 0.374 call 0.807 cr|wrong 0.849 corr 0.390 corrupt 0.016 valid 1.000 adv {'verifier_tool': 205}
+aqua_v3        r2 static_sft   acc 0.724 draft 0.390 call 0.748 cr|wrong 0.819 corr 0.354 corrupt 0.020 valid 1.000 adv {'reasoner_tool': 1, 'verifier_tool': 190}
+aqua_v3        r3 dynamic_sft  acc 0.776 draft 0.350 call 0.819 cr|wrong 0.903 corr 0.437 corrupt 0.012 valid 1.000 adv {'verifier_tool': 208}
+aqua_v3        r3 static_sft   acc 0.732 draft 0.378 call 0.709 cr|wrong 0.804 corr 0.370 corrupt 0.016 valid 1.000 adv {'reasoner_tool': 3, 'verifier_tool': 181}
+aqua_v3        r1 S1_dev       acc 0.732 draft 0.394 call 0.780 adv {'reasoner_tool': 2, 'verifier_tool': 199}
+medqa_v3r5     r4 dynamic_sft  acc 0.795 draft 0.740 call 0.150 cr|wrong 0.346 corr 0.060 corrupt 0.005 valid 1.000 adv {'extractor_tool': 1, 'reasoner_tool': 25, 'verifier_tool': 4}
+medqa_v3r5     r4 static_sft   acc 0.805 draft 0.725 call 0.300 cr|wrong 0.618 corr 0.100 corrupt 0.020 valid 0.995 adv {'extractor_tool': 3, 'reasoner_tool': 27, 'verifier_tool': 40}  [ack]
+medqa_v3r5     r5 dynamic_sft  acc 0.760 draft 0.740 call 0.175 cr|wrong 0.365 corr 0.040 corrupt 0.020 valid 1.000 adv {'extractor_tool': 12, 'reasoner_tool': 23}
+medqa_v3r5     r5 static_sft   acc 0.805 draft 0.700 call 0.380 cr|wrong 0.667 corr 0.125 corrupt 0.020 valid 0.995 adv {'extractor_tool': 5, 'reasoner_tool': 28, 'verifier_tool': 54}  [ack]
+aqua_v3r5      r4 dynamic_sft  acc 0.709 draft 0.343 call 0.724 cr|wrong 0.796 corr 0.386 corrupt 0.020 valid 1.000 adv {'verifier_tool': 184}
+aqua_v3r5      r4 static_sft   acc 0.748 draft 0.378 call 0.764 cr|wrong 0.848 corr 0.386 corrupt 0.016 valid 1.000 adv {'reasoner_tool': 3, 'verifier_tool': 195}
+aqua_v3r5      r5 dynamic_sft  acc 0.724 draft 0.398 call 0.740 cr|wrong 0.843 corr 0.354 corrupt 0.028 valid 1.000 adv {'verifier_tool': 188}
+aqua_v3r5      r5 static_sft   acc 0.756 draft 0.386 call 0.760 cr|wrong 0.865 corr 0.390 corrupt 0.020 valid 1.000 adv {'extractor_tool': 2, 'reasoner_tool': 7, 'verifier_tool': 196}
+### replay tables
+== medqa_v2
+| S_1 | 200 | {"extractor": 2, "reasoner": 40, "verifier": 32} | 0 | 0.795 | [0.730, 0.785] | 0.012 | True | {} |
+| dynamic_sft | 200 | {"extractor": 15, "reasoner": 34, "verifier": 0} | 0 | 0.785 | [0.730, 0.775] | 0.004 | True | {} |
+| static_sft | 200 | {"extractor": 5, "reasoner": 23, "verifier": 35} | 0 | 0.780 | [0.720, 0.775] | 0.021 | True | {} |
+== mmlu_pro_v2
+| S_1 | 200 | {"extractor": 2, "reasoner": 7, "verifier": 52} | 0 | 0.585 | [0.555, 0.620] | 0.587 | False | {} |
+| dynamic_sft | 200 | {"extractor": 6, "reasoner": 3, "verifier": 32} | 0 | 0.585 | [0.545, 0.600] | 0.204 | False | {} |
+| static_sft | 200 | {"extractor": 6, "reasoner": 8, "verifier": 45} | 0 | 0.595 | [0.555, 0.620] | 0.422 | False | {} |
+== gpqa_v2
+| S_1 | 100 | {"extractor": 0, "reasoner": 16, "verifier": 46} | 0 | 0.470 | [0.420, 0.510] | 0.552 | False | {} |
+| dynamic_sft | 100 | {"extractor": 0, "reasoner": 31, "verifier": 28} | 0 | 0.470 | [0.410, 0.510] | 0.401 | False | {} |
+| static_sft | 100 | {"extractor": 0, "reasoner": 14, "verifier": 30} | 0 | 0.470 | [0.400, 0.490] | 0.207 | False | {} |
+== aqua_v2
+| S_1 | 254 | {"reasoner": 0, "verifier": 198} | 0 | 0.701 | [0.661, 0.717] | 0.238 | False | {"extractor": 0.6377952755905512} |
+| dynamic_sft | 254 | {"verifier": 231} | 1 | 0.724 | [0.697, 0.736] | 0.220 | False | {"extractor": 0.8976377952755905, "reasoner": 0.8937007874015748} |
+| static_sft | 254 | {"verifier": 160} | 2 | 0.661 | [0.594, 0.657] | 0.024 | True | {"extractor": 0.5393700787401575, "reasoner": 0.7204724409448819} |
+== medqa_v3
+| S_1 | 200 | {"extractor": 2, "reasoner": 40, "verifier": 32} | 0 | 0.795 | [0.730, 0.785] | 0.012 | True | {} |
+| dynamic_sft | 200 | {"extractor": 2, "reasoner": 26, "verifier": 0} | 0 | 0.785 | [0.735, 0.770] | 0.002 | True | {} |
+| static_sft | 200 | {"extractor": 3, "reasoner": 22, "verifier": 26} | 0 | 0.785 | [0.730, 0.780] | 0.013 | True | {} |
+== mmlu_pro_v3
+| S_1 | 200 | {"extractor": 2, "reasoner": 7, "verifier": 52} | 0 | 0.585 | [0.555, 0.620] | 0.587 | False | {} |
+| dynamic_sft | 200 | {"extractor": 0, "reasoner": 3, "verifier": 41} | 0 | 0.580 | [0.530, 0.585] | 0.096 | False | {} |
+| static_sft | 200 | {"extractor": 8, "reasoner": 4, "verifier": 41} | 0 | 0.565 | [0.535, 0.595] | 0.599 | False | {} |
+== gpqa_v3
+| S_1 | 100 | {"extractor": 0, "reasoner": 16, "verifier": 46} | 0 | 0.470 | [0.420, 0.510] | 0.552 | False | {} |
+| dynamic_sft | 100 | {"extractor": 0, "reasoner": 26, "verifier": 35} | 0 | 0.460 | [0.410, 0.510] | 0.547 | False | {} |
+| static_sft | 100 | {"extractor": 0, "reasoner": 13, "verifier": 34} | 0 | 0.470 | [0.430, 0.520] | 0.682 | False | {} |
+== aqua_v3
+| S_1 | 254 | {"reasoner": 0, "verifier": 198} | 0 | 0.701 | [0.661, 0.717] | 0.238 | False | {"extractor": 0.6377952755905512} |
+| dynamic_sft | 254 | {"extractor": 0, "reasoner": 0, "verifier": 208} | 0 | 0.717 | [0.669, 0.720] | 0.080 | False | {} |
+| static_sft | 254 | {"verifier": 180} | 0 | 0.701 | [0.634, 0.693] | 0.011 | True | {"extractor": 0.6259842519685039, "reasoner": 0.8110236220472441} |
+== medqa_v3r5
+| dynamic_sft | 200 | {"extractor": 12, "reasoner": 23, "verifier": 0} | 0 | 0.760 | [0.735, 0.775] | 0.366 | False | {} |
+| static_sft | 200 | {"extractor": 3, "reasoner": 24, "verifier": 49} | 0 | 0.790 | [0.720, 0.785] | 0.015 | True | {} |
+== aqua_v3r5
+| dynamic_sft | 254 | {"verifier": 188} | 0 | 0.681 | [0.634, 0.693] | 0.154 | False | {"extractor": 0.7125984251968503, "reasoner": 0.6732283464566929} |
+| static_sft | 254 | {"verifier": 190} | 3 | 0.728 | [0.654, 0.709] | 0.002 | True | {"extractor": 0.3464566929133858, "reasoner": 0.6850393700787402} |

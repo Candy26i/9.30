@@ -1,0 +1,117 @@
+{
+  "bench": "medqa",
+  "_comment": "GPU smoke (design \u00a77.2): 2 rounds x dynamic on MedQA subsets (50 dev questions: the round-0 agreement check needs 48/50); never touches the locked test. Parity on a subset is reported, not gated.",
+  "base_model": "Qwen/Qwen3.5-9B",
+  "base_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "import_dir": "/workspace/mcq_rsi/import",
+  "advisor_cache": "/workspace/mcq_rsi/advisor_cache",
+  "advisor_mode": "base",
+  "advisor_url": "http://127.0.0.1:18002",
+  "advisor_workers": 32,
+  "gpus": {
+    "inference": "0",
+    "train": "1"
+  },
+  "rounds": 2,
+  "arms": [
+    "dynamic"
+  ],
+  "dev_pool": "dev",
+  "prefetch": {
+    "enabled": true,
+    "verifier_pools": [
+      "dev"
+    ],
+    "recheck_n": 20
+  },
+  "collect": {
+    "max_depth": 2,
+    "seed": 42,
+    "batch_size": 1,
+    "root_mode": "policy"
+  },
+  "select": {
+    "rho": null,
+    "seed": null
+  },
+  "sft": {
+    "num_train_epochs": 3,
+    "learning_rate": 1e-05,
+    "per_device_batch_size": 1,
+    "gradient_accumulation_steps": 8,
+    "max_seq_len": 4096,
+    "seed": 42,
+    "context": "paper",
+    "max_steps": 10
+  },
+  "grpo": {
+    "seed": 0,
+    "steps": 4,
+    "questions_per_step": 2,
+    "learning_rate": 5e-06,
+    "max_grad_norm": 1.0,
+    "beta_root": 0.1,
+    "beta_dec": 0.1,
+    "beta_rev": 0.02,
+    "anchor_lambda": 0.03,
+    "anchor_rows_per_step": 4,
+    "estimator": "exact",
+    "guard_every": 2,
+    "guard_probe_size": 8,
+    "guard_max_call_rate_delta": 0.1,
+    "guard_max_kl_dec": 0.05,
+    "informative_min_fraction": 0.15
+  },
+  "eval": {
+    "speculative": true
+  },
+  "gates": {
+    "acc_tolerance": 0.01,
+    "extra_calls": 0.15,
+    "gap_fraction": 0.5,
+    "sft_max_calls": 1.5,
+    "sft_max_acc_drop": 0.03
+  },
+  "parity": {
+    "enforce": true,
+    "accuracy_tolerance": 0.02,
+    "calls_tolerance": 0.05
+  },
+  "pilot": {
+    "learning_rates": [
+      5e-06,
+      1e-05
+    ],
+    "arms": [
+      "dynamic"
+    ],
+    "rounds": 2
+  },
+  "final": {
+    "test_pools": [],
+    "forced": [
+      "verifier"
+    ]
+  },
+  "static_shadow_collect": false,
+  "preflight": {
+    "required": true,
+    "n_per_kind": 20,
+    "min_match": 0.9,
+    "min_lora_effect": 0.5,
+    "min_closer": 0.75,
+    "min_similarity": 0.5,
+    "seed": 0
+  },
+  "wandb": {
+    "enabled": true,
+    "entity": "madisonlijingxuan-ucla",
+    "project": "MCQ_rsi"
+  },
+  "limits": {
+    "dev": 50,
+    "test": 0,
+    "collect": 8,
+    "grpo": 16
+  }
+}
