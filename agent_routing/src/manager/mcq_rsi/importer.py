@@ -231,5 +231,8 @@ def default_paths(bench: Benchmark, root) -> Dict[str, Any]:
     return {
         "records": base / "round1/records.jsonl",
         "labels": base / "round1/labels.jsonl",
+        # The records ``labels`` was balanced from (GPQA: the depth-1 collection, not ``records``).
+        "label_records": base / ("round1/records.jsonl" if bench.label_records == "round1_records"
+                                 else f"round1/{bench.label_records}.jsonl"),
         "advisor_sft": [base / f"advisor_sft/{kind}.jsonl" for kind, _ in bench.advisor_sft],
     }
