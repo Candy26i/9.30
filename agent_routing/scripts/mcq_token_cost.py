@@ -17,7 +17,7 @@ A ``draft_only`` row (commit the first draft, never call) is derived from the fi
     python scripts/mcq_token_cost.py --config configs/mcq_rsi_medqa_v3.json --pool test --out /workspace/tmp/tokcost/medqa_test \\
         --eval S_1=/path/S_1/test/manager_tool_eval.jsonl --eval dynamic_r3=/path/dynamic_sft/test/manager_tool_eval.jsonl
 
-Writes ``<out>/<label>.jsonl`` (one line per question) and ``<out>/summary.json`` / ``summary.md`` (means per label).
+Writes ``<out>/<label>.jsonl`` (one line per question; a "/" in the label becomes "__") and ``<out>/summary.json`` / ``summary.md`` (means per label).
 CPU only (tokenizer + cache reads).
 """
 from __future__ import annotations
@@ -135,7 +135,7 @@ def main() -> int:
             per_q.append({"example_id": eid, "correct": tb(rec.get("correct")), "calls": n_calls, "tools": rec.get("tool_names_called") or [],
                           "mgr_in": mgr_in, "mgr_out": mgr_out, "adv_in": adv_in, "adv_out": adv_out,
                           "total": mgr_in + mgr_out + adv_in + adv_out, "decode": mgr_out + adv_out, "per_advisor": per_adv})
-        (out / f"{label}.jsonl").write_text("".join(json.dumps(x) + "\n" for x in per_q))
+        (out / f"{label.replace('/', '__')}.jsonl").write_text("".join(json.dumps(x) + "\n" for x in per_q))
         n = len(per_q)
         mean = lambda k: sum(x[k] for x in per_q) / n
         adv_tot = {}
