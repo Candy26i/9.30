@@ -32,3 +32,13 @@ Same layout (`/workspace/mcq_rsi`, worktree `/workspace/9.30-v3`), advisors on `
 - `state_now.py`: one JSON line with every run's controller state (what `poll_runs.py` polls over ssh from a laptop).
 - `letters.py <run>...`: draft-letter distribution and E/R/V tool mix of every locked-test eval of a run.
 - `rounds_any.py <run>...`: dev metrics of every `sft_dev` stage (accuracy, draft accuracy, call rate, advisor mix).
+
+## 2026-10-09: success_sft (v3 setting) and the label-quality chain (third pod)
+
+- `bootstrap_v3s.sh`: one-shot bootstrap of a fresh pod (clone, setup, import, advisor-cache restore from the mmlu_pro_v3r5
+  backup, download of the v3/v3r5 dynamic_sft labels, advisors, preflight) that then starts `mcq_labelq` (GPU 1: `scripts/
+  mcq_label_quality.py` per benchmark, marker `logs/labelq_done`), `mcq_supervisor_v3s` and the backup loops. Markers in
+  `logs/bootstrap/` make reruns skip finished steps.
+- `mcq_supervisor_v3s.py`: runs `<bench>_v3s` (arm `success_sft`) one per GPU, waits for the label-quality chain before
+  using GPU 1, records the delegated acknowledgements itself once `rsi_run.json` exists, resumes once, final-test with
+  `--reuse-test`.

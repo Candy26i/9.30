@@ -558,3 +558,20 @@ The wrapper's `main` step always uses `configs/mcq_rsi_$BENCH.json`, so start th
 
 `docs/mcq_rsi_results/README.md` lists the results page, the per-run comparison outputs and the locked-test outputs of the v2/v3/v3r5
 runs. Pod-side supervisors, backup loops and checks used for each pod are in `scripts/pod_ops/` (README there).
+
+## 19. Label quality by round, and success without GRPO
+
+`scripts/mcq_label_quality.py` answers "do the recollected labels get better round over round?" without the model
+drift of a run: every round's `dynamic_sft` labels (`r<k>/dynamic_sft/select/labels.jsonl` of a v3 run and its `_v3r5`
+continuation) is trained from the same start S_1 with the config's SFT settings and evaluated once on dev, next to the
+round-1 labels (`--round1`, the static arm's data) and S_1 itself (`--eval-s1`):
+
+```bash
+$PY scripts/mcq_label_quality.py --config configs/mcq_rsi_medqa_v3.json --out /workspace/mcq_rsi/runs/medqa_v3lq \
+  --labels r2=/workspace/mcq_rsi/labels/medqa/r2.jsonl r3=... r4=... r5=... --round1 --eval-s1 --advisor-url http://127.0.0.1:18002
+```
+
+Each SFT and eval is its own subprocess; finished units are skipped on a rerun; `summary.md` has one row per label set.
+The arm `success_sft` (outcome-only labels, no GRPO) is the v3-setting counterpart of the paper's `success` arm:
+`run --config configs/mcq_rsi_<bench>_v3.json --arms success_sft`; its round-2 collection is shared with `dynamic_sft`
+when both run in one plan. `scripts/pod_ops/bootstrap_v3s.sh` sets up a fresh pod and starts both experiments.

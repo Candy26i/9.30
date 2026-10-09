@@ -90,6 +90,7 @@ ARM_SPECS = {
     "success": {"selection": "success", "grpo": True},
     "dynamic_sft": {"selection": "dynamic", "grpo": False},  # optional ablation: no GRPO (G_k := S_k)
     "static_sft": {"selection": "static", "grpo": False},  # static labels, no GRPO: the control for dynamic_sft
+    "success_sft": {"selection": "success", "grpo": False},  # outcome-only labels, no GRPO (the v3 setting of success)
 }
 LANES = ("inference", "train", "cpu")
 PACKAGE = Path(__file__).resolve().parent

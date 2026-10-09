@@ -57,6 +57,15 @@ def test_plan_shape_dedup_static_reuse_and_sft_init_chain(tmp_path):
     assert not any(n.startswith("r2/static_sft/grpo") or n.startswith("r3/static_sft/grpo") for n in names)
     assert plan["finals"]["static_sft"] == "decision:r3/static_sft/sft_dev"
     # Two no-GRPO arms alone plan no GRPO stage anywhere (the new main runs).
+    # success_sft: the success labels from the collection shared with dynamic_sft (both start at S_1), no GRPO.
+    trio = CT.build_plan(cfg, "main", ["dynamic_sft", "success_sft", "static_sft"], 3)
+    tarms, tby = trio["by_arm"], {s["name"]: s for s in trio["stages"]}
+    assert tarms["dynamic_sft"]["2"]["collect"] == tarms["success_sft"]["2"]["collect"] == "r2/collect"
+    assert tby["r2/success_sft/select"]["params"]["selection"] == "success"
+    assert tby["r2/success_sft/sft"]["params"]["init"] == "decision:r1/S1_dev"
+    assert tarms["dynamic_sft"]["3"]["collect"] != tarms["success_sft"]["3"]["collect"]
+    assert not any("/grpo" in n for n in tby)
+    assert trio["finals"]["success_sft"] == "decision:r3/success_sft/sft_dev"
     nogrpo = CT.build_plan(cfg, "main", ["dynamic_sft", "static_sft"], 3)
     assert not any(s["kind"] in ("grpo", "grpo_select") for s in nogrpo["stages"])
     assert [s["name"] for s in nogrpo["stages"]][:2] == ["prefetch/advisors", "r1/S1_dev"]
