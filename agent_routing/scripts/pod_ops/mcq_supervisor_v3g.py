@@ -4,7 +4,7 @@
 - ``<bench>_v3g``: arms dynamic, static, success from configs/mcq_rsi_<bench>_v3.json (draft_supervision none) with the
   per-round FA-GRPO of the paper rule, one run per GPU at a time (GPU 0 also holds the vLLM advisors; GPQA's 16k-token SFT
   needs a card to itself). User decision 2026-10-09: the method is SFT + GRPO, so the fixed-loss grid must include GRPO.
-- GPU 1 is kept for the label-quality chain (``logs/labelq_done``) and experiment D (``logs/grpoq_done``) first.
+- Both GPUs are kept for experiment D (``logs/grpoq_done``) and the label-quality chains (``logs/labelq_done_gpu0/1``) first.
 - Acknowledgements (user delegation 2026-10-07): right after a run's ``rsi_run.json`` appears, ``r1/S1_dev`` (round-1
   parity, acknowledged for every version so far) and the validity-only rule for the S_k dev evals and locked tests.
 - Resume once per run; final-test with ``--reuse-test``; state in ``logs/supervisor_v3g_state.json``.
@@ -27,7 +27,8 @@ ENV.pop("MARGENT_WANDB_MODE", None)
 ARMS = "dynamic,static,success"
 RUNS = [{"name": "medqa_v3g", "bench": "medqa", "gpu": "0"}, {"name": "mmlu_pro_v3g", "bench": "mmlu_pro", "gpu": "0"},
         {"name": "gpqa_v3g", "bench": "gpqa", "gpu": "1"}, {"name": "aqua_v3g", "bench": "aqua", "gpu": "1"}]
-GPU1_MARKERS = (WORK / "logs" / "labelq_done", WORK / "logs" / "grpoq_done")
+# User order 2026-10-09: experiment D and the label-quality chains first, the GRPO grid last.
+GPU_MARKERS = {"0": (WORK / "logs" / "labelq_done_gpu0",), "1": (WORK / "logs" / "grpoq_done", WORK / "logs" / "labelq_done_gpu1")}
 STATE = WORK / "logs" / "supervisor_v3g_state.json"
 ACK_REASON = ("Pre-acknowledged per the user delegation of 2026-10-07: only a validity-rate gate failure (unparsed answers, "
               "valid >= ACK_MIN_VALID 0.99) may pass; any other failure still stops the run.")
@@ -126,8 +127,9 @@ def main():
     while True:
         busy = False
         gpu_busy = {}
-        if not all(m.exists() for m in GPU1_MARKERS):
-            gpu_busy["1"] = "labelq/grpoq"
+        for gpu, markers in GPU_MARKERS.items():
+            if not all(m.exists() for m in markers):
+                gpu_busy[gpu] = "labelq/grpoq"
         for run in RUNS:
             r = run["name"]
             if r not in only or r in s["done"]:
