@@ -64,13 +64,13 @@ for b in mmlu_pro aqua; do
 done
 
 # 3. SFT from S_1 on each label set + one dev eval each (round-1 pair where G_1 was accepted; round-2 pair where collected)
-units_mmlu="S2=$Q/mmlu_pro/labels_S2_r3.jsonl G2=$Q/mmlu_pro/labels_G2_r3.jsonl"
+units_mmlu_pro="S2=$Q/mmlu_pro/labels_S2_r3.jsonl G2=$Q/mmlu_pro/labels_G2_r3.jsonl"
 units_aqua="S1=$WORK/labels/aqua/r2.jsonl G1=$Q/aqua/labels_G1_r2.jsonl S2=$Q/aqua/labels_S2_r3.jsonl G2=$Q/aqua/labels_G2_r3.jsonl"
 units_gpqa="S1=$WORK/labels/gpqa/r2.jsonl G1=$Q/gpqa/labels_G1_r2.jsonl"
 for b in mmlu_pro aqua gpqa; do
   var="units_$b"; units=""
   for u in ${!var}; do [ -f "${u#*=}" ] && units="$units $u" || log "missing label set $u (skipped)"; done
-  [ -n "$units" ] || continue
+  [ -n "$units" ] || { log "no label sets for $b (skipped)"; continue; }
   log "label quality $b: $units"
   $PY scripts/mcq_label_quality.py --config configs/mcq_rsi_${b}_v3.json --out $WORK/runs/${b}_v3gq --labels $units \
     --advisor-url $URL 2>&1 | tee -a $WORK/logs/${b}_v3gq.log || log "label quality $b FAILED"

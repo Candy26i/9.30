@@ -28,7 +28,8 @@ ARMS = "dynamic,static,success"
 RUNS = [{"name": "medqa_v3g", "bench": "medqa", "gpu": "0"}, {"name": "mmlu_pro_v3g", "bench": "mmlu_pro", "gpu": "0"},
         {"name": "gpqa_v3g", "bench": "gpqa", "gpu": "1"}, {"name": "aqua_v3g", "bench": "aqua", "gpu": "1"}]
 # User order 2026-10-09: experiment D and the label-quality chains first, the GRPO grid last.
-GPU_MARKERS = {"0": (WORK / "logs" / "labelq_done_gpu0",), "1": (WORK / "logs" / "grpoq_done", WORK / "logs" / "labelq_done_gpu1")}
+GPU_MARKERS = {"0": (WORK / "logs" / "labelq_done_gpu0", WORK / "logs" / "grpoq_mmlu_done"),
+               "1": (WORK / "logs" / "grpoq_done", WORK / "logs" / "labelq_done_gpu1")}
 STATE = WORK / "logs" / "supervisor_v3g_state.json"
 ACK_REASON = ("Pre-acknowledged per the user delegation of 2026-10-07: only a validity-rate gate failure (unparsed answers, "
               "valid >= ACK_MIN_VALID 0.99) may pass; any other failure still stops the run.")
