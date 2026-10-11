@@ -31,6 +31,8 @@ LETTER_RE = re.compile(r"\b([A-J])\b")
 
 PLAIN_SYSTEM = ("You answer multiple-choice questions. Think briefly if you need to, then end your reply with exactly one line "
                 "of the form ANSWER_<letter>, where <letter> is the key of the correct choice.")
+NOCOT_SYSTEM = ("You answer multiple-choice questions. Reply with exactly one line of the form ANSWER_<letter>, where <letter> is "
+                "the key of the correct choice. Do not explain.")
 
 
 def parse_answer(text: str, keys) -> str | None:
@@ -55,7 +57,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", required=True)
     ap.add_argument("--pool", default="test")
-    ap.add_argument("--mode", choices=["plain", "manager"], required=True)
+    ap.add_argument("--mode", choices=["plain", "plain_nocot", "manager"], required=True,
+                    help="plain: short system instruction, reasoning allowed; plain_nocot: the letter only, no reasoning; manager: the manager prompt without tools")
     ap.add_argument("--checkpoint", required=True, help="adapter directory, or a full model directory (the base snapshot)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--max-new-tokens", type=int, default=512)
@@ -92,7 +95,7 @@ def main() -> int:
             user = f"Question:\n{row['question']}\n\nChoices:\n{choices}"
             if row.get("context"):
                 user = f"Context:\n{row['context']}\n\n" + user
-            messages = [{"role": "system", "content": PLAIN_SYSTEM}, {"role": "user", "content": user}]
+            messages = [{"role": "system", "content": NOCOT_SYSTEM if args.mode == "plain_nocot" else PLAIN_SYSTEM}, {"role": "user", "content": user}]
         try:
             return tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
         except TypeError:
