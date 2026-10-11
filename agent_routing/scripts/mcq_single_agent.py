@@ -61,6 +61,9 @@ def main() -> int:
     ap.add_argument("--max-new-tokens", type=int, default=512)
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--force-answer", action="store_true",
+                    help="when no answer parses (truncated or malformed), append ANSWER_ and pick the most likely choice key "
+                         "from the next-token distribution, so every question gets a valid answer (recorded as forced)")
     args = ap.parse_args()
 
     import torch
@@ -95,6 +98,21 @@ def main() -> int:
         except TypeError:
             return tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
+    def force_choice(prompt: str, text: str, keys) -> str:
+        """The most likely choice key after prompt + text + a forced ANSWER_ prefix (greedy over the keys only)."""
+        enc = tok(prompt + text + "\nANSWER_", return_tensors="pt").to(device)
+        with torch.no_grad():
+            logits = model(**enc).logits[0, -1]
+        best, best_lp = None, None
+        for k in keys:
+            ids = tok.encode(k, add_special_tokens=False)
+            if not ids:
+                continue
+            lp = float(logits[ids[0]])
+            if best_lp is None or lp > best_lp:
+                best, best_lp = k, lp
+        return best
+
     records = []
     started = time.time()
     try:
@@ -113,10 +131,14 @@ def main() -> int:
                 n_out = int((out_ids != tok.pad_token_id).sum()) if tok.pad_token_id is not None else int(out_ids.numel())
                 n_in = int(enc["attention_mask"][j].sum())
                 pred = parse_answer(text, row["choices"].keys())
+                pred_unforced, forced = pred, False
+                if pred is None and args.force_answer:
+                    pred = force_choice(prompts[j], text, list(row["choices"].keys()))
+                    forced = pred is not None
                 gold = row.get("ground_truth")
                 records.append({"example_id": int(row["example_id"]), "ground_truth": gold, "pred": pred, "correct": pred == gold,
-                                "valid_answer": pred is not None, "in_tokens": n_in, "out_tokens": n_out,
-                                "hit_limit": n_out >= args.max_new_tokens, "text": text[:3000]})
+                                "valid_answer": pred is not None, "pred_unforced": pred_unforced, "forced": forced,
+                                "in_tokens": n_in, "out_tokens": n_out, "hit_limit": n_out >= args.max_new_tokens, "text": text})
             print(f"[single-agent] {min(i + args.batch_size, len(rows))}/{len(rows)} ({time.time() - started:.0f}s)", flush=True)
     finally:
         del model
@@ -128,14 +150,16 @@ def main() -> int:
     summary = {"config": str(Path(args.config).resolve()), "pool": args.pool, "mode": args.mode, "checkpoint": str(args.checkpoint),
                "n": n, "accuracy": sum(x["correct"] for x in records) / n, "valid_answer_rate": sum(x["valid_answer"] for x in records) / n,
                "accuracy_given_valid": (sum(x["correct"] for x in records if x["valid_answer"]) / max(1, sum(x["valid_answer"] for x in records))),
-               "hit_limit_rate": sum(x["hit_limit"] for x in records) / n,
+               "hit_limit_rate": sum(x["hit_limit"] for x in records) / n, "forced_rate": sum(x["forced"] for x in records) / n,
+               "accuracy_unforced": sum(x["pred_unforced"] == x["ground_truth"] for x in records) / n,
+               "valid_unforced": sum(x["pred_unforced"] is not None for x in records) / n,
                "in_tokens": sum(x["in_tokens"] for x in records) / n, "out_tokens": sum(x["out_tokens"] for x in records) / n,
                "total_tokens": sum(x["in_tokens"] + x["out_tokens"] for x in records) / n, "max_new_tokens": args.max_new_tokens,
                "seconds": round(time.time() - started)}
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(f"[single-agent] {cfg['bench']}/{args.pool} {args.mode}: acc={summary['accuracy']:.3f} valid={summary['valid_answer_rate']:.3f} "
           f"acc|valid={summary['accuracy_given_valid']:.3f} tokens in/out={summary['in_tokens']:.0f}/{summary['out_tokens']:.0f} "
-          f"hit_limit={summary['hit_limit_rate']:.2f}", flush=True)
+          f"hit_limit={summary['hit_limit_rate']:.2f} forced={summary['forced_rate']:.2f} (unforced acc={summary['accuracy_unforced']:.3f} valid={summary['valid_unforced']:.3f})", flush=True)
     return 0
 
 
