@@ -10,7 +10,7 @@ PRE = r"""\def\DoNotLoadEpstopdf{}% this local TeX lacks grfext; EPS conversion 
 \documentclass[11pt,twocolumn]{article}
 \usepackage[a4paper,textwidth=455.24pt,columnsep=0.6cm,textheight=24.7cm]{geometry}
 \usepackage{booktabs,amsmath,amssymb,array,graphics}% graphics provides \resizebox (the ACL template's graphicx includes it)
-\usepackage[T1]{fontenc}\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}\usepackage[utf8]{inputenc}\usepackage{xcolor}\definecolor{rsiblue}{HTML}{2C5A7E}
 \begin{document}
 """
 def compile_one(tex_path, work):
