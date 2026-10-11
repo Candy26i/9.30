@@ -1,0 +1,27 @@
+\begin{table*}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Single-model baselines and the multi-agent systems on the locked tests (MedQA 500, MMLU-Pro 500 (test pool), GPQA 100, AQuA-RAT 254). Acc. and Valid are percentages; Budget = generation budget in tokens; Tokens = prefill + output per question (for systems: manager and advisors). Letter-only rows must answer with the choice letter only (no reasoning); a forced choice over the option letters backs up unparsed outputs and was never needed. Valid = share of questions with a parseable answer. No-tools rows run the manager prompt with the tools removed (DRAFT then ANSWER, no advisor calls). Multi-agent rows are the v3+GRPO round-3 systems. Where the v3+GRPO run has no token count, S$_1$ + advisors uses the v3-chain run of the same S$_1$ checkpoint (MMLU-Pro and AQuA-RAT) and RSI success uses the v1 success runs, which use the same labelling rule and call an advisor on 93--100\% of questions (MedQA, MMLU-Pro and AQuA-RAT). Bold: best accuracy per benchmark within each block.}
+\label{tab:single_agent}
+\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 97.6pt
+\begin{tabular}{l r rrr rrr rrr rrr}
+\toprule
+ & & \multicolumn{3}{c}{MedQA ($n$ = 500)} & \multicolumn{3}{c}{MMLU-Pro ($n$ = 500)} & \multicolumn{3}{c}{GPQA ($n$ = 100)} & \multicolumn{3}{c}{AQuA-RAT ($n$ = 254)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14}
+Variant & Budget & Acc. & Valid & Tokens & Acc. & Valid & Tokens & Acc. & Valid & Tokens & Acc. & Valid & Tokens \\
+\midrule
+\multicolumn{14}{l}{\textit{Single model}} \\
+\quad Base, letter only & 16 & \textbf{74.6} & 100.0 & 275 & 53.0 & 100.0 & 265 & \textbf{45.0} & 100.0 & 262 & 41.7 & 100.0 & 153 \\
+\quad S$_1$, letter only & 16 & 74.4 & 100.0 & 275 & 53.8 & 100.0 & 265 & 44.0 & 100.0 & 262 & 42.1 & 100.0 & 153 \\
+\quad Dyn.\ r3 (no GRPO), letter only & 16 & 74.2 & 100.0 & 275 & \textbf{54.6} & 100.0 & 265 & 43.0 & 100.0 & 262 & \textbf{42.9} & 100.0 & 153 \\
+\quad S$_1$, no tools & 512 & 73.8 & 100.0 & 674 & 52.4 & 100.0 & 740 & 44.0 & 100.0 & 660 & 37.0 & 100.0 & 564 \\
+\quad Dyn.\ r3 (no GRPO), no tools & 512 & \textbf{74.6} & 100.0 & 673 & 53.4 & 100.0 & 740 & 42.0 & 100.0 & 660 & 35.4 & 100.0 & 564 \\
+\multicolumn{14}{l}{\textit{Multi-agent systems}} \\
+\quad S$_1$ + advisors & -- & 78.8 & 100.0 & 2,222 & 63.6 & 100.0 & 2,373 & 54.0 & 100.0 & 2,807 & 77.2 & 100.0 & 3,180 \\
+\quad RSI dynamic + GRPO (r3) & -- & 78.6 & 100.0 & 1,568 & 68.6 & 100.0 & 2,355 & 55.0 & 100.0 & 3,053 & 77.6 & 100.0 & 3,127 \\
+\quad RSI success (r3) & -- & 80.2 & 100.0 & 3,969 & \textbf{71.8} & 100.0 & 4,137 & \textbf{58.0} & 100.0 & 4,310 & \textbf{82.7} & 100.0 & 3,738 \\
+\quad Base system (untrained manager) & -- & \textbf{82.8} & 95.0 & 11,770 & 69.0 & 85.0 & 9,545 & 39.0 & 52.0 & 10,098 & 78.3 & 83.9 & 5,310 \\
+\bottomrule
+\end{tabular}}
+\end{table*}

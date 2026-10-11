@@ -587,14 +587,14 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
         <tr><th>dynamic + GRPO − dynamic（第 8 节，无 GRPO）</th><td class="num">0.0 (1.00)</td><td class="num"><span class="sig">+4.2 (0.003)</span></td><td class="num"><span class="sig">+4.8 (&lt;0.001)</span></td><td class="num">+1.0 (0.78)</td><td class="num">−0.4 (0.93)</td></tr>
         <tr><th>static + GRPO − static（无 GRPO）</th><td class="num">+1.2 (0.13)</td><td class="num"><span class="sig">+3.4 (0.02)</span></td><td class="num">−1.0 (0.47)</td><td class="num">−5.0 (0.12)</td><td class="num">−1.2 (0.52)</td></tr>
         <tr><th>success + GRPO − S₁</th><td class="num">+1.4 (0.31)</td><td class="num"><span class="sig">+8.2 (&lt;0.001)</span></td><td class="num"><span class="sig">+9.4 (&lt;0.001)</span></td><td class="num">+4.0 (0.39)</td><td class="num"><span class="sig">+5.5 (0.016)</span></td></tr>
-        <tr><th>GRPO 候选被采用</th><td class="num">0 / 7</td><td class="num">dyn 2/3, static 2/3, success 2/3</td><td class="num"></td><td class="num">5 / 7</td><td class="num">6 / 7</td></tr>
+        <tr><th>GRPO 候选被采用</th><td class="num">0 / 7</td><td class="num">dyn 2/3, static 2/3, success 2/3</td><td class="num"></td><td class="num">6 / 7</td><td class="num">6 / 7</td></tr>
       </tbody>
     </table>
   </div>
   <ul class="plain">
     <li><strong>MMLU-Pro 是唯一有收益的基准：</strong>dynamic + GRPO 68.6，比 S₁ 和无 GRPO 的 dynamic 都高 4–5 个点，调用与 S₁ 相同（0.36），每题 token 也相同（2,355 对 2,362，第 11 节）。固定调用次数的回放里它的挑题显著高于随机（0.645，随机区间 0.545–0.615，p &lt; 0.001），这是 v3 里第一次在 MMLU-Pro 上看到真正的路由能力。它和 v1 第 5 轮的 67.0（第 7 节）不显著差（+1.6），在 104 道干净的 <code>test_paper</code> 题上比 S₁ 高 2.9（不显著）。</li>
     <li><strong>MedQA 上 GRPO 训不动：</strong>7 次候选全部因"没有训练信号"被拒（修订后的结果几乎非 0 即 1），和 v1 完全一样，所以这组就是第 8 节的复现（dynamic 78.6 对 78.6）。</li>
-    <li><strong>GPQA、AQuA 上候选大多被采用但没有收益：</strong>GPQA 5/7、AQuA 6/7 被采用，锁定测试上与无 GRPO 版本的差都不显著。</li>
+    <li><strong>GPQA、AQuA 上候选大多被采用但没有收益：</strong>GPQA 6/7（第 1 轮那次被回退到第 0 步，等于 S₁）、AQuA 6/7 被采用，锁定测试上与无 GRPO 版本的差都不显著。</li>
     <li>success 带 GRPO 的数字和 v1 的 success 一致（MMLU-Pro 71.8 对 71.0，AQuA 82.7 对 83.9），仍然是每题都调用。</li>
   </ul>
   <p class="caption">MedQA 500 题、MMLU-Pro 两个测试集各 500 题、GPQA 100 题、AQuA 254 题。S₁ 在每个运行里重测一次，与第 8 节的重测差 0.0–0.4 个点。MMLU-Pro 三个运行各自重测了 S₁，数字相同。</p>

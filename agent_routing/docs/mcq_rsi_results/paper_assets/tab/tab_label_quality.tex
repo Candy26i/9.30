@@ -1,0 +1,30 @@
+\begin{table*}[t]
+\centering
+\caption{Label quality by round on the development pools. Each entry is a manager SFT'd from S$_1$ on that round's labels alone: dev accuracy (\%) and advisor calls per question. Dev pools: MedQA 200, MMLU-Pro 200, GPQA 100, AQuA-RAT 254. r1 is the static arm's data; r$_k$ is re-collected by S$_{k-1}$; GPQA labels stop at r3. Experiment D: labels collected on the same questions by S$_k$ (before GRPO) and by G$_k$ (after GRPO), both trained from S$_1$; S$_k$'s labels are the ones used at chain round r$_{k+1}$. $\Delta$ is G$_k$ minus S$_k$. Best chain-round accuracy per benchmark in bold; MedQA has no experiment-D runs.}
+\label{tab:label_quality}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{l rr rr rr rr}
+\toprule
+ & \multicolumn{2}{c}{MedQA} & \multicolumn{2}{c}{MMLU-Pro} & \multicolumn{2}{c}{GPQA} & \multicolumn{2}{c}{AQuA-RAT} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+Labels & Acc. & Calls & Acc. & Calls & Acc. & Calls & Acc. & Calls \\
+\midrule
+\multicolumn{9}{l}{\textit{Chain rounds (one round's labels, SFT from S$_1$)}} \\
+S$_1$ & \textbf{79.0} & 0.37 & 62.5 & 0.32 & 53.0 & 0.62 & 73.2 & 0.79 \\
+r1 & 78.0 & 0.25 & 61.5 & 0.26 & \textbf{55.0} & 0.69 & 72.4 & 0.74 \\
+r2 & \textbf{79.0} & 0.28 & 56.5 & 0.11 & 53.0 & 0.62 & 72.8 & 0.78 \\
+r3 & 76.5 & 0.09 & 63.0 & 0.23 & 52.0 & 0.56 & 73.6 & 0.81 \\
+r4 & \textbf{79.0} & 0.18 & \textbf{64.0} & 0.23 & -- & -- & 77.2 & 0.80 \\
+r5 & 76.0 & 0.20 & 63.5 & 0.21 & -- & -- & \textbf{78.7} & 0.90 \\
+\midrule
+\multicolumn{9}{l}{\textit{Experiment D: labels collected by S$_k$ (before GRPO) vs G$_k$ (after GRPO)}} \\
+by S$_1$ (r2) & -- & -- & -- & -- & 54.0 & 0.61 & 72.4 & 0.77 \\
+by G$_1$ (r2) & -- & -- & -- & -- & 58.0 & 0.51 & 69.3 & 0.66 \\
+\quad $\Delta$ (G$_1$ $-$ S$_1$) & -- & -- & -- & -- & +4.0 & $-$0.10 & $-$3.1 & $-$0.11 \\
+by S$_2$ (r3) & -- & -- & 65.0 & 0.31 & -- & -- & 75.6 & 0.81 \\
+by G$_2$ (r3) & -- & -- & 65.0 & 0.28 & -- & -- & 74.4 & 0.85 \\
+\quad $\Delta$ (G$_2$ $-$ S$_2$) & -- & -- & 0.0 & $-$0.03 & -- & -- & $-$1.2 & +0.03 \\
+\bottomrule
+\end{tabular}
+\end{table*}
