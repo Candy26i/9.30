@@ -15,7 +15,7 @@ step() { local name=$1; shift; if [ -f "$M/$name" ]; then log "$name: done earli
   if "$@"; then touch "$M/$name"; log "$name: ok"; else log "$name: FAILED (rc=$?)"; return 1; fi; }
 clone() { if [ ! -d $REPO/.git ]; then git clone https://github.com/Candy26i/9.30.git $REPO || return 1; fi
   cd $REPO && git fetch -q origin && git checkout -q "$BRANCH" && git pull -q --ff-only origin "$BRANCH" && git rev-parse HEAD; }
-setup() { cd $TREE && bash scripts/setup_mcq_rsi_pod.sh; }
+setup() { bash $TREE/scripts/pod_ops/setup_lite.sh; }
 import_assets() { cd $TREE && $PY -m src.manager.mcq_rsi import --bench all --out $WORK/import --cache-dir $HF_HOME/hub \
     && $PY -m src.manager.mcq_rsi prepare-splits --bench all --import-dir $WORK/import --hf-cache-dir $HF_HOME/hub; }
 fetch_dyn() { cd $TREE && $PY - <<'PYEOF'
