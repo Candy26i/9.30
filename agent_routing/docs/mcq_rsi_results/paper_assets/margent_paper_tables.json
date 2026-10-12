@@ -1,0 +1,38 @@
+{
+  "_source": "81_MARGENT_Measuring_the_Margi.pdf (the MARGENT paper), transcribed 2026-10-11 from its Tables 1, 2, 4, 5 and 8 (development diagnostics). Used by the redrawn MARGENT figures; LegalBench is not in the paper and is not drawn.",
+  "table1_oracle_by_depth": {
+    "_cols": "n, commit A0, best one call A1, best measured AD (all %), Gain@1 (%)",
+    "medqa": [400, 76.00, 91.75, 92.25, 96.9],
+    "mmlu_pro": [400, 53.25, 71.75, 73.50, 91.4],
+    "gpqa": [200, 43.00, 65.00, 69.50, 83.0],
+    "aqua": [400, 54.25, 85.75, 87.25, 95.5]
+  },
+  "table2_net_marginal_value_pp": {
+    "_cols": "Extractor, Reasoner, Verifier (100 x mean net marginal value of one forced call)",
+    "medqa": [2.0, 6.8, 10.0],
+    "mmlu_pro": [-0.5, 2.3, 15.1],
+    "gpqa": [0.5, 4.1, 15.5],
+    "aqua": [-4.5, -4.3, 29.4]
+  },
+  "table4_low_call_vs_verifier": {
+    "_cols": "MARGENT acc, MARGENT calls, always-Verifier acc, always-Verifier calls (MedQA = three-seed mean)",
+    "medqa": [80.5, 0.517, 84.5, 1.0],
+    "mmlu_pro": [64.5, 0.340, 67.0, 1.0],
+    "gpqa": [54.0, 0.510, 55.0, 1.0],
+    "aqua": [78.0, 0.894, 76.8, 1.0]
+  },
+  "table5_selected_vs_force_all": {
+    "_cols": "selected MARGENT acc, selected calls, force-all acc, force-all calls",
+    "medqa": [85.0, 1.000, 86.5, 3.0],
+    "mmlu_pro": [71.5, 1.065, 71.5, 3.0],
+    "gpqa": [55.0, 1.040, 61.0, 3.0],
+    "aqua": [81.1, 1.031, 75.2, 3.0]
+  },
+  "table8_outcomes": {
+    "_cols": "calls, correction (fraction of all examples), corruption",
+    "medqa": [1.000, 0.210, 0.035],
+    "mmlu_pro": [1.065, 0.250, 0.045],
+    "gpqa": [1.110, 0.190, 0.040],
+    "aqua": [1.031, 0.480, 0.024]
+  }
+}

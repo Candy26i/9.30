@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 [ "${1:-}" = "--data" ] && python3 build_data.py
-for s in tab_main fig_grpo_ablation tab_grpo_ablation fig_label_quality fig_rounds tab_rounds fig_single_agent fig_frontier fig_oracle fig_selfcheck tab_replay tab_setup tab_grpo_log tab_final; do
+for s in tab_main fig_grpo_ablation tab_grpo_ablation fig_label_quality fig_rounds tab_rounds fig_single_agent fig_frontier fig_oracle fig_selfcheck tab_replay tab_setup tab_grpo_log tab_final fig_final; do
   printf '%-20s' "$s"; python3 "scripts/$s.py" > /dev/null && echo ok
 done
 python3 scripts/fit_acl.py

@@ -3,7 +3,7 @@
 import base64, html, json, re, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
-ORDER = ["tab_final_main", "tab_final_labels", "fig_frontier", "fig_single_agent", "fig_grpo_ablation", "fig_rounds", "fig_label_quality", "tab_final_reliab", "tab_main", "fig_grpo_ablation", "tab_grpo_ablation", "fig_label_quality", "tab_label_quality", "fig_rounds", "tab_rounds", "fig_single_agent", "tab_single_agent",
+ORDER = ["tab_final_main", "tab_final_labels", "fig_final_value", "fig_final_tokens", "tab_final_reliab", "fig_final_dev", "fig_final_outcomes", "fig_frontier", "fig_single_agent", "fig_grpo_ablation", "fig_rounds", "fig_label_quality", "tab_final_reliab", "tab_main", "fig_grpo_ablation", "tab_grpo_ablation", "fig_label_quality", "tab_label_quality", "fig_rounds", "tab_rounds", "fig_single_agent", "tab_single_agent",
          "fig_frontier", "fig_oracle", "tab_oracle", "fig_selfcheck", "tab_selfcheck", "tab_replay", "tab_setup", "tab_grpo_log"]
 def md_to_html(md):
     out, in_tab = [], False
@@ -49,5 +49,5 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 body{{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font-family:"Times New Roman",Times,serif;line-height:1.45;max-width:1100px;margin:0 auto}}h1{{font-size:1.6rem;margin:0 0 4px}}h2{{font-size:1.15rem;color:var(--acc);border-top:1px solid var(--line);padding-top:16px;margin-top:28px}}h3,h4{{font-size:1rem;margin:14px 0 6px}}
 img{{max-width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line)}}table{{border-collapse:collapse;font-size:.86rem;margin:8px 0;max-width:100%;display:block;overflow-x:auto}}th,td{{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}}th{{border-bottom:2px solid var(--acc)}}
 .dl{{color:var(--muted);font-size:.85rem}}nav{{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 6px;font-size:.9rem}}nav a{{color:var(--acc);text-decoration:none}}p.sub{{color:var(--muted);margin-top:0}}</style></head>
-<body><h1>MARGENT multi-round RSI: paper figures and tables</h1><p class="sub">Final tables first: tab_final_main and tab_final_labels (main text), tab_final_reliab (appendix). The older tab_* drafts below are superseded. Every number comes from data.json and is reproducible with make_all.sh; PDFs in fig/, LaTeX in tab/ (sized for the ACL text block).</p><nav>{toc}</nav>{''.join(parts)}</body></html>"""
+<body><h1>MARGENT multi-round RSI: paper figures and tables</h1><p class="sub">Final set first. Main text: tab_final_main, tab_final_labels, fig_final_value, fig_final_tokens. Appendix: tab_final_reliab, fig_final_dev, fig_final_outcomes. Everything below that is an earlier draft. Every number comes from data.json and is reproducible with make_all.sh; PDFs in fig/, LaTeX in tab/ (sized for the ACL text block).</p><nav>{toc}</nav>{''.join(parts)}</body></html>"""
 (ROOT / "index.html").write_text(page); print("index.html", len(page) // 1024, "KB", len(seen), "assets")
