@@ -23,40 +23,62 @@ def bar_kw(face, hatch="", edge=None):
 out = {}
 
 # ---------------------------------------------------------------- fig_final_value (main)
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 2.75), sharey=True, gridspec_kw=dict(width_ratios=[1.3, 1], wspace=0.30))
+from matplotlib.patches import Rectangle
+fig = plt.figure(figsize=(7.0, 2.55))
+gs = fig.add_gridspec(1, 2, width_ratios=[1.55, 1], wspace=0.36, left=0.115, right=0.985, top=0.80, bottom=0.17)
+ax1 = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1], sharey=ax1)
 order = B[::-1]  # top-to-bottom = MedQA, MMLU-Pro, GPQA, AQuA-RAT
 y = np.arange(len(order))
-segs = [("Direct answer", C["light"], ""), ("+ First call", C["mid"], ""), ("+ Second call", C["tan"], "//"), ("Unsolved", C["unsolved"], "")]
+SEP = dict(edgecolor="white", linewidth=1.1)
+segs = [("Direct answer", C["light"], ""), ("+ First call", C["mid"], ""), ("+ Second call", C["tan"], "////"), ("Unsolved", "#EFEFEF", "")]
 for i, b in enumerate(order):
     n, a0, a1, ad, g1 = PT["table1_oracle_by_depth"][b]
-    parts = [a0, a1 - a0, ad - a1, 100 - ad]
     left = 0
-    for (name, face, hatch), w in zip(segs, parts):
-        ax1.barh(i, w, left=left, height=0.62, **bar_kw(face, hatch, edge=C["axis"] if name == "Unsolved" else None), label=name if i == 0 else None)
-        if name in ("Direct answer", "+ First call"):
-            ax1.text(left + w / 2, i, r1(w), ha="center", va="center", fontsize=9, color="white" if name == "+ First call" else C["text"])
+    for (name, face, hatch), w in zip(segs, [a0, a1 - a0, ad - a1, 100 - ad]):
+        ax1.barh(i, w, left=left, height=0.58, facecolor=face, hatch=hatch, zorder=2, **SEP)
+        if name == "Direct answer":
+            ax1.text(left + w / 2, i, r1(w), ha="center", va="center", fontsize=9, color=C["text"], zorder=3)
+        elif name == "+ First call":
+            ax1.text(left + w / 2, i, "+" + r1(w), ha="center", va="center", fontsize=9, color="white", zorder=3)
         left += w
-    ax1.text(103, i, f"{r1(g1)}%", ha="left", va="center", fontsize=9.5, color=C["num"])
-ax1.text(103, len(order) - 0.42, "1st-call share", ha="left", va="bottom", fontsize=8, color=C["muted"])
-ax1.set_yticks(y, [LAB[b] for b in order]); ax1.set_xlim(0, 100); ax1.set_ylim(-0.6, len(order) - 0.4)
-ax1.set_xticks([0, 25, 50, 75, 100]); ax1.set_xlabel("Questions (%)")
-style.horizontal_axes(ax1)
-ax1.legend(loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=2, frameon=False, fontsize=9, handlelength=1.4, columnspacing=1.0)
-style.panel_tag(ax1, "(a)", x=-0.27, y=1.02)
-adv = [("Extractor", C["light"], "//"), ("Reasoner", C["slate"], ""), ("Verifier", C["mid"], "")]
-h = 0.26
+    ax1.text(1.03, i, f"{r1(g1)}%", transform=ax1.get_yaxis_transform(), ha="left", va="center", fontsize=9, color=C["num"])
+ax1.text(1.03, len(order) - 0.47, "1st-call\nshare", transform=ax1.get_yaxis_transform(), ha="left", va="bottom", fontsize=7.5, color=C["text"], linespacing=0.95)
+ax1.set_xlim(0, 100); ax1.set_ylim(-0.55, len(order) - 0.45)
+ax1.set_yticks(y, [LAB[b] for b in order]); ax1.set_xticks([0, 25, 50, 75, 100])
+ax1.set_xlabel("Questions (%)", labelpad=3)
+for sp in ("top", "right", "left"):
+    ax1.spines[sp].set_visible(False)
+ax1.spines["bottom"].set_color(C["axis"]); ax1.tick_params(axis="y", length=0, pad=4); ax1.tick_params(axis="x", length=3)
+ax1.grid(False)
+h1 = [Patch(facecolor=f, hatch=h, edgecolor=C["edge"] if n != "Unsolved" else C["axis"], linewidth=0.6, label=n) for n, f, h in segs]
+ax1.legend(handles=h1, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=4, frameon=False, fontsize=8,
+           handlelength=1.2, handleheight=0.85, handletextpad=0.35, columnspacing=0.75, borderaxespad=0)
+ax1.text(-0.02, 1.07, "(a)", transform=ax1.transAxes, ha="right", va="center", fontsize=11)
+# (b) net marginal value of one forced call: three thin bars per benchmark around a zero line
+adv = [("Extractor", C["light"], "////"), ("Reasoner", C["slate"], ""), ("Verifier", C["mid"], "")]
+h = 0.19
 for j, (name, face, hatch) in enumerate(adv):
     vals = [PT["table2_net_marginal_value_pp"][b][j] for b in order]
-    ypos = y + (1 - j) * h
-    ax2.barh(ypos, vals, height=h * 0.95, **bar_kw(face, hatch), label=name)
+    ypos = y + (1 - j) * (h + 0.025)
+    ax2.barh(ypos, vals, height=h, facecolor=face, hatch=hatch, edgecolor=C["edge"], linewidth=0.5, zorder=2, label=name)
     for yy, v in zip(ypos, vals):
-        ax2.text(v + (0.6 if v >= 0 else -0.6), yy, f"{v:+.1f}".replace("-", "\u2212"), ha="left" if v >= 0 else "right", va="center", fontsize=8, color=C["num"] if name == "Verifier" else C["numgray"])
-ax2.axvline(0, color=C["axis"], linewidth=0.9)
-ax2.set_xlim(-10, 35); ax2.set_xticks([-10, 0, 10, 20, 30]); ax2.tick_params(axis="y", labelleft=False)
-ax2.set_xlabel("Net marginal value of one call (pp)")
-style.horizontal_axes(ax2)
-ax2.legend(loc="lower left", bbox_to_anchor=(0.0, 1.0), ncol=3, frameon=False, fontsize=9, handlelength=1.4, columnspacing=1.0)
-style.panel_tag(ax2, "(b)", x=-0.03, y=1.10)
+        ax2.text(v + (0.7 if v >= 0 else -0.7), yy, f"{v:+.1f}".replace("-", "−"), ha="left" if v >= 0 else "right", va="center",
+                 fontsize=7.5, color=C["num"] if name == "Verifier" else C["numgray"], zorder=3)
+ax2.axvline(0, color=C["text"], linewidth=0.8, zorder=3)
+ax2.set_xlim(-9, 34); ax2.set_xticks([0, 10, 20, 30])
+ax2.set_xlabel("Net value of one call (pp)", labelpad=3)
+for sp in ("top", "right", "left"):
+    ax2.spines[sp].set_visible(False)
+ax2.spines["bottom"].set_color(C["axis"]); ax2.tick_params(axis="y", length=0, labelleft=False); ax2.tick_params(axis="x", length=3)
+ax2.grid(True, axis="x", color=C["grid"], linewidth=0.7); ax2.grid(False, axis="y"); ax2.set_axisbelow(True)
+h2 = [Patch(facecolor=f, hatch=hh, edgecolor=C["edge"], linewidth=0.6, label=n) for n, f, hh in adv]
+ax2.legend(handles=h2, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=3, frameon=False, fontsize=8,
+           handlelength=1.2, handleheight=0.85, handletextpad=0.35, columnspacing=0.75, borderaxespad=0)
+ax2.text(-0.03, 1.07, "(b)", transform=ax2.transAxes, ha="right", va="center", fontsize=11)
+# light separators between benchmarks across both panels
+for k in range(len(order) - 1):
+    for ax in (ax1, ax2):
+        ax.axhline(k + 0.5, color=C["grid"], linewidth=0.6, zorder=0)
 out["fig_final_value"] = style.save(fig, "fig_final_value")
 
 # ---------------------------------------------------------------- fig_final_tokens (main)
