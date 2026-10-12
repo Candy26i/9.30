@@ -24,25 +24,26 @@ out = {}
 
 # ---------------------------------------------------------------- fig_final_value (main)
 from matplotlib.patches import Rectangle
-fig = plt.figure(figsize=(7.0, 2.55))
-gs = fig.add_gridspec(1, 2, width_ratios=[1.55, 1], wspace=0.36, left=0.115, right=0.985, top=0.80, bottom=0.17)
-ax1 = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1], sharey=ax1)
+fig = plt.figure(figsize=(7.0, 2.5))
+# two panels of equal width; the narrow gap between them holds panel (a)'s first-call-share column
+AX_Y, AX_H, AX_W = 0.18, 0.62, 0.385
+ax1 = fig.add_axes([0.118, AX_Y, AX_W, AX_H]); ax2 = fig.add_axes([0.600, AX_Y, AX_W, AX_H], sharey=ax1)
 order = B[::-1]  # top-to-bottom = MedQA, MMLU-Pro, GPQA, AQuA-RAT
 y = np.arange(len(order))
 SEP = dict(edgecolor="white", linewidth=1.1)
-segs = [("Direct answer", C["light"], ""), ("+ First call", C["mid"], ""), ("+ Second call", C["tan"], "////"), ("Unsolved", "#EFEFEF", "")]
+segs = [("Direct", C["light"], ""), ("+1st call", C["mid"], ""), ("+2nd call", C["tan"], "////"), ("Unsolved", "#EFEFEF", "")]
 for i, b in enumerate(order):
     n, a0, a1, ad, g1 = PT["table1_oracle_by_depth"][b]
     left = 0
     for (name, face, hatch), w in zip(segs, [a0, a1 - a0, ad - a1, 100 - ad]):
         ax1.barh(i, w, left=left, height=0.58, facecolor=face, hatch=hatch, zorder=2, **SEP)
-        if name == "Direct answer":
+        if name == "Direct":
             ax1.text(left + w / 2, i, r1(w), ha="center", va="center", fontsize=9, color=C["text"], zorder=3)
-        elif name == "+ First call":
+        elif name == "+1st call":
             ax1.text(left + w / 2, i, "+" + r1(w), ha="center", va="center", fontsize=9, color="white", zorder=3)
         left += w
-    ax1.text(1.03, i, f"{r1(g1)}%", transform=ax1.get_yaxis_transform(), ha="left", va="center", fontsize=9, color=C["num"])
-ax1.text(1.03, len(order) - 0.47, "1st-call\nshare", transform=ax1.get_yaxis_transform(), ha="left", va="bottom", fontsize=7.5, color=C["text"], linespacing=0.95)
+    ax1.text(1.025, i, f"{r1(g1)}%", transform=ax1.get_yaxis_transform(), ha="left", va="center", fontsize=8.5, color=C["num"])
+ax1.text(1.025, len(order) - 0.47, "1st-call\nshare", transform=ax1.get_yaxis_transform(), ha="left", va="bottom", fontsize=7.5, color=C["text"], linespacing=0.95)
 ax1.set_xlim(0, 100); ax1.set_ylim(-0.55, len(order) - 0.45)
 ax1.set_yticks(y, [LAB[b] for b in order]); ax1.set_xticks([0, 25, 50, 75, 100])
 ax1.set_xlabel("Questions (%)", labelpad=3)
@@ -51,9 +52,9 @@ for sp in ("top", "right", "left"):
 ax1.spines["bottom"].set_color(C["axis"]); ax1.tick_params(axis="y", length=0, pad=4); ax1.tick_params(axis="x", length=3)
 ax1.grid(False)
 h1 = [Patch(facecolor=f, hatch=h, edgecolor=C["edge"] if n != "Unsolved" else C["axis"], linewidth=0.6, label=n) for n, f, h in segs]
-ax1.legend(handles=h1, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=4, frameon=False, fontsize=8,
-           handlelength=1.2, handleheight=0.85, handletextpad=0.35, columnspacing=0.75, borderaxespad=0)
-ax1.text(-0.02, 1.07, "(a)", transform=ax1.transAxes, ha="right", va="center", fontsize=11)
+ax1.legend(handles=h1, loc="lower left", bbox_to_anchor=(0.065, 1.03), ncol=4, frameon=False, fontsize=8,
+           handlelength=1.1, handleheight=0.85, handletextpad=0.3, columnspacing=0.6, borderaxespad=0)
+ax1.text(0.0, 1.085, "(a)", transform=ax1.transAxes, ha="left", va="center", fontsize=10.5)
 # (b) net marginal value of one forced call: three thin bars per benchmark around a zero line
 adv = [("Extractor", C["light"], "////"), ("Reasoner", C["slate"], ""), ("Verifier", C["mid"], "")]
 h = 0.19
@@ -65,16 +66,16 @@ for j, (name, face, hatch) in enumerate(adv):
         ax2.text(v + (0.7 if v >= 0 else -0.7), yy, f"{v:+.1f}".replace("-", "−"), ha="left" if v >= 0 else "right", va="center",
                  fontsize=7.5, color=C["num"] if name == "Verifier" else C["numgray"], zorder=3)
 ax2.axvline(0, color=C["text"], linewidth=0.8, zorder=3)
-ax2.set_xlim(-9, 34); ax2.set_xticks([0, 10, 20, 30])
+ax2.set_xlim(-8, 33); ax2.set_xticks([0, 10, 20, 30])
 ax2.set_xlabel("Net value of one call (pp)", labelpad=3)
 for sp in ("top", "right", "left"):
     ax2.spines[sp].set_visible(False)
 ax2.spines["bottom"].set_color(C["axis"]); ax2.tick_params(axis="y", length=0, labelleft=False); ax2.tick_params(axis="x", length=3)
 ax2.grid(True, axis="x", color=C["grid"], linewidth=0.7); ax2.grid(False, axis="y"); ax2.set_axisbelow(True)
 h2 = [Patch(facecolor=f, hatch=hh, edgecolor=C["edge"], linewidth=0.6, label=n) for n, f, hh in adv]
-ax2.legend(handles=h2, loc="lower left", bbox_to_anchor=(0.0, 1.02), ncol=3, frameon=False, fontsize=8,
-           handlelength=1.2, handleheight=0.85, handletextpad=0.35, columnspacing=0.75, borderaxespad=0)
-ax2.text(-0.03, 1.07, "(b)", transform=ax2.transAxes, ha="right", va="center", fontsize=11)
+ax2.legend(handles=h2, loc="lower left", bbox_to_anchor=(0.07, 1.03), ncol=3, frameon=False, fontsize=8,
+           handlelength=1.2, handleheight=0.85, handletextpad=0.35, columnspacing=0.8, borderaxespad=0)
+ax2.text(0.0, 1.085, "(b)", transform=ax2.transAxes, ha="left", va="center", fontsize=10.5)
 # light separators between benchmarks across both panels
 for k in range(len(order) - 1):
     for ax in (ax1, ax2):
