@@ -31,7 +31,7 @@ ax1 = fig.add_axes([0.118, AX_Y, AX_W, AX_H]); ax2 = fig.add_axes([0.600, AX_Y, 
 order = B[::-1]  # top-to-bottom = MedQA, MMLU-Pro, GPQA, AQuA-RAT
 y = np.arange(len(order))
 SEP = dict(edgecolor="white", linewidth=1.1)
-segs = [("Direct", C["light"], ""), ("+1st call", C["mid"], ""), ("+2nd call", C["tan"], "////"), ("Unsolved", "#EFEFEF", "")]
+segs = [("Direct", C["light"], ""), ("+1st call", C["green"], ""), ("+2nd call", C["amber"], "////"), ("Unsolved", C["unsolved"], "")]
 for i, b in enumerate(order):
     n, a0, a1, ad, g1 = PT["table1_oracle_by_depth"][b]
     left = 0
@@ -56,7 +56,7 @@ ax1.legend(handles=h1, loc="lower left", bbox_to_anchor=(0.065, 1.03), ncol=4, f
            handlelength=1.1, handleheight=0.85, handletextpad=0.3, columnspacing=0.6, borderaxespad=0)
 ax1.text(0.0, 1.085, "(a)", transform=ax1.transAxes, ha="left", va="center", fontsize=10.5)
 # (b) net marginal value of one forced call: three thin bars per benchmark around a zero line
-adv = [("Extractor", C["light"], "////"), ("Reasoner", C["slate"], ""), ("Verifier", C["mid"], "")]
+adv = [("Extractor", C["amber"], ""), ("Reasoner", C["green"], ""), ("Verifier", C["blue"], "")]
 h = 0.19
 for j, (name, face, hatch) in enumerate(adv):
     vals = [PT["table2_net_marginal_value_pp"][b][j] for b in order]
@@ -64,7 +64,7 @@ for j, (name, face, hatch) in enumerate(adv):
     ax2.barh(ypos, vals, height=h, facecolor=face, hatch=hatch, edgecolor=C["edge"], linewidth=0.5, zorder=2, label=name)
     for yy, v in zip(ypos, vals):
         ax2.text(v + (0.7 if v >= 0 else -0.7), yy, f"{v:+.1f}".replace("-", "−"), ha="left" if v >= 0 else "right", va="center",
-                 fontsize=7.5, color=C["num"] if name == "Verifier" else C["numgray"], zorder=3)
+                 fontsize=7.5, color=C["num"], zorder=3)
 ax2.axvline(0, color=C["text"], linewidth=0.8, zorder=3)
 ax2.set_xlim(-8, 33); ax2.set_xticks([0, 10, 20, 30])
 ax2.set_xlabel("Net value of one call (pp)", labelpad=3)
@@ -130,10 +130,10 @@ fig, ax = plt.subplots(figsize=(7.2, 2.5))
 order = B[::-1]; y = np.arange(len(order))
 for i, b in enumerate(order):
     calls, corr, corrupt = PT["table8_outcomes"][b]
-    ax.barh(i, corr * 100, height=0.55, **bar_kw(C["mid"]), label="Correction" if i == 0 else None)
-    ax.barh(i, -corrupt * 100, height=0.55, **bar_kw(C["red"], "//", edge="#7A3532"), label="Corruption" if i == 0 else None)
+    ax.barh(i, corr * 100, height=0.55, **bar_kw(C["green"]), label="Correction" if i == 0 else None)
+    ax.barh(i, -corrupt * 100, height=0.55, **bar_kw(C["red"], "//"), label="Corruption" if i == 0 else None)
     ax.text(corr * 100 + 0.8, i, f"+{r1(corr * 100)}", ha="left", va="center", fontsize=8.5, color=C["num"])
-    ax.text(-corrupt * 100 - 0.8, i, f"$-${r1(corrupt * 100)}", ha="right", va="center", fontsize=8.5, color=C["red"])
+    ax.text(-corrupt * 100 - 0.8, i, f"$-${r1(corrupt * 100)}", ha="right", va="center", fontsize=8.5, color=C["num"])
     ax.text(58, i, f"+{r1((corr - corrupt) * 100)}", ha="left", va="center", fontsize=9, color=C["num"])
 ax.text(58, len(order) - 0.45, "Net (pp)", ha="left", va="bottom", fontsize=9, color=C["text"])
 ax.spines["bottom"].set_bounds(-10, 50)

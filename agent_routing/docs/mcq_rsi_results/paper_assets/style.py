@@ -12,17 +12,19 @@ ROOT = Path(__file__).resolve().parent
 FIG_DIR = ROOT / "fig"
 
 # palette (sampled from the reference figures)
-C = {"light": "#D6E2EE",    # light blue fill: Direct answer / Force Verifier / Base system
-     "mid": "#4A7BA6",      # mid blue: + First call / Selected MARGENT / S_1
-     "dark": "#2C5A7E",     # dark navy: Final MARGENT / RSI (dynamic)
-     "slate": "#9DB4CC",    # grey-blue: Reasoner / RSI (static)
-     "dots": "#6F8BA3",     # dotted fill base: RSI (success)
-     "tan": "#E8D4B8",      # tan hatched: + Second call / Force all / single model with reasoning
-     "unsolved": "#F2F2F2", # very light: Unsolved / Base only
-     "red": "#B9524F",      # corruption
-     "purple": "#9B6FD3",   # tool-calls line
-     "edge": "#3D5A73",     # bar edges
-     "grid": "#E6E6E6", "axis": "#8C8C8C", "text": "#222222", "muted": "#666666", "num": "#2C5A7E", "numgray": "#555555"}
+C = {  # 2026-10-12: palette sampled from the user's hand-drawn figures (Figure 1 and Figure 4 of the paper)
+     "light": "#CFE5F7",    # sky-blue tint (#88C3F1 family): direct answer, always-Verifier, base system
+     "mid": "#3B8FC9",      # sky blue: S_1, Verifier, selected MARGENT
+     "dark": "#43A44A",     # green (the selected path in Figure 1): RSI dynamic, first call, Reasoner, correction
+     "slate": "#967CA9",    # purple (the JSON badge): RSI static
+     "dots": "#FCB81A",     # amber (the emoji): RSI success
+     "tan": "#FCB81A",      # amber, hatched: force all, second call
+     "unsolved": "#ECEEF0", # light gray: unsolved, base only
+     "red": "#F5536F",      # coral red (the books): corruption
+     "purple": "#967CA9",
+     "green": "#43A44A", "blue": "#3B8FC9", "amber": "#FCB81A", "sky": "#88C3F1",
+     "edge": "#3F5765",     # dark slate (Figure 1 icons): outlines and hatches
+     "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#3F5765", "numgray": "#5F6E78"}
 
 # one style per policy, used by every figure so the same thing always looks the same
 POLICY = {
