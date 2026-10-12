@@ -89,16 +89,17 @@ write("tab_app_draft", T + end(cap, "tab:app_draft"), M, cap)
 
 # ------------------------------------------------------------------ single-model answering
 SA = d["single_agent"]
-ROWSS = [("Base, letter only", "base_nocot_f"), ("S$_1$, letter only", "s1_nocot_f"), ("Dynamic R3 (SFT), letter only", "dyn3_nocot_f"),
-         ("S$_1$, draft", "s1_manager_notools"), ("Dynamic R3 (SFT), draft", "dyn3_manager_notools")]
-T = begin("l" + "r" * len(B), size="\\footnotesize", star=False, sep="3pt") + ["Model & " + " & ".join({"medqa": "MedQA", "mmlu_pro": "MMLU-Pro", "gpqa": "GPQA", "aqua": "AQuA"}[b] for b in B) + r" \\", r"\midrule"]
-M = ["| Model | " + " | ".join(NAME[b] for b in B) + " |", "|:--|" + "--:|" * len(B)]
-for name, v in ROWSS:
-    cells = [acc(SA[f"{b}:test"][v]["acc"], SA[f"{b}:test"][v]["n"]) for b in B]
-    T.append(f"{name} & " + " & ".join(cells) + r" \\"); M.append(f"| {md(name)} | " + " | ".join(cells) + " |")
-    if v == "dyn3_nocot_f": T.append(r"\midrule")
-cap = "Locked-test accuracy (\\%) with no advisor calls: answering with the option letter only, or the manager's draft with tools removed."
-write("tab_app_single", T + end(cap, "tab:app_single", star=False), M, cap)
+MODELS = [("Base model", "base_nocot_f", None), ("S$_1$", "s1_nocot_f", "s1_manager_notools"), ("Dynamic R3 (SFT)", "dyn3_nocot_f", "dyn3_manager_notools")]
+SHORT = {"medqa": "MedQA", "mmlu_pro": "MMLU-Pro", "gpqa": "GPQA", "aqua": "AQuA-RAT"}
+T = begin("l" + "rrrr" * 2, sep="3.5pt") + [r" & \multicolumn{4}{c}{Letter only} & \multicolumn{4}{c}{Manager draft, no tools} \\",
+                                       r"\cmidrule(lr){2-5}\cmidrule(lr){6-9}", "Model & " + " & ".join(SHORT[b] for b in B * 2) + r" \\", r"\midrule"]
+M = ["| Model | " + " | ".join(f"Letter only {NAME[b]}" for b in B) + " | " + " | ".join(f"Draft {NAME[b]}" for b in B) + " |", "|:--|" + "--:|" * 8]
+for name, v1_, v2_ in MODELS:
+    cells = [acc(SA[f"{b}:test"][v1_]["acc"], SA[f"{b}:test"][v1_]["n"]) for b in B]
+    cells += ["--"] * 4 if v2_ is None else [acc(SA[f"{b}:test"][v2_]["acc"], SA[f"{b}:test"][v2_]["n"]) for b in B]
+    T.append(f"{name} & " + " & ".join(cells) + r" \\"); M.append(f"| {md(name)} | " + " | ".join(md(c) for c in cells) + " |")
+cap = "Locked-test accuracy (\\%) with no advisor calls: answering with the option letter only, or the manager's draft."
+write("tab_app_single", T + end(cap, "tab:app_single"), M, cap)
 
 # ------------------------------------------------------------------ tokens
 TK = A["tokens"]
