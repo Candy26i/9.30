@@ -7,7 +7,7 @@
 \renewcommand{\arraystretch}{1.1}
 \caption{Self-check signals of the S$_1$ manager on the development pools (MedQA 200, MMLU-Pro 200, GPQA 100, AQuA-RAT 254). AUROC: how well each draft-confidence signal ($1-p_{\max}$, $-$margin, entropy, $1-$agreement; higher means less confident in the draft letter) predicts that the draft is wrong; 0.5 is no signal. Router: call the Verifier when the signal exceeds a threshold chosen so that the call rate matches S$_1$'s (Calls, advisor calls per question); accuracy in \%. S$_1$ is the learned policy at that call rate; Always Verifier calls the Verifier on every question (1.00 calls). Bold: best accuracy at the matched call budget (routers and S$_1$); Always Verifier uses a larger budget and is not bolded.}
 \label{tab:selfcheck}
-\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 78.8pt
+\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 46.0pt
 \begin{tabular}{l r rrrr rrrr r r r}
 \toprule
  & & \multicolumn{4}{c}{AUROC (draft is wrong)} & \multicolumn{4}{c}{Router acc.\ at S$_1$'s call rate} & \multicolumn{2}{c}{S$_1$} & Always \\

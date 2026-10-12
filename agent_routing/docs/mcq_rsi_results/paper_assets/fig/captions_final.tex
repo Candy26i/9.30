@@ -9,9 +9,22 @@ reduction relative to the untrained base system. RSI is the round-3 dynamic mana
 \label{fig:tokens}
 
 % Appendix
-\caption{Development operating points: (a) accuracy and (b) mean advisor calls. MedQA low-call MARGENT is a three-seed mean.}
+\caption{Development operating points of the original MARGENT runs: (a) accuracy and (b) mean advisor calls. MedQA low-call MARGENT is a three-seed mean.}
 \label{fig:dev}
 
 \caption{Correction and corruption mass at the high-call development operating points; the GPQA point (1.11 calls) differs
 from its selected point in Figure~\ref{fig:dev}.}
 \label{fig:outcomes}
+
+% Appendix (RSI diagnostics)
+\caption{Per-round development accuracy (top) and advisor calls per question (bottom) for the SFT-only chain; round 1 is S$_1$,
+hollow markers are locked-test accuracy, and GPQA ran three rounds.}
+\label{fig:rounds}
+
+\caption{Development accuracy of the dynamic SFT-only manager against the per-question oracle of answering directly or making one
+advisor call, with always-Verifier and draft-only references; GPQA has no round 5.}
+\label{fig:oracle}
+
+\caption{(a) AUROC of three confidence signals for detecting a wrong draft (0.5 = no signal). (b) Development accuracy of S$_1$,
+a $1-p_{\max}$ threshold router and always-Verifier at S$_1$'s call rate (shown under each benchmark).}
+\label{fig:selfcheck}

@@ -111,7 +111,7 @@ for i, s in enumerate(FIG_SIGNALS):
         ax_a.text(v + 0.012, bar.get_y() + bar.get_height() / 2, f"{v:.3f}", ha="left", va="center", fontsize=8.5, color=C["num"], zorder=4)
     handles_a.append(style.policy_patch("base_only", label=SIG_TEX[s], facecolor=SIG_FILL[s], edgecolor=C["edge"], hatch=""))
 ax_a.axvline(0.5, color=C["axis"], linewidth=1.0, linestyle=(0, (4, 2.5)), zorder=2)
-ax_a.text(0.5, y[0] + (k - 1) / 2 * h + h / 2 + 0.14, "no signal", ha="center", va="bottom", fontsize=8.5, color=C["muted"])
+pass  # 0.5 = no signal: said in the caption
 ax_a.set_xlim(0, 0.88); ax_a.set_xticks([0, 0.25, 0.5, 0.75]); ax_a.set_xticklabels(["0", "0.25", "0.5", "0.75"])
 ax_a.set_ylim(-0.55, len(B) - 0.45 + 0.12)
 ax_a.set_yticks(y, [L[b] for b in B]); ax_a.tick_params(axis="y", labelsize=10.5)
@@ -138,9 +138,7 @@ for bi in range(len(B)):                           # value labels per group, lif
     hs = [vals[bi] for _, _, vals in SERIES_B]
     group_labels(ax_b, xs, hs, [f"{v:.1f}" for v in hs], fontsize=8.3, color=C["num"])
 ax_b.set_xlim(-0.55, len(B) - 0.45)
-ax_b.set_xticks(x, [L[b] for b in B]); ax_b.tick_params(axis="x", length=0, labelsize=10.5)
-for xi, c in zip(x, s1_calls):                     # the matched call budget under each benchmark
-    ax_b.text(xi, -0.165, f"{c:.2f} calls/q.", transform=ax_b.get_xaxis_transform(), ha="center", va="top", fontsize=8.3, color=C["muted"])
+ax_b.set_xticks(x, [f"{L[b]}\n{c:.2f} calls" for b, c in zip(B, s1_calls)]); ax_b.tick_params(axis="x", length=0, labelsize=9.5)
 ax_b.set_ylabel("Dev accuracy (%)")
 style.panel_tag(ax_b, "(b)", x=-0.17, y=1.0)
 style.top_legend(ax_b, handles=handles_b, labels=[hh.get_label() for hh in handles_b], ncol=3, y=1.11, fontsize=9.5)

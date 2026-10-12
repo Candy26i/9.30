@@ -16,7 +16,7 @@
 | Learning rate | 1e-5 |
 | Batch | 1 per device × 8 gradient-accumulation steps (effective 8) |
 | Max sequence length | 4,096 tokens (GPQA 16,384) |
-| Seed / context / draft supervision | 42 / paper (tool schemas rendered as in the S_1 prompt) / none (route-only loss) |
+| Seed / context / draft supervision | 42 / paper (tool schemas rendered as in the S_1 prompt) / none in v3 (route-only loss); the draft letter in v1 |
 | **FA-GRPO (each round)** | |
 | Steps | 64 steps × 4 questions per step (256 questions per round; GPQA pool 146) |
 | Learning rate / max grad norm / seed | 5e-6 / 1.0 / 0 |
@@ -29,7 +29,7 @@
 | Gates | accuracy tolerance 0.01; extra calls 0.15; gap fraction 0.5; SFT max calls 1.5; SFT max accuracy drop 0.03 |
 | **Pools** | |
 | Development | MedQA 200, MMLU-Pro 200, GPQA 100, AQuA-RAT 254 |
-| Locked test | MedQA 500, MMLU-Pro 500 (pool test), GPQA 100, AQuA-RAT 254 |
+| Locked test | MedQA 500, MMLU-Pro 500 (held-out split), GPQA 100, AQuA-RAT 254 |
 | **Arms** | |
 | dynamic | re-collect with G_{k-1} each round, marginal-value labels, SFT from G_{k-1}, then FA-GRPO |
 | static | reuse S_1's labels every round, SFT from G_{k-1}, then FA-GRPO |

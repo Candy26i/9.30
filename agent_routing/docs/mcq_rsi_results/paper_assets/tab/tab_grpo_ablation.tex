@@ -3,7 +3,7 @@
 \caption{FA-GRPO ablation on the locked tests (MedQA 500, MMLU-Pro 500 test, GPQA 100, AQuA-RAT 254). Cells: accuracy in \% (mean advisor calls per question) of the round-3 manager trained with SFT only (v3 chain) or with SFT + FA-GRPO in every round (v3+GRPO). $\Delta$ = with minus without GRPO in accuracy points, $p$ from a two-sided paired bootstrap. Bold: best accuracy in the row. Accepted: FA-GRPO stage decisions accepted out of three rounds per arm (round 1 is shared by the three arms except on MMLU-Pro, which has one run per arm); the MMLU-Pro test\_paper row evaluates the same managers on the appendix pool, which overlaps the training pools. Rejection reasons may co-occur; the accuracy gate is dev accuracy below S$_k$ minus 1 point, the dev gate the valid-answer-rate check.}
 \label{tab:grpo_ablation}
 \setlength{\tabcolsep}{4pt}
-\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 96.8pt
+\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 43.5pt
 \begin{tabular}{l ccc ccc ccc}
 \toprule
  & \multicolumn{3}{c}{RSI (dynamic)} & \multicolumn{3}{c}{RSI (static)} & \multicolumn{3}{c}{FA-GRPO accepted} \\

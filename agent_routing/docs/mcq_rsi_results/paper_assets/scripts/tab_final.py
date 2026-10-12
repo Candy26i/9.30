@@ -124,6 +124,7 @@ ma, sa_ = statistics.mean(x for x, _ in SEEDS), statistics.stdev(x for x, _ in S
 mc_, sc = statistics.mean(y for _, y in SEEDS), statistics.stdev(y for _, y in SEEDS)
 CON = [("Dynamic $-$ Static (R3, SFT only)", "v3/dynamic_sft - v3/static_sft"),
        ("Dynamic: with $-$ without GRPO (R3)", "v3g/dynamic - v3/dynamic_sft"),
+       ("Static: with $-$ without GRPO (R3)", "v3g/static - v3/static_sft"),
        ("Dynamic: R5 $-$ R3 (SFT only)", "v3r5/dynamic_sft - v3/dynamic_sft"),
        ("S$_1$ evaluated twice (GRPO run $-$ SFT run)", "v3g/S_1 - v3/S_1")]
 T3 = PRE + [r"\begin{table*}[t]", r"\centering", r"\small", r"\setlength{\tabcolsep}{3.5pt}",
@@ -151,7 +152,8 @@ for name, key in CON:
         vals.append(f"{sgn(delta)} ({pv(c['p'])})")
     T3.append(name + " & " + " & ".join(vals) + r" \\")
     MD3.append("| " + name.replace("$-$", "−").replace("S$_1$", "S₁") + " | " + " | ".join(v.replace("$-$", "−").replace("$<$", "<").replace("--", "—") for v in vals) + " |")
-cap_rel = ("A: depth 2, 400 questions, $\\rho = 3$; sample SD over seeds. B: single RSI runs; two-sided paired bootstrap (10{,}000 resamples, unadjusted); -- = no round 5.")
+cap_rel = ("A: depth 2, 400 training questions, $\\rho = 3$; sample SD. B: single RSI runs, two-sided paired bootstrap (10{,}000 resamples, unadjusted); "
+           "MedQA kept no GRPO update, so its with/without-GRPO rows compare two SFT runs; -- = no round 5.")
 T3 += [r"\bottomrule", r"\end{tabular}", f"\\caption{{{cap_rel}}}", r"\label{tab:reliability}", r"\end{table*}"]
 
 out = ROOT / "tab"

@@ -65,9 +65,10 @@ for j, bench in enumerate(style.BENCH_ORDER):
         same = len(order) == 2 and abs(order[0][1] - order[1][1]) < 0.05
         for i, (arm, v) in enumerate(order):
             st = ARMS[arm]
-            ax_acc.plot([r], [v], marker=st["marker"], ms=st["ms"] + (2.4 if arm == "static" else 2.2), mfc="white",
+            dx = -0.14 if arm == "dynamic" else 0.14
+            ax_acc.plot([r + dx], [v], marker=st["marker"], ms=st["ms"] + (2.4 if arm == "static" else 2.2), mfc="white",
                         mec=st["color"], mew=1.3, ls="none", zorder=5 if arm == "static" else 6)
-            obstacles[ax_acc].append((r, v))
+            obstacles[ax_acc].append((r + dx, v))
             summary[bench].setdefault(f"locked_r{r}", {})[arm] = v
             if same and i == 1:
                 continue
@@ -87,17 +88,19 @@ for j, bench in enumerate(style.BENCH_ORDER):
     ax_calls.set_xlabel("Round", labelpad=2)
     if bench == "gpqa":
         for ax in (ax_acc, ax_calls):
-            ax.text(0.97, 0.04, "3 rounds", transform=ax.transAxes, ha="right", va="bottom", fontsize=7.5, color=style.C["muted"])
+            pass  # GPQA ran three rounds; said in the caption
 
-axes[0, 0].set_ylabel("Dev accuracy (%)")
+axes[0, 0].set_ylabel("Accuracy (%)")
 axes[1, 0].set_ylabel("Calls / question")
 style.panel_tag(axes[0, 0], "(a)", x=-0.42, y=1.04)
 style.panel_tag(axes[1, 0], "(b)", x=-0.42, y=1.04)
 
 handles = [Line2D([], [], color=ARMS["dynamic"]["color"], marker="o", ms=4.6, lw=1.5),
            Line2D([], [], color=ARMS["static"]["color"], marker="s", ms=4.4, lw=1.5),
+           Line2D([], [], ls="none", marker="o", ms=6.8, mfc="white", mec=ARMS["dynamic"]["color"], mew=1.3),
+           Line2D([], [], ls="none", marker="s", ms=6.8, mfc="white", mec=ARMS["static"]["color"], mew=1.3),
            Line2D([], [], ls="none", marker="o", ms=6.8, mfc="white", mec=style.C["edge"], mew=1.3)]
-style.top_legend(fig, handles, ["dynamic (dev)", "static (dev)", "locked test"], ncol=3, y=0.93, handletextpad=0.5)
+style.top_legend(fig, handles, ["dynamic (dev)", "static (dev)", "dynamic (test)", "static (test)", "S$_1$ (test)"], ncol=5, y=0.93, handletextpad=0.4)
 
 style.caption(fig, ["No-GRPO chain (v3): dev accuracy and calls per question per round; round 1 = S$_1$. GPQA: 3 rounds.",
                     "Hollow markers = locked test (MedQA 500, MMLU-Pro 500 test, GPQA 100, AQuA 254).",

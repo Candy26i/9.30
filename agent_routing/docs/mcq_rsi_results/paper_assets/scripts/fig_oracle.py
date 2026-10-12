@@ -112,6 +112,8 @@ for i, (b, ax) in enumerate(zip(BENCH, axes.flat)):
                 color=C["muted"], bbox=bb, zorder=3),
         ax.text(LABEL_X, o["always_verifier"], f"Always Verifier  {o['always_verifier']:.1f}", ha="left", va="center",
                 fontsize=8, color=C["mid"], bbox=bb, zorder=3)]
+    for _t in ref_texts:  # the legend names the reference lines; no inline text in the image
+        _t.set_visible(False)
 
     # oracle (dashed, hollow) and policy (solid, filled)
     ax.plot(xs, orc, color=C["dark"], linestyle=(0, (4, 2.5)), linewidth=1.5, marker="o", markersize=MS,

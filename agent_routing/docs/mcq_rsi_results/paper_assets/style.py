@@ -75,8 +75,13 @@ def policy_patch(key, **over):
     p = dict(POLICY[key]); p.update(over); ls = p.pop("linestyle", "-")
     return Patch(facecolor=p["facecolor"], edgecolor=p["edgecolor"], hatch=p["hatch"], label=p["label"], linestyle=ls)
 
+SHOW_CAPTIONS = False  # 2026-10-11: the user wants no caption text inside the images; captions live in LaTeX
+
+
 def caption(fig, lines, y=0.01, x=0.12, fontsize=10):
-    """Gray caption text under the axes, like the reference figures (one or more lines)."""
+    """Gray caption text under the axes (disabled unless SHOW_CAPTIONS)."""
+    if not SHOW_CAPTIONS:
+        return
     if isinstance(lines, str):
         lines = [lines]
     for i, line in enumerate(reversed(lines)):

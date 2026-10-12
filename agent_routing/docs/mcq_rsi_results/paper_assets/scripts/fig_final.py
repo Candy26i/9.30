@@ -84,7 +84,7 @@ out["fig_final_tokens"] = style.save(fig, "fig_final_tokens")
 fig, (axa, axb) = plt.subplots(2, 1, figsize=(7.2, 4.0), sharex=True, gridspec_kw=dict(height_ratios=[2.2, 1], hspace=0.12))
 dev = [("Selected MARGENT", lambda b: PT["table5_selected_vs_force_all"][b][0:2], C["mid"], ""),
        ("Force all", lambda b: PT["table5_selected_vs_force_all"][b][2:4], C["tan"], "//"),
-       ("Force Verifier", lambda b: PT["table4_low_call_vs_verifier"][b][2:4], C["light"], ""),
+       ("Always Verifier", lambda b: PT["table4_low_call_vs_verifier"][b][2:4], C["light"], ""),
        ("Low-call MARGENT", lambda b: PT["table4_low_call_vs_verifier"][b][0:2], C["dark"], "")]
 x = np.arange(len(B)); w = 0.2
 for k, (name, f, face, hatch) in enumerate(dev):
@@ -94,9 +94,9 @@ for k, (name, f, face, hatch) in enumerate(dev):
     for bb, v in zip(ba, accs):
         axa.text(bb.get_x() + bb.get_width() / 2, v + 1.2, f"{v:.1f}", ha="center", va="bottom", fontsize=8, color=C["num"])
     for bb, v in zip(bc, calls):
-        lab = f"{v:.0f}" if name in ("Force all", "Force Verifier") else f"{v:.3f}"
+        lab = f"{v:.2f}"
         axb.text(bb.get_x() + bb.get_width() / 2, v + 0.08, lab, ha="center", va="bottom", fontsize=7.5, color=C["num"])
-axa.set_ylim(0, 100); axa.set_ylabel("Accuracy (%)"); axb.set_ylim(0, 3.6); axb.set_ylabel("Mean calls"); axb.set_yticks([0, 1, 2, 3])
+axa.set_ylim(0, 100); axa.set_ylabel("Dev accuracy (%)"); axb.set_ylim(0, 3.6); axb.set_ylabel("Mean calls"); axb.set_yticks([0, 1, 2, 3])
 axb.set_xticks(x, [LAB[b] for b in B])
 style.top_legend(axa, ncol=4, y=1.0, fontsize=10)
 style.panel_tag(axa, "(a)", x=-0.07, y=0.98); style.panel_tag(axb, "(b)", x=-0.07, y=0.95)
@@ -112,7 +112,8 @@ for i, b in enumerate(order):
     ax.text(corr * 100 + 0.8, i, f"+{r1(corr * 100)}", ha="left", va="center", fontsize=8.5, color=C["num"])
     ax.text(-corrupt * 100 - 0.8, i, f"$-${r1(corrupt * 100)}", ha="right", va="center", fontsize=8.5, color=C["red"])
     ax.text(58, i, f"+{r1((corr - corrupt) * 100)}", ha="left", va="center", fontsize=9, color=C["num"])
-ax.text(58, len(order) - 0.45, "Net (pp)", ha="left", va="bottom", fontsize=9, color=C["muted"])
+ax.text(58, len(order) - 0.45, "Net (pp)", ha="left", va="bottom", fontsize=9, color=C["text"])
+ax.spines["bottom"].set_bounds(-10, 50)
 ax.axvline(0, color=C["axis"], linewidth=0.9)
 ax.set_yticks(y, [LAB[b] for b in order]); ax.set_xlim(-10, 64); ax.set_xticks([-10, 0, 10, 20, 30, 40, 50]); ax.set_ylim(-0.6, len(order) - 0.3)
 ax.set_xlabel("Signed outcome mass (% of all examples)")

@@ -4,7 +4,7 @@
 \setlength{\tabcolsep}{3pt}
 \caption{Single-model baselines and the multi-agent systems on the locked tests (MedQA 500, MMLU-Pro 500 (test pool), GPQA 100, AQuA-RAT 254). Acc. and Valid are percentages; Budget = generation budget in tokens; Tokens = prefill + output per question (for systems: manager and advisors). Letter-only rows must answer with the choice letter only (no reasoning); a forced choice over the option letters backs up unparsed outputs and was never needed. Valid = share of questions with a parseable answer. No-tools rows run the manager prompt with the tools removed (DRAFT then ANSWER, no advisor calls). Multi-agent rows are the v3+GRPO round-3 systems. Where the v3+GRPO run has no token count, S$_1$ + advisors uses the v3-chain run of the same S$_1$ checkpoint (MMLU-Pro and AQuA-RAT) and RSI success uses the v1 success runs, which use the same labelling rule and call an advisor on 93--100\% of questions (MedQA, MMLU-Pro and AQuA-RAT). Bold: best accuracy per benchmark within each block.}
 \label{tab:single_agent}
-\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 97.6pt
+\resizebox{\linewidth}{!}{%  natural width exceeded the ACL line width by 46.1pt
 \begin{tabular}{l r rrr rrr rrr rrr}
 \toprule
  & & \multicolumn{3}{c}{MedQA ($n$ = 500)} & \multicolumn{3}{c}{MMLU-Pro ($n$ = 500)} & \multicolumn{3}{c}{GPQA ($n$ = 100)} & \multicolumn{3}{c}{AQuA-RAT ($n$ = 254)} \\
