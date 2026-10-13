@@ -38,7 +38,7 @@ SIGNALS = ["1-p_max", "-margin", "entropy", "1-agreement"]           # order in 
 SIG_TEX = {"1-p_max": "$1-p_{\\max}$", "-margin": "$-$margin", "entropy": "Entropy", "1-agreement": "$1-$agreement"}
 SIG_MD = {"1-p_max": "1 − p_max", "-margin": "−margin", "entropy": "Entropy", "1-agreement": "1 − agreement"}
 FIG_SIGNALS = ["1-p_max", "entropy", "1-agreement"]                   # panel (a)
-SIG_FILL = {"1-p_max": C["dark"], "entropy": C["mid"], "1-agreement": C["slate"]}
+SIG_FILL = {"1-p_max": C["dark"], "entropy": C["mid"], "1-agreement": C["sky"]}
 ROUTER = "1-p_max"                                                    # panel (b)
 
 auroc = {s: [SC[b]["auroc"][s] for b in B] for s in SIGNALS}

@@ -29,11 +29,12 @@ C = {  # 2026-10-12: one blue-green family with five clearly separated lightness
 
 # Alternative palette: MARGENT_PALETTE=google renders with the Google Sheets / Charts default colours into fig_google/
 PALETTE = _os.environ.get("MARGENT_PALETTE", "bluegreen")
-if PALETTE == "google":
-    C.update({"light": "#AECBFA", "mid": "#4285F4", "dark": "#34A853", "slate": "#EA4335", "dots": "#FF6D01", "tan": "#FBBC04",
-              "unsolved": "#E8EAED", "red": "#EA4335", "purple": "#EA4335", "green": "#34A853", "blue": "#4285F4", "lgreen": "#FBBC04",
-              "sky": "#46BDC6", "edge": "#5F6368", "grid": "#E8EAED", "axis": "#9AA0A6", "text": "#202124", "muted": "#5F6368",
+if PALETTE == "google":  # bright Google tones, two hues x two lightness levels (as in the GRPO figure the user liked, 2026-10-13)
+    C.update({"light": "#AECBFA", "mid": "#1A73E8", "dark": "#1E8E3E", "slate": "#1A73E8", "dots": "#188038", "tan": "#A8DAB5",
+              "unsolved": "#E8EAED", "red": "#1A73E8", "purple": "#AECBFA", "green": "#1E8E3E", "blue": "#1A73E8", "lgreen": "#A8DAB5",
+              "sky": "#AECBFA", "edge": "#5F6368", "grid": "#E8EAED", "axis": "#9AA0A6", "text": "#202124", "muted": "#5F6368",
               "num": "#3C4043", "numgray": "#5F6368"})
+HATCH_DARK = {"#A8DAB5": "#1E8E3E", "#AECBFA": "#1A73E8"} if PALETTE == "google" else {}
 
 # one style per policy, used by every figure so the same thing always looks the same
 POLICY = {
@@ -101,7 +102,21 @@ def caption(fig, lines, y=0.01, x=0.12, fontsize=10):
 def panel_tag(ax, tag, x=-0.06, y=1.02):
     ax.text(x, y, tag, transform=ax.transAxes, fontsize=13, ha="right", va="bottom", color=C["text"])
 
+def _tint_hatches(fig):
+    """Hatch lines on a light bar take the dark shade of the same hue (matplotlib 3.10 ties hatch colour to the edge)."""
+    if not HATCH_DARK:
+        return
+    from matplotlib.patches import Patch as _P
+    from matplotlib.colors import to_hex, to_rgba
+    for p in fig.findobj(_P):
+        if p.get_hatch() and p.get_fill():
+            dark = HATCH_DARK.get(to_hex(p.get_facecolor()[:3]).upper())
+            if dark:
+                p._hatch_color = to_rgba(dark)
+
+
 def save(fig, name, png=True, pdf=True):
+    _tint_hatches(fig)
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = []
     if png:
