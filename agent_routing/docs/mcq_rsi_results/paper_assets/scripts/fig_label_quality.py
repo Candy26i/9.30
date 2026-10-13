@@ -44,7 +44,7 @@ for ax, b, tag in zip(axes.flat, style.BENCH_ORDER, "abcd"):
     ax2.bar(xs, calls, width=0.56, facecolor=C["light"], edgecolor=C["edge"], linewidth=0.6, zorder=1)
     ax2.set_ylim(0, 2.7)
     ax2.set_yticks([0, 0.5, 1.0])
-    ax2.tick_params(axis="y", colors=C["dots"], length=0, labelsize=9)
+    ax2.tick_params(axis="y", colors=C["numgray"], length=0, labelsize=9)
     for x, c in zip(xs, calls):
         ax2.text(x, c + 0.035, f"{c:.2f}", ha="center", va="bottom", fontsize=7, color=C["numgray"],
                  bbox=dict(facecolor="white", edgecolor="none", pad=0.6))
@@ -84,19 +84,19 @@ for ax, b, tag in zip(axes.flat, style.BENCH_ORDER, "abcd"):
     ax.set_xlim(-0.6, 5.6)
     ax.set_xticks(xs, [TICK[ROUNDS[x]] for x in xs])
     if len(xs) < len(ROUNDS):
-        ax.text(4.5, lo - 0.2 * span, "labels stop at r3", ha="center", va="center", fontsize=8.5, color=C["muted"], style="italic")
+        pass  # GPQA labels stop at r3: said in the caption, not inside the image
     ax.set_title(f"{style.BENCH_LABEL[b]}  (dev, n = {N_DEV[b]})", fontsize=11.5, pad=8)
     style.panel_tag(ax, f"({tag})", x=-0.08, y=1.03)
     if tag in "ac":
         ax.set_ylabel("Dev accuracy (%)")
     if tag in "bd":
-        ax2.set_ylabel("Calls / question", color=C["dots"], fontsize=10)
+        ax2.set_ylabel("Calls / question", color=C["numgray"], fontsize=10)
         ax2.yaxis.set_label_coords(1.13, 0.20)
 
 # legend fills column-wise: row 1 = accuracy line, S_1 level, calls; row 2 = the two experiment-D markers
 handles = [Line2D([], [], color=C["dark"], marker="o", ms=5, lw=1.6, label="Dev accuracy"),
            Line2D([], [], marker="D", ms=4.5, mfc="white", mec=C["mid"], mew=1.2, ls="none", label="Labels by S$_k$ (before GRPO)"),
-           Line2D([], [], color=C["mid"], ls="--", lw=1.0, label="S$_1$ level"),
+           Line2D([], [], color=C["mid"], ls="--", lw=1.0, label="S$_1$ MARGENT level"),
            Line2D([], [], marker="D", ms=4.5, mfc=C["mid"], mec=C["mid"], ls="none", label="Labels by G$_k$ (after GRPO)"),
            Patch(facecolor=C["light"], edgecolor=C["edge"], label="Calls / question (right)")]
 style.top_legend(fig, handles, [h.get_label() for h in handles], ncol=3, y=0.905)

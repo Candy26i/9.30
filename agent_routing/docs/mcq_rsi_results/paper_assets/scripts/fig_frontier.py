@@ -14,7 +14,7 @@ d = json.load(open(style.ROOT / "data.json"))
 
 # marker shape per policy (fill / edge / hatch come from style.POLICY so every figure agrees)
 MARKER = {"base_only": "o", "base_system": "o", "S_1": "s", "dynamic": "D", "static": "^", "success": "h", "single_cot": "v"}
-SHORT = {"base_only": "Base only", "base_system": "Base system", "S_1": "S$_1$", "dynamic": "RSI dynamic",
+SHORT = {"base_only": "Base only", "base_system": "Base system", "S_1": "S$_1$ MARGENT", "dynamic": "MARGENT RSI dynamic",
          "static": "RSI static", "success": "RSI success", "single_cot": "Single model,\nreasoning"}
 MS = 70
 
@@ -75,7 +75,7 @@ for i, (bench, ax) in enumerate(zip(style.BENCH_ORDER, axes.flat)):
                         hatch=p["hatch"], linewidth=0.8 if pol != "S_1" else 1.0, zorder=z)
         handles.setdefault(pol, sc)
         dx, dy, ha, va = OFF[bench].get(pol, DEFAULT_OFF)
-        ax.annotate(f"{SHORT[pol]}  {acc:.1f}", (tok, acc), xytext=(dx, dy), textcoords="offset points", ha=ha, va=va,
+        ax.annotate(f"{acc:.1f}", (tok, acc), xytext=(dx, dy), textcoords="offset points", ha=ha, va=va,
                     fontsize=9, color=style.C["num"], zorder=4, bbox=LABEL_BOX)
     ax.set_xlim(0, XMAX[bench]); ax.set_ylim(ylo, yhi)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))
@@ -91,7 +91,7 @@ for i, (bench, ax) in enumerate(zip(style.BENCH_ORDER, axes.flat)):
 order = ["base_only", "base_system", "S_1", "dynamic", "static", "success"]
 hs = [handles[k] for k in order] + [Line2D([0], [0], color=style.C["axis"], linestyle=(0, (4, 3)), linewidth=0.9)]
 ls = [style.POLICY[k]["label"] for k in order] + ["Prompt floor (draft only)"]
-fig.subplots_adjust(left=0.09, right=0.98, top=0.865, bottom=0.2, hspace=0.42, wspace=0.16)
+fig.subplots_adjust(left=0.09, right=0.98, top=0.835, bottom=0.2, hspace=0.42, wspace=0.16)
 style.top_legend(fig, hs, ls, ncol=4, y=0.89, handletextpad=0.4, markerscale=1.0, fontsize=10.5)
 N = d["meta"]["n_test"]; sa_g = d["single_agent"]
 letter_budget = sa_g["medqa:test"]["base_nocot_f"]["max_new_tokens"]
