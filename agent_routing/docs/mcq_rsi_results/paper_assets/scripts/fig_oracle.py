@@ -43,7 +43,7 @@ TAGS = ["(a)", "(b)", "(c)", "(d)"]
 ROW_YLIM = {0: (50, 100), 1: (35, 90)}
 ROW_YTICKS = {0: [60, 80, 100], 1: [40, 60, 80]}
 LABEL_X = 2.32   # right end: reference-line labels start here (no markers beyond x = 2)
-lbb = dict(facecolor="white", edgecolor="none", pad=0.6)
+lbb = None  # no white boxes behind numbers (user request 2026-10-13)
 
 def _overlap(a, b):
     return max(0.0, min(a.x1, b.x1) - max(a.x0, b.x0)) * max(0.0, min(a.y1, b.y1) - max(a.y0, b.y0))

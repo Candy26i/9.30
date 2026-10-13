@@ -150,11 +150,13 @@ SERIES_C = [("Base only", "base_only", lambda b: D["single_agent"][f"{b}:test"][
             (style.POLICY["S_1"]["label"], "S_1", lambda b: D["locked"][f"{b}:test"]["v3g/S_1"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/S_1"]["calls"]),
             (style.POLICY["dynamic"]["label"], "dynamic", lambda b: D["locked"][f"{b}:test"]["v3g/dynamic"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/dynamic"]["calls"]),
             (style.POLICY["success"]["label"], "success", lambda b: D["locked"][f"{b}:test"]["v3g/success"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/success"]["calls"])]
-LINE_C = C["num"]
+LINE_C = C["line"]
 from decimal import Decimal as _Dec
 def _exact(v, n, scale=100.0):  # value recomputed from its integer count (stored rates are rounded)
     return round(v * n / scale) * scale / n
 def _n(b): return D["meta"]["n_test"][b]
+import matplotlib.patheffects as _pe
+BAR_TOP = {}  # (benchmark, series index) -> (bar height, fill), for label colours
 CALL_TOP = 8.0  # right axis 0..8 keeps every call point below the bar tops
 fig, ax = plt.subplots(figsize=(7.2, 3.3))
 ax2 = ax.twinx()
@@ -165,22 +167,32 @@ for j, (name, key, fa, fc) in enumerate(SERIES_C):
     xs = x + (j - (k - 1) / 2) * w
     accs = [_exact(fa(b), _n(b)) for b in B]
     calls_j = [_exact(fc(b), _n(b), 1.0) for b in B]
+    for b, v in zip(B, accs):
+        BAR_TOP[(b, j)] = (v, pol["facecolor"])
     bars = ax.bar(xs, accs, w * 0.94, facecolor=pol["facecolor"], edgecolor=C["edge"], hatch=pol["hatch"], linewidth=0.7, zorder=2, label=name)
     for bb, v, c in zip(bars, accs, calls_j):
         pct = c / CALL_TOP * 100  # where the call marker sits, in accuracy units
         clash = (pct - 3) < v + 7 and (pct + 8) > v + 1  # marker or its label would cover the accuracy label
         if clash:
-            ax.text(bb.get_x() + bb.get_width() / 2, v - 1.2, r1(v), ha="center", va="top", fontsize=7.6, color=C["num"], zorder=4,
-                    bbox=dict(facecolor="white", edgecolor="none", pad=0.3, alpha=0.85))
+            ax.text(bb.get_x() + bb.get_width() / 2, v - 1.2, r1(v), ha="center", va="top", fontsize=7.6, color=style.ink_on(pol["facecolor"]), zorder=4,
+                    path_effects=[_pe.Stroke(linewidth=2.2, foreground=pol["facecolor"]), _pe.Normal()])
         else:
             ax.text(bb.get_x() + bb.get_width() / 2, v + 1.2, r1(v), ha="center", va="bottom", fontsize=7.6, color=C["num"], zorder=4)
 for bi, b in enumerate(B):  # one line per benchmark through the five policies
     xs = [x[bi] + (j - (k - 1) / 2) * w for j in range(k)]
     cs = [_exact(fc(b), _n(b), 1.0) for _, _, _, fc in SERIES_C]
-    ax2.plot(xs, cs, color=LINE_C, lw=1.2, marker="o", ms=3.8, mfc="white", mec=LINE_C, mew=1.0, zorder=5)
-    for xx, c in zip(xs, cs):
-        ax2.text(xx, c + 0.16, f"{c:.2f}" if c else "0", ha="center", va="bottom", fontsize=6.8, color=LINE_C, zorder=6,
-                 bbox=dict(facecolor="white", edgecolor="none", pad=0.4, alpha=0.85))
+    import matplotlib.patheffects as _pe
+    ax2.plot(xs, cs, color=LINE_C, lw=1.2, marker="o", ms=3.8, mfc="white", mec=LINE_C, mew=1.0, zorder=5,
+             path_effects=[_pe.Stroke(linewidth=2.8, foreground="white"), _pe.Normal()])
+    for j, (xx, c) in enumerate(zip(xs, cs)):
+        top, face = BAR_TOP[(b, j)]
+        below = j > 0 and cs[j - 1] > c and c >= 0.55  # the line arrives from above: put the number under the marker
+        yy, va = (c - 0.16, "top") if below else (c + 0.16, "bottom")
+        xt, ha = xx, "center"
+        inside = (yy + (0 if below else 0.3)) / CALL_TOP * 100 + 3.5 < top  # the number sits on the bar: pick a colour that reads on it
+        ax2.text(xt, yy, f"{c:.2f}" if c else "0", ha=ha, va=va, fontsize=6.8, zorder=6,
+                 color=style.ink_on(face) if inside else LINE_C,
+                 path_effects=[_pe.Stroke(linewidth=2.2, foreground=face), _pe.Normal()] if inside else None)
 ax.set_ylim(0, 100); ax.set_yticks([0, 25, 50, 75, 100]); ax.set_ylabel("Accuracy (%)")
 ax2.set_ylim(0, CALL_TOP); ax2.set_yticks([0, 1, 2, 3]); ax2.spines["right"].set_visible(True); ax2.spines["right"].set_bounds(0, 3)
 ax2.spines["right"].set_color(C["axis"]); ax2.tick_params(axis="y", length=3, colors=C["num"], labelsize=10); ax2.grid(False)

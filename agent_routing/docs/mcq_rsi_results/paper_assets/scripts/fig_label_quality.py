@@ -46,8 +46,7 @@ for ax, b, tag in zip(axes.flat, style.BENCH_ORDER, "abcd"):
     ax2.set_yticks([0, 0.5, 1.0])
     ax2.tick_params(axis="y", colors=C["numgray"], length=0, labelsize=9)
     for x, c in zip(xs, calls):
-        ax2.text(x, c + 0.035, f"{c:.2f}", ha="center", va="bottom", fontsize=7, color=C["numgray"],
-                 bbox=dict(facecolor="white", edgecolor="none", pad=0.6))
+        ax2.text(x, c + 0.035, f"{c:.2f}", ha="center", va="bottom", fontsize=7, color=C["numgray"])
     ax.set_zorder(ax2.get_zorder() + 1); ax.patch.set_visible(False)   # draw the accuracy axis above the bars
 
     # y-range: accuracy data in the upper half of the panel, bars below; accuracy ticks only where the data lives
@@ -62,8 +61,7 @@ for ax, b, tag in zip(axes.flat, style.BENCH_ORDER, "abcd"):
     ax.axhline(s1, color=C["mid"], ls="--", lw=1.0, zorder=3)
     ax.plot(xs, acc, color=C["dark"], marker="o", ms=5, lw=1.6, zorder=5)
     for x, a in zip(xs, acc):
-        ax.text(x, a + off, f"{a:.1f}", ha="center", va="bottom", fontsize=8, color=C["num"], zorder=4,
-                bbox=dict(facecolor="white", edgecolor="none", pad=0.4))
+        ax.text(x, a + off, f"{a:.1f}", ha="center", va="bottom", fontsize=8, color=C["num"], zorder=4)
 
     # experiment D: hollow = S_k, filled = G_k, just right of chain round r_{k+1}; one delta label per pair
     pairs = {}

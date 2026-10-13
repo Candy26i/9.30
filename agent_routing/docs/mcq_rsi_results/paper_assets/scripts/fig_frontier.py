@@ -54,7 +54,7 @@ OFF = {
     "aqua": {"base_only": (8, 2, "left", "bottom"), "base_system": (0, -9, "center", "top"), "S_1": (-8, -5, "right", "top"),
              "dynamic": (-8, 5, "right", "bottom"), "success": (8, 2, "left", "bottom")},
 }
-LABEL_BOX = dict(boxstyle="square,pad=0.08", facecolor="white", edgecolor="none", alpha=0.9)
+LABEL_BOX = None  # no white boxes behind numbers
 
 fig, axes = plt.subplots(2, 2, figsize=(7.2, 6.6))
 handles = {}

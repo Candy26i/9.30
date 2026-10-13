@@ -31,6 +31,7 @@ HATCH_COLOR = {"dynamic": "white", "static": style.C["edge"]}
 
 # light / dark shade of one hue per arm: SFT only = light tint with a dark hatch, SFT + FA-GRPO = solid dark (2026-10-13)
 PAIR = ({"dynamic": ("#A8DAB5", "#1E8E3E"), "static": ("#AECBFA", "#1A73E8")} if style.PALETTE == "google"
+        else {"dynamic": ("#A6D8B5", "#117733"), "static": ("#C2E4F5", "#2F7FA8")} if style.PALETTE == "tol"
         else {"dynamic": ("#BFE3B4", "#2E8B3E"), "static": ("#C9E1F6", "#1F5A96")})
 HATCH_COLOR = {pol: dark for pol, (light, dark) in PAIR.items()}
 

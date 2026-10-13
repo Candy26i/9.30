@@ -10,7 +10,8 @@ from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parent
-FIG_DIR = ROOT / ("fig_google" if _os.environ.get("MARGENT_PALETTE", "bluegreen") == "google" else "fig")
+_PAL = _os.environ.get("MARGENT_PALETTE", "tol")  # 2026-10-13: Paul Tol muted is the default (judged best); others go to fig_<name>/
+FIG_DIR = ROOT / ("fig" if _PAL == "tol" else f"fig_{_PAL}")
 
 # palette (sampled from the reference figures)
 C = {  # 2026-10-12: one blue-green family with five clearly separated lightness levels (user asked for stronger contrast)
@@ -28,13 +29,34 @@ C = {  # 2026-10-12: one blue-green family with five clearly separated lightness
      "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#2E4250", "numgray": "#55636D"}
 
 # Alternative palette: MARGENT_PALETTE=google renders with the Google Sheets / Charts default colours into fig_google/
-PALETTE = _os.environ.get("MARGENT_PALETTE", "bluegreen")
+PALETTE = _os.environ.get("MARGENT_PALETTE", "tol")
 if PALETTE == "google":  # bright Google tones, two hues x two lightness levels (as in the GRPO figure the user liked, 2026-10-13)
     C.update({"light": "#AECBFA", "mid": "#1A73E8", "dark": "#1E8E3E", "slate": "#1A73E8", "dots": "#188038", "tan": "#A8DAB5",
               "unsolved": "#E8EAED", "red": "#1A73E8", "purple": "#AECBFA", "green": "#1E8E3E", "blue": "#1A73E8", "lgreen": "#A8DAB5",
               "sky": "#AECBFA", "edge": "#5F6368", "grid": "#E8EAED", "axis": "#9AA0A6", "text": "#202124", "muted": "#5F6368",
               "num": "#3C4043", "numgray": "#5F6368"})
-HATCH_DARK = {"#A8DAB5": "#1E8E3E", "#AECBFA": "#1A73E8"} if PALETTE == "google" else {}
+HATCH_DARK = ({"#A8DAB5": "#1E8E3E", "#AECBFA": "#1A73E8"} if PALETTE == "google" else
+              {"#A6D8B5": "#117733", "#88CCEE": "#2F7FA8"} if PALETTE == "tol" else {})
+
+# Candidate academic palettes (2026-10-13, the user found the Google tones too loud). Keys used by the figures:
+# unsolved = base only / unsolved, light = base system / direct / always-Verifier, mid = S_1 / Verifier / selected,
+# dark = RSI dynamic / first call / Reasoner / correction, slate = RSI static, lgreen = RSI success / Extractor,
+# tan = force all / second call, red = corruption, line = tool-call line.
+CANDIDATES = {
+    "npg":     dict(unsolved="#E3E3E3", light="#91D1C2", mid="#4DBBD5", dark="#00A087", slate="#3C5488", lgreen="#8491B4", tan="#F39B7F", red="#E64B35", line="#E64B35"),
+    "tol":     dict(unsolved="#DDDDDD", light="#88CCEE", mid="#44AA99", dark="#117733", slate="#332288", lgreen="#A6D8B5", tan="#A6D8B5", red="#2F7FA8", line="#333333"),
+    "gnbu":    dict(unsolved="#E6F2E1", light="#A8DDB5", mid="#7BCCC4", dark="#43A2CA", slate="#7BCCC4", lgreen="#0868AC", tan="#CCEBC5", red="#0868AC", line="#252525"),
+    "morandi": dict(unsolved="#E6E1DC", light="#C9D6DF", mid="#7895B2", dark="#5E7D7E", slate="#A7B4C2", lgreen="#D4B499", tan="#E2D4C3", red="#B5838D", line="#4A4A4A"),
+    "deep":    dict(unsolved="#D9D9D9", light="#A1C9F4", mid="#4C72B0", dark="#55A868", slate="#64B5CD", lgreen="#8172B3", tan="#CCB974", red="#C44E52", line="#C44E52"),
+    "lancet":  dict(unsolved="#E5E5E5", light="#ADB6B6", mid="#00468B", dark="#42B540", slate="#0099B4", lgreen="#925E9F", tan="#FDAF91", red="#ED0000", line="#AD002A"),
+}
+FLAT = PALETTE in CANDIDATES
+if FLAT:
+    _c = CANDIDATES[PALETTE]
+    C.update(_c); C.update({"green": _c["dark"], "blue": _c["mid"], "sky": _c["light"], "dots": _c["lgreen"], "purple": _c["slate"],
+              "edge": "#6B6B6B" if PALETTE == "tol" else "#4D4D4D", "grid": "#E8E8E8", "axis": "#9A9A9A", "text": "#222222", "muted": "#666666", "num": "#333333", "numgray": "#555555"})
+C.setdefault("line", C["num"])
+
 
 # one style per policy, used by every figure so the same thing always looks the same
 POLICY = {
@@ -49,6 +71,8 @@ POLICY = {
     "force_all":   dict(label="Force all",            facecolor=C["tan"],      edgecolor=C["edge"], hatch="//"),
     "oracle":      dict(label="Oracle",               facecolor="white",       edgecolor=C["dark"], hatch="", linestyle="--"),
 }
+if FLAT:
+    POLICY["base_system"]["hatch"] = ""; POLICY["success"]["hatch"] = "//" if PALETTE == "tol" else ""
 NO_GRPO = dict(hatch="\\\\", alpha=0.85)   # overlay for "without GRPO" variants of dynamic / static
 
 def setup():
@@ -101,6 +125,13 @@ def caption(fig, lines, y=0.01, x=0.12, fontsize=10):
 
 def panel_tag(ax, tag, x=-0.06, y=1.02):
     ax.text(x, y, tag, transform=ax.transAxes, fontsize=13, ha="right", va="bottom", color=C["text"])
+
+def ink_on(face):
+    """Text colour for a label drawn on top of a filled bar: white on dark fills, the number colour on light ones."""
+    from matplotlib.colors import to_rgb
+    r, g, b = to_rgb(face)
+    return "white" if 0.299 * r + 0.587 * g + 0.114 * b < 0.42 else C["num"]
+
 
 def _tint_hatches(fig):
     """Hatch lines on a light bar take the dark shade of the same hue (matplotlib 3.10 ties hatch colour to the edge)."""

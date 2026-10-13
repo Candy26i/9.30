@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 for s in tab_main fig_grpo_ablation tab_grpo_ablation fig_label_quality fig_rounds tab_rounds fig_single_agent fig_frontier fig_oracle fig_selfcheck tab_replay tab_setup tab_grpo_log tab_final fig_final tab_appendix; do
   printf '%-20s' "$s"; python3 "scripts/$s.py" > /dev/null && echo ok
 done
-for s in fig_final fig_grpo_ablation fig_rounds fig_oracle fig_selfcheck fig_label_quality fig_frontier fig_single_agent; do MARGENT_PALETTE=google python3 "scripts/$s.py" > /dev/null; done  # Google-palette copies in fig_google/
+for s in fig_final fig_grpo_ablation fig_rounds fig_oracle fig_selfcheck fig_label_quality fig_frontier fig_single_agent; do MARGENT_PALETTE=google python3 "scripts/$s.py" > /dev/null; MARGENT_PALETTE=bluegreen python3 "scripts/$s.py" > /dev/null; done  # fig/ = Paul Tol muted (default); copies in fig_google/ and fig_bluegreen/
 python3 scripts/fit_acl.py
 bash scripts/render_previews.sh
 python3 build_gallery.py
