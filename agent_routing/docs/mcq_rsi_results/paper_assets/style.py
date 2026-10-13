@@ -12,19 +12,19 @@ ROOT = Path(__file__).resolve().parent
 FIG_DIR = ROOT / "fig"
 
 # palette (sampled from the reference figures)
-C = {  # 2026-10-12: palette sampled from the user's hand-drawn figures (Figure 1 and Figure 4 of the paper)
-     "light": "#CFE5F7",    # sky-blue tint (#88C3F1 family): direct answer, always-Verifier, base system
-     "mid": "#3B8FC9",      # sky blue: S_1, Verifier, selected MARGENT
-     "dark": "#43A44A",     # green (the selected path in Figure 1): RSI dynamic, first call, Reasoner, correction
-     "slate": "#7FB3DD",    # lighter blue: RSI static (one blue-green family, 2026-10-12)
-     "dots": "#2E8B57",     # deep green: RSI success
-     "tan": "#A8D5A2",      # light green, hatched: force all, second call
+C = {  # 2026-10-12: one blue-green family with five clearly separated lightness levels (user asked for stronger contrast)
+     "light": "#D6E9F8",    # very light blue: direct answer, always-Verifier, base system
+     "mid": "#1F5A96",      # deep blue: S_1 MARGENT, Verifier, selected MARGENT
+     "dark": "#3A9E4B",     # green: MARGENT RSI (dynamic), first call, Reasoner, correction
+     "slate": "#7DB9E8",    # sky blue: MARGENT RSI (static)
+     "dots": "#1E7A3C",     # deep green: RSI success
+     "tan": "#BFE3B4",      # light green (hatched): force all, second call
      "unsolved": "#ECEEF0", # light gray: unsolved, base only
-     "red": "#F5536F",      # coral red (the books): corruption
-     "purple": "#967CA9",
-     "green": "#43A44A", "blue": "#3B8FC9", "lgreen": "#A8D5A2", "sky": "#88C3F1",
-     "edge": "#3F5765",     # dark slate (Figure 1 icons): outlines and hatches
-     "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#3F5765", "numgray": "#5F6E78"}
+     "red": "#1F5A96",
+     "purple": "#7DB9E8",
+     "green": "#3A9E4B", "blue": "#1F5A96", "lgreen": "#BFE3B4", "sky": "#7DB9E8",
+     "edge": "#2E4250",     # dark slate: outlines and hatches
+     "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#2E4250", "numgray": "#55636D"}
 
 # one style per policy, used by every figure so the same thing always looks the same
 POLICY = {
