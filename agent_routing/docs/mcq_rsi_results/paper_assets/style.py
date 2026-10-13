@@ -2,6 +2,7 @@
 reference bars, value labels above bars, light horizontal grid, a gray caption line under the axes, PNG + PDF output.
 Mirrors the look of the six reference figures (images/1.jpg .. 6.jpg)."""
 from pathlib import Path
+import os as _os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parent
-FIG_DIR = ROOT / "fig"
+FIG_DIR = ROOT / ("fig_google" if _os.environ.get("MARGENT_PALETTE", "bluegreen") == "google" else "fig")
 
 # palette (sampled from the reference figures)
 C = {  # 2026-10-12: one blue-green family with five clearly separated lightness levels (user asked for stronger contrast)
@@ -25,6 +26,14 @@ C = {  # 2026-10-12: one blue-green family with five clearly separated lightness
      "green": "#3A9E4B", "blue": "#1F5A96", "lgreen": "#BFE3B4", "sky": "#7DB9E8",
      "edge": "#2E4250",     # dark slate: outlines and hatches
      "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#2E4250", "numgray": "#55636D"}
+
+# Alternative palette: MARGENT_PALETTE=google renders with the Google Sheets / Charts default colours into fig_google/
+PALETTE = _os.environ.get("MARGENT_PALETTE", "bluegreen")
+if PALETTE == "google":
+    C.update({"light": "#AECBFA", "mid": "#4285F4", "dark": "#34A853", "slate": "#EA4335", "dots": "#FF6D01", "tan": "#FBBC04",
+              "unsolved": "#E8EAED", "red": "#EA4335", "purple": "#EA4335", "green": "#34A853", "blue": "#4285F4", "lgreen": "#FBBC04",
+              "sky": "#46BDC6", "edge": "#5F6368", "grid": "#E8EAED", "axis": "#9AA0A6", "text": "#202124", "muted": "#5F6368",
+              "num": "#3C4043", "numgray": "#5F6368"})
 
 # one style per policy, used by every figure so the same thing always looks the same
 POLICY = {

@@ -131,7 +131,7 @@ order = B[::-1]; y = np.arange(len(order))
 for i, b in enumerate(order):
     calls, corr, corrupt = PT["table8_outcomes"][b]
     ax.barh(i, corr * 100, height=0.55, **bar_kw(C["green"]), label="Correction" if i == 0 else None)
-    ax.barh(i, -corrupt * 100, height=0.55, **bar_kw(C["blue"]), label="Corruption" if i == 0 else None)
+    ax.barh(i, -corrupt * 100, height=0.55, **bar_kw(C["red"]), label="Corruption" if i == 0 else None)
     ax.text(corr * 100 + 0.8, i, f"+{r1(corr * 100)}", ha="left", va="center", fontsize=8.5, color=C["num"])
     ax.text(-corrupt * 100 - 0.8, i, f"$-${r1(corrupt * 100)}", ha="right", va="center", fontsize=8.5, color=C["num"])
     ax.text(58, i, f"+{r1((corr - corrupt) * 100)}", ha="left", va="center", fontsize=9, color=C["num"])
