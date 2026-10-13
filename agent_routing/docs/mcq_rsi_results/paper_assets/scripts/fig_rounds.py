@@ -100,7 +100,7 @@ handles = [Line2D([], [], color=ARMS["dynamic"]["color"], marker="o", ms=4.6, lw
            Line2D([], [], ls="none", marker="o", ms=6.8, mfc="white", mec=ARMS["dynamic"]["color"], mew=1.3),
            Line2D([], [], ls="none", marker="s", ms=6.8, mfc="white", mec=ARMS["static"]["color"], mew=1.3),
            Line2D([], [], ls="none", marker="o", ms=6.8, mfc="white", mec=style.C["edge"], mew=1.3)]
-style.top_legend(fig, handles, ["dynamic (dev)", "static (dev)", "dynamic (test)", "static (test)", "S$_1$ MARGENT (test)"], ncol=5, y=0.93, handletextpad=0.4)
+style.top_legend(fig, handles, ["dynamic (dev)", "static (dev)", "dynamic (test)", "static (test)", "MARGENT S$_1$ (test)"], ncol=5, y=0.93, handletextpad=0.4)
 
 style.caption(fig, ["No-GRPO chain (v3): dev accuracy and calls per question per round; round 1 = S$_1$. GPQA: 3 rounds.",
                     "Hollow markers = locked test (MedQA 500, MMLU-Pro 500 test, GPQA 100, AQuA 254).",

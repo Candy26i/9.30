@@ -87,7 +87,7 @@ T = {b: D["tokens"][f"{b}:test"] for b in B}
 def s1_tokens(b):
     return T[b]["v3g/S_1"]["total"] if "v3g/S_1" in T[b] else T[b]["v3/S_1"]["total"]
 series = [("Base system", lambda b: T[b]["base/manager"]["total"], style.POLICY["base_system"]),
-          ("S$_1$ MARGENT", s1_tokens, style.POLICY["S_1"]),
+          ("MARGENT S$_1$", s1_tokens, style.POLICY["S_1"]),
           ("MARGENT RSI (dynamic)", lambda b: T[b]["v3g/dynamic"]["total"], style.POLICY["dynamic"])]
 fig, ax = plt.subplots(figsize=(7.2, 2.6))
 x = np.arange(len(B)); w = 0.26
@@ -143,6 +143,56 @@ ax.set_xlabel("Signed outcome mass (% of all examples)")
 style.horizontal_axes(ax)
 style.top_legend(ax, ncol=2, y=1.0, fontsize=10)
 out["fig_final_outcomes"] = style.save(fig, "fig_final_outcomes")
+
+# ---------------------------------------------------------------- fig_final_calls (main): accuracy bars + tool-call line
+SERIES_C = [("Base only", "base_only", lambda b: D["single_agent"][f"{b}:test"]["base_nocot_f"]["acc"], lambda b: 0.0),
+            ("Base system", "base_system", lambda b: D["base_system"][f"{b}:test"]["acc"], lambda b: D["base_system"][f"{b}:test"]["calls"]),
+            (style.POLICY["S_1"]["label"], "S_1", lambda b: D["locked"][f"{b}:test"]["v3g/S_1"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/S_1"]["calls"]),
+            (style.POLICY["dynamic"]["label"], "dynamic", lambda b: D["locked"][f"{b}:test"]["v3g/dynamic"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/dynamic"]["calls"]),
+            (style.POLICY["success"]["label"], "success", lambda b: D["locked"][f"{b}:test"]["v3g/success"]["acc"], lambda b: D["locked"][f"{b}:test"]["v3g/success"]["calls"])]
+LINE_C = C["num"]
+from decimal import Decimal as _Dec
+def _exact(v, n, scale=100.0):  # value recomputed from its integer count (stored rates are rounded)
+    return round(v * n / scale) * scale / n
+def _n(b): return D["meta"]["n_test"][b]
+CALL_TOP = 8.0  # right axis 0..8 keeps every call point below the bar tops
+fig, ax = plt.subplots(figsize=(7.2, 3.3))
+ax2 = ax.twinx()
+x = np.arange(len(B)); k = len(SERIES_C); w = 0.16
+handles = []
+for j, (name, key, fa, fc) in enumerate(SERIES_C):
+    pol = style.POLICY[key]
+    xs = x + (j - (k - 1) / 2) * w
+    accs = [_exact(fa(b), _n(b)) for b in B]
+    calls_j = [_exact(fc(b), _n(b), 1.0) for b in B]
+    bars = ax.bar(xs, accs, w * 0.94, facecolor=pol["facecolor"], edgecolor=C["edge"], hatch=pol["hatch"], linewidth=0.7, zorder=2, label=name)
+    for bb, v, c in zip(bars, accs, calls_j):
+        pct = c / CALL_TOP * 100  # where the call marker sits, in accuracy units
+        clash = (pct - 3) < v + 7 and (pct + 8) > v + 1  # marker or its label would cover the accuracy label
+        if clash:
+            ax.text(bb.get_x() + bb.get_width() / 2, v - 1.2, r1(v), ha="center", va="top", fontsize=7.6, color=C["num"], zorder=4,
+                    bbox=dict(facecolor="white", edgecolor="none", pad=0.3, alpha=0.85))
+        else:
+            ax.text(bb.get_x() + bb.get_width() / 2, v + 1.2, r1(v), ha="center", va="bottom", fontsize=7.6, color=C["num"], zorder=4)
+for bi, b in enumerate(B):  # one line per benchmark through the five policies
+    xs = [x[bi] + (j - (k - 1) / 2) * w for j in range(k)]
+    cs = [_exact(fc(b), _n(b), 1.0) for _, _, _, fc in SERIES_C]
+    ax2.plot(xs, cs, color=LINE_C, lw=1.2, marker="o", ms=3.8, mfc="white", mec=LINE_C, mew=1.0, zorder=5)
+    for xx, c in zip(xs, cs):
+        ax2.text(xx, c + 0.16, f"{c:.2f}" if c else "0", ha="center", va="bottom", fontsize=6.8, color=LINE_C, zorder=6,
+                 bbox=dict(facecolor="white", edgecolor="none", pad=0.4, alpha=0.85))
+ax.set_ylim(0, 100); ax.set_yticks([0, 25, 50, 75, 100]); ax.set_ylabel("Accuracy (%)")
+ax2.set_ylim(0, CALL_TOP); ax2.set_yticks([0, 1, 2, 3]); ax2.spines["right"].set_visible(True); ax2.spines["right"].set_bounds(0, 3)
+ax2.spines["right"].set_color(C["axis"]); ax2.tick_params(axis="y", length=3, colors=C["num"], labelsize=10); ax2.grid(False)
+ax2.set_ylabel("Tool calls per question", color=C["num"]); ax2.yaxis.set_label_coords(1.055, 0.25)
+for sp in ("top",):
+    ax2.spines[sp].set_visible(False)
+ax.set_xticks(x, [LAB[b] for b in B]); ax.tick_params(axis="x", length=0)
+from matplotlib.lines import Line2D as _L2
+h, l = ax.get_legend_handles_labels()
+h.append(_L2([], [], color=LINE_C, lw=1.2, marker="o", ms=3.8, mfc="white", mec=LINE_C)); l.append("Tool calls (right)")
+ax.legend(h, l, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=3, frameon=False, fontsize=9.5, handlelength=1.6, columnspacing=1.4)
+out["fig_final_calls"] = style.save(fig, "fig_final_calls")
 
 print(json.dumps({"tokens": vals}, indent=None))
 for k, v in out.items(): print(k, v[0])

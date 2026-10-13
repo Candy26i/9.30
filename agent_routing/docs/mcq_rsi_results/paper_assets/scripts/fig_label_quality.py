@@ -96,7 +96,7 @@ for ax, b, tag in zip(axes.flat, style.BENCH_ORDER, "abcd"):
 # legend fills column-wise: row 1 = accuracy line, S_1 level, calls; row 2 = the two experiment-D markers
 handles = [Line2D([], [], color=C["dark"], marker="o", ms=5, lw=1.6, label="Dev accuracy"),
            Line2D([], [], marker="D", ms=4.5, mfc="white", mec=C["mid"], mew=1.2, ls="none", label="Labels by S$_k$ (before GRPO)"),
-           Line2D([], [], color=C["mid"], ls="--", lw=1.0, label="S$_1$ MARGENT level"),
+           Line2D([], [], color=C["mid"], ls="--", lw=1.0, label="MARGENT S$_1$ level"),
            Line2D([], [], marker="D", ms=4.5, mfc=C["mid"], mec=C["mid"], ls="none", label="Labels by G$_k$ (after GRPO)"),
            Patch(facecolor=C["light"], edgecolor=C["edge"], label="Calls / question (right)")]
 style.top_legend(fig, handles, [h.get_label() for h in handles], ncol=3, y=0.905)

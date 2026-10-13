@@ -40,10 +40,10 @@ HATCH_DARK = {"#A8DAB5": "#1E8E3E", "#AECBFA": "#1A73E8"} if PALETTE == "google"
 POLICY = {
     "base_only":   dict(label="Base only",            facecolor=C["unsolved"], edgecolor=C["edge"], hatch=""),
     "base_system": dict(label="Base system",          facecolor=C["light"],    edgecolor=C["edge"], hatch="//"),
-    "S_1":         dict(label="S$_1$ MARGENT",        facecolor=C["mid"],      edgecolor=C["edge"], hatch=""),
+    "S_1":         dict(label="MARGENT S$_1$",        facecolor=C["mid"],      edgecolor=C["edge"], hatch=""),
     "dynamic":     dict(label="MARGENT RSI (dynamic)", facecolor=C["dark"],     edgecolor=C["edge"], hatch=""),
     "static":      dict(label="MARGENT RSI (static)", facecolor=C["slate"],    edgecolor=C["edge"], hatch=""),
-    "success":     dict(label="MARGENT RSI (success)", facecolor=C["dots"],     edgecolor=C["edge"], hatch=".."),
+    "success":     dict(label="MARGENT RSI (success)", facecolor=C["lgreen"],   edgecolor=C["edge"], hatch=".."),
     "single_cot":  dict(label="Single model, reasoning", facecolor=C["tan"],   edgecolor=C["edge"], hatch="//"),
     "verifier":    dict(label="Force Verifier",       facecolor=C["light"],    edgecolor=C["edge"], hatch=""),
     "force_all":   dict(label="Force all",            facecolor=C["tan"],      edgecolor=C["edge"], hatch="//"),

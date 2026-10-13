@@ -122,7 +122,7 @@ style.top_legend(ax_a, handles=handles_a, labels=[hh.get_label() for hh in handl
 
 # ---- (b) accuracy at S_1's call budget, vertical grouped bars -----------------------------------------------------
 SERIES_B = [
-    ("S$_1$ MARGENT", pol("S_1"), s1_acc),
+    ("MARGENT S$_1$", pol("S_1"), s1_acc),
     ("Router", pol("base_system"), router_acc[ROUTER]),
     ("Always Verifier", pol("verifier"), av_acc),
 ]

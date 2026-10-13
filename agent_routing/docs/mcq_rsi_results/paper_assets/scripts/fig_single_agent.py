@@ -60,11 +60,11 @@ SUC_TOK = ["v3g/success", "abl/success", "main/success"]  # v3g where measured, 
 SERIES = [
     dict(label="Base, letter only", style=pol("base_only"),
          acc=lambda b: (sa(b, "base_nocot_f") or {}).get("acc"), tok=lambda b: ((sa(b, "base_nocot_f") or {}).get("total_tok"), "single_agent/base_nocot_f")),
-    dict(label="S$_1$ MARGENT, letter only", style=pol("S_1", hatch="xx"),
+    dict(label="MARGENT S$_1$, letter only", style=pol("S_1", hatch="xx"),
          acc=lambda b: (sa(b, "s1_nocot_f") or {}).get("acc"), tok=lambda b: ((sa(b, "s1_nocot_f") or {}).get("total_tok"), "single_agent/s1_nocot_f")),
-    dict(label="S$_1$ MARGENT draft, no tools", style=pol("S_1", hatch="//"),
+    dict(label="MARGENT S$_1$ draft, no tools", style=pol("S_1", hatch="//"),
          acc=lambda b: (sa(b, "s1_manager_notools") or {}).get("acc"), tok=lambda b: ((sa(b, "s1_manager_notools") or {}).get("total_tok"), "single_agent/s1_manager_notools")),
-    dict(label="S$_1$ MARGENT + advisors", style=pol("S_1"),
+    dict(label="MARGENT S$_1$ + advisors", style=pol("S_1"),
          acc=lambda b: locked(b, "v3g/S_1")["acc"], tok=lambda b: tokens(b, S1_TOK)),
     dict(label="MARGENT RSI (dynamic)", style=pol("dynamic"),
          acc=lambda b: locked(b, "v3g/dynamic")["acc"], tok=lambda b: tokens(b, ["v3g/dynamic"])),
@@ -77,7 +77,7 @@ SERIES = [
 ACC = {s["label"]: [s["acc"](b) for b in B] for s in SERIES}
 TOK = {s["label"]: [s["tok"](b)[0] for b in B] for s in SERIES}
 TOK_SRC = {s["label"]: [s["tok"](b)[1] for b in B] for s in SERIES}
-s1_fallback = [L[b] for b, lab in zip(B, TOK_SRC["S$_1$ MARGENT + advisors"]) if lab != "v3g/S_1"]
+s1_fallback = [L[b] for b, lab in zip(B, TOK_SRC["MARGENT S$_1$ + advisors"]) if lab != "v3g/S_1"]
 suc_fallback = [L[b] for b, lab in zip(B, TOK_SRC["MARGENT RSI (success)"]) if lab != "v3g/success"]
 
 

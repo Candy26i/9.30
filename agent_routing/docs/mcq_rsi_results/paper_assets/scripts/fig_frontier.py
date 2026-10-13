@@ -14,7 +14,7 @@ d = json.load(open(style.ROOT / "data.json"))
 
 # marker shape per policy (fill / edge / hatch come from style.POLICY so every figure agrees)
 MARKER = {"base_only": "o", "base_system": "o", "S_1": "s", "dynamic": "D", "static": "^", "success": "h", "single_cot": "v"}
-SHORT = {"base_only": "Base only", "base_system": "Base system", "S_1": "S$_1$ MARGENT", "dynamic": "MARGENT RSI dynamic",
+SHORT = {"base_only": "Base only", "base_system": "Base system", "S_1": "MARGENT S$_1$", "dynamic": "MARGENT RSI dynamic",
          "static": "RSI static", "success": "RSI success", "single_cot": "Single model,\nreasoning"}
 MS = 70
 
