@@ -17,7 +17,7 @@ d = json.load(open(Path(ROOT) / "data.json"))
 O = d["oracle_dev"]
 BENCH = style.BENCH_ORDER
 CK = ["S_1", "r3", "r5"]
-CK_LABEL = {"S_1": "S$_1$", "r3": "Round 3", "r5": "Round 5"}
+CK_LABEL = {"S_1": "S$_1$ MARGENT", "r3": "Round 3", "r5": "Round 5"}
 CK_SHORT = {"S_1": "S$_1$", "r3": "R3", "r5": "R5"}
 X = {"S_1": 0, "r3": 1, "r5": 2}
 

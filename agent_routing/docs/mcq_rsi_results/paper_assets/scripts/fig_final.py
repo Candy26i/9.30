@@ -87,8 +87,8 @@ T = {b: D["tokens"][f"{b}:test"] for b in B}
 def s1_tokens(b):
     return T[b]["v3g/S_1"]["total"] if "v3g/S_1" in T[b] else T[b]["v3/S_1"]["total"]
 series = [("Base system", lambda b: T[b]["base/manager"]["total"], style.POLICY["base_system"]),
-          ("S$_1$", s1_tokens, style.POLICY["S_1"]),
-          ("RSI (dynamic)", lambda b: T[b]["v3g/dynamic"]["total"], style.POLICY["dynamic"])]
+          ("S$_1$ MARGENT", s1_tokens, style.POLICY["S_1"]),
+          ("MARGENT RSI (dynamic)", lambda b: T[b]["v3g/dynamic"]["total"], style.POLICY["dynamic"])]
 fig, ax = plt.subplots(figsize=(7.2, 2.6))
 x = np.arange(len(B)); w = 0.26
 vals = {name: [f(b) for b in B] for name, f, _ in series}

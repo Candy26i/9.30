@@ -30,8 +30,8 @@ C = {  # 2026-10-12: palette sampled from the user's hand-drawn figures (Figure 
 POLICY = {
     "base_only":   dict(label="Base only",            facecolor=C["unsolved"], edgecolor=C["edge"], hatch=""),
     "base_system": dict(label="Base system",          facecolor=C["light"],    edgecolor=C["edge"], hatch="//"),
-    "S_1":         dict(label="S$_1$",                facecolor=C["mid"],      edgecolor=C["edge"], hatch=""),
-    "dynamic":     dict(label="RSI (dynamic)",        facecolor=C["dark"],     edgecolor=C["edge"], hatch=""),
+    "S_1":         dict(label="S$_1$ MARGENT",        facecolor=C["mid"],      edgecolor=C["edge"], hatch=""),
+    "dynamic":     dict(label="MARGENT RSI (dynamic)", facecolor=C["dark"],     edgecolor=C["edge"], hatch=""),
     "static":      dict(label="RSI (static)",         facecolor=C["slate"],    edgecolor=C["edge"], hatch=""),
     "success":     dict(label="RSI (success)",        facecolor=C["dots"],     edgecolor=C["edge"], hatch=".."),
     "single_cot":  dict(label="Single model, reasoning", facecolor=C["tan"],   edgecolor=C["edge"], hatch="//"),
