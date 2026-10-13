@@ -16,13 +16,13 @@ C = {  # 2026-10-12: palette sampled from the user's hand-drawn figures (Figure 
      "light": "#CFE5F7",    # sky-blue tint (#88C3F1 family): direct answer, always-Verifier, base system
      "mid": "#3B8FC9",      # sky blue: S_1, Verifier, selected MARGENT
      "dark": "#43A44A",     # green (the selected path in Figure 1): RSI dynamic, first call, Reasoner, correction
-     "slate": "#967CA9",    # purple (the JSON badge): RSI static
-     "dots": "#FCB81A",     # amber (the emoji): RSI success
-     "tan": "#FCB81A",      # amber, hatched: force all, second call
+     "slate": "#7FB3DD",    # lighter blue: RSI static (one blue-green family, 2026-10-12)
+     "dots": "#2E8B57",     # deep green: RSI success
+     "tan": "#A8D5A2",      # light green, hatched: force all, second call
      "unsolved": "#ECEEF0", # light gray: unsolved, base only
      "red": "#F5536F",      # coral red (the books): corruption
      "purple": "#967CA9",
-     "green": "#43A44A", "blue": "#3B8FC9", "amber": "#FCB81A", "sky": "#88C3F1",
+     "green": "#43A44A", "blue": "#3B8FC9", "lgreen": "#A8D5A2", "sky": "#88C3F1",
      "edge": "#3F5765",     # dark slate (Figure 1 icons): outlines and hatches
      "grid": "#E6E8EA", "axis": "#8A969E", "text": "#222222", "muted": "#66757F", "num": "#3F5765", "numgray": "#5F6E78"}
 

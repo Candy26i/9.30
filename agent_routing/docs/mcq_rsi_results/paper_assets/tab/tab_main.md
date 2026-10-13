@@ -6,8 +6,8 @@
 
 | Policy | MedQA Acc. | MedQA Calls | MedQA Tok. | MMLU-Pro Acc. | MMLU-Pro Calls | MMLU-Pro Tok. | GPQA Acc. | GPQA Calls | GPQA Tok. | AQuA-RAT Acc. | AQuA-RAT Calls | AQuA-RAT Tok. | GRPO accepted (MedQA) | GRPO accepted (MMLU-Pro) | GRPO accepted (GPQA) | GRPO accepted (AQuA-RAT) |
 |:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| S₁ | 78.8 | 0.37 | 2,222 | 63.6 | 0.35 | 2,373† | 54.0 | 0.52 | 2,807 | 77.2 | 0.78 | 3,180† | – | – | – | – |
-| RSI (dynamic) | 78.6 | 0.17 | 1,568 | 68.6 | 0.36 | 2,355 | 55.0 | 0.60 | 3,053 | 77.6 | 0.77 | 3,127 | 0/3 | 2/3 | 3/3 | 2/3 |
+| S₁ MARGENT | 78.8 | 0.37 | 2,222 | 63.6 | 0.35 | 2,373† | 54.0 | 0.52 | 2,807 | 77.2 | 0.78 | 3,180† | – | – | – | – |
+| MARGENT RSI (dynamic) | 78.6 | 0.17 | 1,568 | 68.6 | 0.36 | 2,355 | 55.0 | 0.60 | 3,053 | 77.6 | 0.77 | 3,127 | 0/3 | 2/3 | 3/3 | 2/3 |
 | &nbsp;&nbsp;Δ vs S₁ (p) | −0.2 (0.937) |  |  | +5.0 (0.003) |  |  | +1.0 (0.838) |  |  | +0.4 (0.917) |  |  |  |  |  |  |
 | RSI (static) | 79.8 | 0.28 | 2,002 | 61.4 | 0.26 | – | 50.0 | 0.47 | 2,631 | 73.6 | 0.72 | – | 0/3 | 2/3 | 3/3 | 3/3 |
 | &nbsp;&nbsp;Δ vs S₁ (p) | +1.0 (0.301) |  |  | −2.2 (0.179) |  |  | −4.0 (0.296) |  |  | −3.5 (0.067) |  |  |  |  |  |  |
@@ -16,12 +16,12 @@
 
 ## tab_main_testpaper (appendix)
 
-**Table A1.** MMLU-Pro test_paper pool (500 questions; v3+GRPO, round 3). This pool overlaps the training pools and is reported for completeness only; the locked MMLU-Pro result (test pool) is in Table 1. Columns as in the main table; GRPO acceptances are the MMLU-Pro runs (the GRPO gate uses the development pool, not this one). Δ rows: accuracy change vs. S₁ with the paired-bootstrap p. Total tokens were not measured (–) for RSI (dynamic), RSI (static) and RSI (success) on MMLU-Pro test_paper. †: S₁ tokens on MMLU-Pro test_paper were not re-measured in the v3+GRPO run; the value is from the no-GRPO (v3) re-evaluation of the same S₁ checkpoint.
+**Table A1.** MMLU-Pro test_paper pool (500 questions; v3+GRPO, round 3). This pool overlaps the training pools and is reported for completeness only; the locked MMLU-Pro result (test pool) is in Table 1. Columns as in the main table; GRPO acceptances are the MMLU-Pro runs (the GRPO gate uses the development pool, not this one). Δ rows: accuracy change vs. S₁ with the paired-bootstrap p. Total tokens were not measured (–) for MARGENT RSI (dynamic), RSI (static) and RSI (success) on MMLU-Pro test_paper. †: S₁ tokens on MMLU-Pro test_paper were not re-measured in the v3+GRPO run; the value is from the no-GRPO (v3) re-evaluation of the same S₁ checkpoint.
 
 | Policy | MMLU-Pro Acc. | MMLU-Pro Calls | MMLU-Pro Tok. | GRPO accepted (MMLU-Pro) |
 |:--|--:|--:|--:|--:|
-| S₁ | 59.6 | 0.35 | 2,348† | – |
-| RSI (dynamic) | 64.6 | 0.39 | – | 2/3 |
+| S₁ MARGENT | 59.6 | 0.35 | 2,348† | – |
+| MARGENT RSI (dynamic) | 64.6 | 0.39 | – | 2/3 |
 | &nbsp;&nbsp;Δ vs S₁ (p) | +5.0 (0.002) |  |  |  |
 | RSI (static) | 58.0 | 0.28 | – | 2/3 |
 | &nbsp;&nbsp;Δ vs S₁ (p) | −1.6 (0.290) |  |  |  |

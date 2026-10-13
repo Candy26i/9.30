@@ -17,10 +17,10 @@ POOL = "test"
 
 # (policy style key, data key, with GRPO?, legend label)
 SERIES = [
-    ("dynamic", "v3/dynamic_sft", False, "RSI (dynamic), SFT only"),
-    ("dynamic", "v3g/dynamic",    True,  "RSI (dynamic), SFT + FA-GRPO"),
-    ("static",  "v3/static_sft",  False, "RSI (static), SFT only"),
-    ("static",  "v3g/static",     True,  "RSI (static), SFT + FA-GRPO"),
+    ("dynamic", "v3/dynamic_sft", False, "MARGENT RSI (dynamic), SFT only"),
+    ("dynamic", "v3g/dynamic",    True,  "MARGENT RSI (dynamic), SFT + FA-GRPO"),
+    ("static",  "v3/static_sft",  False, "MARGENT RSI (static), SFT only"),
+    ("static",  "v3g/static",     True,  "MARGENT RSI (static), SFT + FA-GRPO"),
 ]
 W = 0.2                     # bar width (bars within a group touch, as in the reference figures)
 HATCH = style.NO_GRPO["hatch"]
