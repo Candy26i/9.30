@@ -29,15 +29,14 @@ ALPHA = style.NO_GRPO["alpha"]
 HATCH_COLOR = {"dynamic": "white", "static": style.C["edge"]}
 
 
-# Google palette: the static arm is drawn in Google blue next to the green dynamic arm (red beside green clashed)
-FACE = {"static": style.C["blue"]} if style.PALETTE == "google" else {}
-if style.PALETTE == "google":
-    HATCH_COLOR = {"dynamic": "white", "static": "white"}
+# light / dark shade of one hue per arm: SFT only = light tint with a dark hatch, SFT + FA-GRPO = solid dark (2026-10-13)
+PAIR = ({"dynamic": ("#A8DAB5", "#1E8E3E"), "static": ("#AECBFA", "#1A73E8")} if style.PALETTE == "google"
+        else {"dynamic": ("#BFE3B4", "#2E8B3E"), "static": ("#C9E1F6", "#1F5A96")})
+HATCH_COLOR = {pol: dark for pol, (light, dark) in PAIR.items()}
 
 
 def face(pol, grpo):
-    fc = FACE.get(pol, style.POLICY[pol]["facecolor"])
-    return fc if grpo else to_rgba(fc, ALPHA)
+    return PAIR[pol][1] if grpo else PAIR[pol][0]
 
 
 def draw_series(ax, xs, vals, pol, grpo):
