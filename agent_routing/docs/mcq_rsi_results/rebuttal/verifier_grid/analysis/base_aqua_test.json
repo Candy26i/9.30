@@ -77,6 +77,22 @@
    "accuracy": 0.8188976377952756,
    "calls": 0.9803149606299213,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.7795275590551181,
+   "calls": 0.8976377952755905,
+   "threshold": 0.6019295499030602,
+   "dev_calls": 0.9133858267716536,
+   "dev_accuracy": 0.8031496062992126,
+   "dev_policy_calls": 0.9133858267716536
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.8070866141732284,
+   "calls": 0.9566929133858267,
+   "threshold": 0.6882833654119354,
+   "dev_calls": 0.968503937007874,
+   "dev_accuracy": 0.8188976377952756,
+   "dev_policy_calls": 0.9133858267716536
   }
  },
  "tests": {
@@ -133,6 +149,24 @@
    ],
    "p": 0.0,
    "mcnemar_p": 1.654615232034096e-32
+  },
+  "learned - confidence_dev_matched": {
+   "diff": -0.484251968503937,
+   "ci95": [
+    -0.5511811023622047,
+    -0.41732283464566927
+   ],
+   "p": 0.0,
+   "mcnemar_p": 6.139234950382772e-32
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.5118110236220472,
+   "ci95": [
+    -0.5787401574803149,
+    -0.4448818897637795
+   ],
+   "p": 0.0,
+   "mcnemar_p": 6.209695184944958e-34
   }
  },
  "root_agreement": {
@@ -1417,6 +1451,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/base/aqua/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/base/aqua/dev/grid_records.jsonl",
  "label": "base_aqua_test"
 }
