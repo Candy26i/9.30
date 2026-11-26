@@ -155,7 +155,7 @@ queue() {
     pkill -9 -f '[m]cq_verifier_grid\.py --config' 2>/dev/null
     a=x; for i in $(seq 1 30); do b=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | tr '\n' ' ')
       [ "$a" = "$b" ] && break; a=$b; sleep 3; done   # GPU memory of the stopped jobs is released before slots are counted
-    n0=$(wc -l < $qlog 2>/dev/null || echo 0)
+    n0=0; [ -f $qlog ] && n0=$(wc -l < $qlog)
     tmux new-session -d -s vgrid_queue "cd $TREE && HF_HOME=$HF_HOME HF_HUB_DISABLE_XET=1 TMPDIR=$TMPDIR MCQ_ADVISOR_PORT=$MCQ_ADVISOR_PORT PYTHONUNBUFFERED=1 python3 scripts/pod_ops/verifier_grid_queue.py ${QUEUE_ARGS:-} 2>&1 | tee -a $qlog; exec bash"
     for i in $(seq 1 30); do tail -n +$((n0 + 1)) $qlog 2>/dev/null | grep -q "jobs to run" && break; sleep 2; done
     if ! tail -n +$((n0 + 1)) $qlog 2>/dev/null | grep -q "jobs to run"; then

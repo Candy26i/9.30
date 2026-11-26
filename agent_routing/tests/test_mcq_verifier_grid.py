@@ -474,3 +474,21 @@ def test_stale_tables_are_found_and_the_worker_survives_a_failure(tmp_path, monk
     worker.submit(dev)
     worker.join()
     assert seen == [test, dev]
+
+
+def test_cross_benchmark_table(tmp_path):
+    import mcq_verifier_grid_table as T
+
+    dev = [{**r, "example_id": r["example_id"] + 100} for r in toy()]
+    for bench in ("medqa", "aqua"):
+        res = A.analyze(toy(), dev, draws=100, n_boot=200)
+        (tmp_path / f"s1_{bench}_test.json").write_text(json.dumps(res))
+    text = T.markdown(T.load(tmp_path, "s1", "test"), "s1", "test")
+    assert "| Rule | MedQA (n=8) | AQuA (n=8) |" in text and "Not finished yet: MMLU-Pro, GPQA." in text
+    assert "| Always Verifier, with the candidate | 62.5 / 1.00 | 62.5 / 1.00 |" in text
+    assert "| Revision turn on an empty Verifier output | 50.0 / 0.00 | 50.0 / 0.00 |" in text
+    assert "Learned − always Verifier (with candidate) | +12.5 [" in text
+    assert "MedQA 3/8 questions (E 0, R 1, V 2)" in text
+    assert T.main(["--analysis", str(tmp_path), "--ckpt", "s1", "--out", str(tmp_path / "t.md")]) == 0
+    with pytest.raises(SystemExit):
+        T.main(["--analysis", str(tmp_path), "--ckpt", "dyn3"])
