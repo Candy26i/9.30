@@ -1,0 +1,2 @@
+# analysis curves are written on the pod (CRLF by the csv module before 2026-11-26): keep the bytes as they are
+*_curve.csv -text
