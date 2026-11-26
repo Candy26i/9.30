@@ -1,0 +1,1243 @@
+{
+ "medqa": {
+  "n": 500,
+  "trained_root_agreement": {
+   "n_equal": 500,
+   "n": 500
+  },
+  "base_root_agreement": {
+   "n_equal": 500,
+   "n": 500
+  },
+  "draft": {
+   "trained": 0.734,
+   "base": 0.736,
+   "same_candidate": 0.924,
+   "n_same": 462,
+   "test": {
+    "diff": -0.002,
+    "ci95": [
+     -0.024,
+     0.02
+    ],
+    "p": 0.9404,
+    "mcnemar_p": 1.0
+   },
+   "trained_accuracy_same_candidate": 0.7619047619047619,
+   "trained_accuracy_other": 0.39473684210526316
+  },
+  "evidence": {
+   "verifier": {
+    "n": 462,
+    "candidate": 0.7619047619047619,
+    "trained": 0.8484848484848485,
+    "base": 0.8441558441558441,
+    "test": {
+     "diff": 0.004329004329004329,
+     "ci95": [
+      -0.006493506493506494,
+      0.015151515151515152
+     ],
+     "p": 0.5398,
+     "mcnemar_p": 0.6875
+    },
+    "same_outcome": 0.987012987012987,
+    "fixed": {
+     "trained": 0.4727272727272727,
+     "base": 0.44545454545454544,
+     "n": 110
+    },
+    "broken": {
+     "trained": 0.03409090909090909,
+     "base": 0.03125,
+     "n": 352
+    }
+   },
+   "verifier_nocand": {
+    "n": 462,
+    "candidate": 0.7619047619047619,
+    "trained": 0.854978354978355,
+    "base": 0.8528138528138528,
+    "test": {
+     "diff": 0.0021645021645021645,
+     "ci95": [
+      -0.010822510822510822,
+      0.017316017316017316
+     ],
+     "p": 0.8766,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 0.9761904761904762,
+    "fixed": {
+     "trained": 0.5454545454545454,
+     "base": 0.4909090909090909,
+     "n": 110
+    },
+    "broken": {
+     "trained": 0.048295454545454544,
+     "base": 0.03409090909090909,
+     "n": 352
+    }
+   },
+   "reasoner": {
+    "n": 462,
+    "candidate": 0.7619047619047619,
+    "trained": 0.8354978354978355,
+    "base": 0.829004329004329,
+    "test": {
+     "diff": 0.006493506493506494,
+     "ci95": [
+      -0.012987012987012988,
+      0.02813852813852814
+     ],
+     "p": 0.5774,
+     "mcnemar_p": 0.6900379657745361
+    },
+    "same_outcome": 0.9458874458874459,
+    "fixed": {
+     "trained": 0.4727272727272727,
+     "base": 0.34545454545454546,
+     "n": 110
+    },
+    "broken": {
+     "trained": 0.05113636363636364,
+     "base": 0.019886363636363636,
+     "n": 352
+    }
+   },
+   "extractor": {
+    "n": 462,
+    "candidate": 0.7619047619047619,
+    "trained": 0.8051948051948052,
+    "base": 0.7943722943722944,
+    "test": {
+     "diff": 0.010822510822510822,
+     "ci95": [
+      -0.008658008658008658,
+      0.030303030303030304
+     ],
+     "p": 0.3272,
+     "mcnemar_p": 0.38331031799316406
+    },
+    "same_outcome": 0.9545454545454546,
+    "fixed": {
+     "trained": 0.2636363636363636,
+     "base": 0.14545454545454545,
+     "n": 110
+    },
+    "broken": {
+     "trained": 0.02556818181818182,
+     "base": 0.002840909090909091,
+     "n": 352
+    }
+   },
+   "null": {
+    "n": 462,
+    "candidate": 0.7619047619047619,
+    "trained": 0.7554112554112554,
+    "base": 0.7619047619047619,
+    "test": {
+     "diff": -0.006493506493506494,
+     "ci95": [
+      -0.017316017316017316,
+      0.0021645021645021645
+     ],
+     "p": 0.2342,
+     "mcnemar_p": 0.375
+    },
+    "same_outcome": 0.9891774891774892,
+    "fixed": {
+     "trained": 0.00909090909090909,
+     "base": 0.0,
+     "n": 110
+    },
+    "broken": {
+     "trained": 0.011363636363636364,
+     "base": 0.0,
+     "n": 352
+    }
+   }
+  },
+  "selection": {
+   "calls": 0.366,
+   "n_calls": 183,
+   "trained_policy": {
+    "call_rate": 0.366,
+    "call_rate_candidate_wrong": 0.631578947368421,
+    "call_rate_candidate_right": 0.26975476839237056
+   },
+   "base_policy": {
+    "call_rate": 0.0,
+    "call_rate_candidate_wrong": 0.0,
+    "call_rate_candidate_right": 0.0
+   },
+   "learned": 0.802,
+   "random": {
+    "mean": 0.7705120000000001,
+    "ci95": [
+     0.754,
+     0.788
+    ]
+   },
+   "trained_confidence": 0.796,
+   "base_confidence": 0.806,
+   "tests": {
+    "learned - base confidence": {
+     "diff": -0.004,
+     "ci95": [
+      -0.024,
+      0.016
+     ],
+     "p": 0.7556,
+     "mcnemar_p": 0.8388197422027588
+    },
+    "learned - trained confidence": {
+     "diff": 0.006,
+     "ci95": [
+      -0.014,
+      0.026
+     ],
+     "p": 0.6174,
+     "mcnemar_p": 0.6900379657745361
+    },
+    "trained confidence - base confidence": {
+     "diff": -0.01,
+     "ci95": [
+      -0.022,
+      0.002
+     ],
+     "p": 0.1208,
+     "mcnemar_p": 0.1796875
+    }
+   },
+   "random_same_calls_per_advisor": {
+    "mean": 0.765507,
+    "ci95": [
+     0.748,
+     0.784
+    ],
+    "share_at_least_learned": 0.008
+   },
+   "auroc_candidate_wrong": {
+    "trained_confidence": 0.7514289811722767,
+    "untrained_confidence_for_trained_draft_wrong": 0.775019975005634,
+    "untrained_confidence_for_untrained_draft_wrong": 0.7707406949934124,
+    "trained_call_decision": 0.6809120894880253
+   }
+  },
+  "systems": {
+   "trained_candidate": 0.734,
+   "base_candidate": 0.736,
+   "trained_learned": {
+    "accuracy": 0.788,
+    "calls": 0.366
+   },
+   "trained_always_verifier": 0.834,
+   "base_always_verifier": 0.832,
+   "tests": {
+    "always Verifier: trained - base": {
+     "diff": 0.002,
+     "ci95": [
+      -0.016,
+      0.02
+     ],
+     "p": 0.8942,
+     "mcnemar_p": 1.0
+    },
+    "trained learned calling - base with a confidence gate": {
+     "diff": -0.014,
+     "ci95": [
+      -0.044,
+      0.014
+     ],
+     "p": 0.3762,
+     "mcnemar_p": 0.4101027163746913
+    }
+   },
+   "gain_per_call": {
+    "trained_learned": 0.1475409836065575,
+    "trained_always_verifier": 0.09999999999999998,
+    "base_always_verifier": 0.09599999999999997
+   },
+   "base_confidence_gate": {
+    "accuracy": 0.802,
+    "calls": 0.366
+   },
+   "trained_confidence_gate": {
+    "accuracy": 0.796,
+    "calls": 0.366
+   },
+   "gap_decomposition": {
+    "draft": -0.0020000000000000018,
+    "gate_gain": -0.0040000000000000036,
+    "learned_vs_own_gate": -0.008000000000000007
+   },
+   "base_random": {
+    "mean": 0.771034,
+    "ci95": [
+     0.756,
+     0.786
+    ]
+   }
+  }
+ },
+ "mmlu_pro": {
+  "n": 500,
+  "trained_root_agreement": {
+   "n_equal": 499,
+   "n": 500
+  },
+  "base_root_agreement": {
+   "n_equal": 500,
+   "n": 500
+  },
+  "draft": {
+   "trained": 0.508,
+   "base": 0.532,
+   "same_candidate": 0.828,
+   "n_same": 414,
+   "test": {
+    "diff": -0.024,
+    "ci95": [
+     -0.05,
+     0.002
+    ],
+    "p": 0.0714,
+    "mcnemar_p": 0.08842954698775429
+   },
+   "trained_accuracy_same_candidate": 0.5772946859903382,
+   "trained_accuracy_other": 0.1744186046511628
+  },
+  "evidence": {
+   "verifier": {
+    "n": 414,
+    "candidate": 0.5772946859903382,
+    "trained": 0.7632850241545893,
+    "base": 0.7801932367149759,
+    "test": {
+     "diff": -0.016908212560386472,
+     "ci95": [
+      -0.03140096618357488,
+      -0.004830917874396135
+     ],
+     "p": 0.0166,
+     "mcnemar_p": 0.0390625
+    },
+    "same_outcome": 0.9782608695652174,
+    "fixed": {
+     "trained": 0.5085714285714286,
+     "base": 0.5142857142857142,
+     "n": 175
+    },
+    "broken": {
+     "trained": 0.0502092050209205,
+     "base": 0.02510460251046025,
+     "n": 239
+    }
+   },
+   "verifier_nocand": {
+    "n": 414,
+    "candidate": 0.5772946859903382,
+    "trained": 0.717391304347826,
+    "base": 0.7053140096618358,
+    "test": {
+     "diff": 0.012077294685990338,
+     "ci95": [
+      -0.004830917874396135,
+      0.03140096618357488
+     ],
+     "p": 0.2346,
+     "mcnemar_p": 0.3017578125
+    },
+    "same_outcome": 0.9637681159420289,
+    "fixed": {
+     "trained": 0.4228571428571429,
+     "base": 0.3657142857142857,
+     "n": 175
+    },
+    "broken": {
+     "trained": 0.06694560669456066,
+     "base": 0.04602510460251046,
+     "n": 239
+    }
+   },
+   "reasoner": {
+    "n": 414,
+    "candidate": 0.5772946859903382,
+    "trained": 0.606280193236715,
+    "base": 0.6014492753623188,
+    "test": {
+     "diff": 0.004830917874396135,
+     "ci95": [
+      -0.021739130434782608,
+      0.03140096618357488
+     ],
+     "p": 0.807,
+     "mcnemar_p": 0.860050065908581
+    },
+    "same_outcome": 0.9227053140096618,
+    "fixed": {
+     "trained": 0.19428571428571428,
+     "base": 0.10857142857142857,
+     "n": 175
+    },
+    "broken": {
+     "trained": 0.09205020920502092,
+     "base": 0.03765690376569038,
+     "n": 239
+    }
+   },
+   "extractor": {
+    "n": 414,
+    "candidate": 0.5772946859903382,
+    "trained": 0.5772946859903382,
+    "base": 0.5797101449275363,
+    "test": {
+     "diff": -0.0024154589371980675,
+     "ci95": [
+      -0.021739130434782608,
+      0.016908212560386472
+     ],
+     "p": 0.907,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 0.9589371980676329,
+    "fixed": {
+     "trained": 0.05142857142857143,
+     "base": 0.005714285714285714,
+     "n": 175
+    },
+    "broken": {
+     "trained": 0.03765690376569038,
+     "base": 0.0,
+     "n": 239
+    }
+   },
+   "null": {
+    "n": 414,
+    "candidate": 0.5772946859903382,
+    "trained": 0.5797101449275363,
+    "base": 0.5772946859903382,
+    "test": {
+     "diff": 0.0024154589371980675,
+     "ci95": [
+      0.0,
+      0.007246376811594203
+     ],
+     "p": 0.7314,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 0.9975845410628019,
+    "fixed": {
+     "trained": 0.005714285714285714,
+     "base": 0.0,
+     "n": 175
+    },
+    "broken": {
+     "trained": 0.0,
+     "base": 0.0,
+     "n": 239
+    }
+   }
+  },
+  "selection": {
+   "calls": 0.332,
+   "n_calls": 166,
+   "trained_policy": {
+    "call_rate": 0.332,
+    "call_rate_candidate_wrong": 0.4878048780487805,
+    "call_rate_candidate_right": 0.18110236220472442
+   },
+   "base_policy": {
+    "call_rate": 0.0,
+    "call_rate_candidate_wrong": 0.0,
+    "call_rate_candidate_right": 0.0
+   },
+   "learned": 0.634,
+   "random": {
+    "mean": 0.579802,
+    "ci95": [
+     0.56,
+     0.6
+    ]
+   },
+   "trained_confidence": 0.616,
+   "base_confidence": 0.628,
+   "tests": {
+    "learned - base confidence": {
+     "diff": 0.006,
+     "ci95": [
+      -0.024,
+      0.036
+     ],
+     "p": 0.7552,
+     "mcnemar_p": 0.7948436539828609
+    },
+    "learned - trained confidence": {
+     "diff": 0.018,
+     "ci95": [
+      -0.014,
+      0.050049999999999276
+     ],
+     "p": 0.3096,
+     "mcnemar_p": 0.3424709984198679
+    },
+    "trained confidence - base confidence": {
+     "diff": -0.012,
+     "ci95": [
+      -0.036,
+      0.012
+     ],
+     "p": 0.354,
+     "mcnemar_p": 0.40503224614076316
+    }
+   },
+   "random_same_calls_per_advisor": {
+    "mean": 0.571682,
+    "ci95": [
+     0.552,
+     0.592
+    ],
+    "share_at_least_learned": 0.0
+   },
+   "auroc_candidate_wrong": {
+    "trained_confidence": 0.773878112796876,
+    "untrained_confidence_for_trained_draft_wrong": 0.7809199154983676,
+    "untrained_confidence_for_untrained_draft_wrong": 0.7786774628879892,
+    "trained_call_decision": 0.6533512579220281
+   }
+  },
+  "systems": {
+   "trained_candidate": 0.508,
+   "base_candidate": 0.532,
+   "trained_learned": {
+    "accuracy": 0.632,
+    "calls": 0.332
+   },
+   "trained_always_verifier": 0.724,
+   "base_always_verifier": 0.746,
+   "tests": {
+    "always Verifier: trained - base": {
+     "diff": -0.022,
+     "ci95": [
+      -0.044,
+      0.0
+     ],
+     "p": 0.0562,
+     "mcnemar_p": 0.07075554598122835
+    },
+    "trained learned calling - base with a confidence gate": {
+     "diff": -0.028,
+     "ci95": [
+      -0.064,
+      0.008
+     ],
+     "p": 0.1306,
+     "mcnemar_p": 0.15565646371399713
+    }
+   },
+   "gain_per_call": {
+    "trained_learned": 0.37349397590361444,
+    "trained_always_verifier": 0.21599999999999997,
+    "base_always_verifier": 0.21399999999999997
+   },
+   "base_confidence_gate": {
+    "accuracy": 0.66,
+    "calls": 0.332
+   },
+   "trained_confidence_gate": {
+    "accuracy": 0.616,
+    "calls": 0.332
+   },
+   "gap_decomposition": {
+    "draft": -0.02400000000000002,
+    "gate_gain": -0.020000000000000018,
+    "learned_vs_own_gate": 0.016000000000000014
+   },
+   "base_random": {
+    "mean": 0.603034,
+    "ci95": [
+     0.584,
+     0.622
+    ]
+   }
+  }
+ },
+ "gpqa": {
+  "n": 100,
+  "trained_root_agreement": {
+   "n_equal": 100,
+   "n": 100
+  },
+  "base_root_agreement": {
+   "n_equal": 100,
+   "n": 100
+  },
+  "draft": {
+   "trained": 0.41,
+   "base": 0.42,
+   "same_candidate": 0.89,
+   "n_same": 89,
+   "test": {
+    "diff": -0.01,
+    "ci95": [
+     -0.05,
+     0.03
+    ],
+    "p": 0.8414,
+    "mcnemar_p": 1.0
+   },
+   "trained_accuracy_same_candidate": 0.43820224719101125,
+   "trained_accuracy_other": 0.18181818181818182
+  },
+  "evidence": {
+   "verifier": {
+    "n": 89,
+    "candidate": 0.43820224719101125,
+    "trained": 0.5842696629213483,
+    "base": 0.5955056179775281,
+    "test": {
+     "diff": -0.011235955056179775,
+     "ci95": [
+      -0.056179775280898875,
+      0.02247191011235955
+     ],
+     "p": 0.7712,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 0.9662921348314607,
+    "fixed": {
+     "trained": 0.34,
+     "base": 0.32,
+     "n": 50
+    },
+    "broken": {
+     "trained": 0.10256410256410256,
+     "base": 0.05128205128205128,
+     "n": 39
+    }
+   },
+   "verifier_nocand": {
+    "n": 89,
+    "candidate": 0.43820224719101125,
+    "trained": 0.6292134831460674,
+    "base": 0.6067415730337079,
+    "test": {
+     "diff": 0.02247191011235955,
+     "ci95": [
+      -0.02247191011235955,
+      0.06741573033707865
+     ],
+     "p": 0.4532,
+     "mcnemar_p": 0.625
+    },
+    "same_outcome": 0.9550561797752809,
+    "fixed": {
+     "trained": 0.38,
+     "base": 0.32,
+     "n": 50
+    },
+    "broken": {
+     "trained": 0.05128205128205128,
+     "base": 0.02564102564102564,
+     "n": 39
+    }
+   },
+   "reasoner": {
+    "n": 89,
+    "candidate": 0.43820224719101125,
+    "trained": 0.47191011235955055,
+    "base": 0.5056179775280899,
+    "test": {
+     "diff": -0.033707865168539325,
+     "ci95": [
+      -0.0898876404494382,
+      0.011235955056179775
+     ],
+     "p": 0.2506,
+     "mcnemar_p": 0.375
+    },
+    "same_outcome": 0.9438202247191011,
+    "fixed": {
+     "trained": 0.14,
+     "base": 0.12,
+     "n": 50
+    },
+    "broken": {
+     "trained": 0.10256410256410256,
+     "base": 0.0,
+     "n": 39
+    }
+   },
+   "extractor": {
+    "n": 89,
+    "candidate": 0.43820224719101125,
+    "trained": 0.4044943820224719,
+    "base": 0.42696629213483145,
+    "test": {
+     "diff": -0.02247191011235955,
+     "ci95": [
+      -0.056179775280898875,
+      0.0
+     ],
+     "p": 0.2646,
+     "mcnemar_p": 0.5
+    },
+    "same_outcome": 0.9775280898876404,
+    "fixed": {
+     "trained": 0.0,
+     "base": 0.0,
+     "n": 50
+    },
+    "broken": {
+     "trained": 0.07692307692307693,
+     "base": 0.02564102564102564,
+     "n": 39
+    }
+   },
+   "null": {
+    "n": 89,
+    "candidate": 0.43820224719101125,
+    "trained": 0.43820224719101125,
+    "base": 0.43820224719101125,
+    "test": {
+     "diff": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "p": 1.0,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 1.0,
+    "fixed": {
+     "trained": 0.0,
+     "base": 0.0,
+     "n": 50
+    },
+    "broken": {
+     "trained": 0.0,
+     "base": 0.0,
+     "n": 39
+    }
+   }
+  },
+  "selection": {
+   "calls": 0.52,
+   "n_calls": 52,
+   "trained_policy": {
+    "call_rate": 0.52,
+    "call_rate_candidate_wrong": 0.5084745762711864,
+    "call_rate_candidate_right": 0.5365853658536586
+   },
+   "base_policy": {
+    "call_rate": 0.0,
+    "call_rate_candidate_wrong": 0.0,
+    "call_rate_candidate_right": 0.0
+   },
+   "learned": 0.53,
+   "random": {
+    "mean": 0.488105,
+    "ci95": [
+     0.44,
+     0.53
+    ]
+   },
+   "trained_confidence": 0.52,
+   "base_confidence": 0.49,
+   "tests": {
+    "learned - base confidence": {
+     "diff": 0.04,
+     "ci95": [
+      -0.02,
+      0.1
+     ],
+     "p": 0.2554,
+     "mcnemar_p": 0.34375
+    },
+    "learned - trained confidence": {
+     "diff": 0.01,
+     "ci95": [
+      -0.05,
+      0.07
+     ],
+     "p": 0.876,
+     "mcnemar_p": 1.0
+    },
+    "trained confidence - base confidence": {
+     "diff": 0.03,
+     "ci95": [
+      -0.01,
+      0.07
+     ],
+     "p": 0.2348,
+     "mcnemar_p": 0.375
+    }
+   },
+   "random_same_calls_per_advisor": {
+    "mean": 0.476635,
+    "ci95": [
+     0.43,
+     0.52
+    ],
+    "share_at_least_learned": 0.005
+   },
+   "auroc_candidate_wrong": {
+    "trained_confidence": 0.5965274906986358,
+    "untrained_confidence_for_trained_draft_wrong": 0.5992145514675485,
+    "untrained_confidence_for_untrained_draft_wrong": 0.5956486042692939,
+    "trained_call_decision": 0.4859446052087639
+   }
+  },
+  "systems": {
+   "trained_candidate": 0.41,
+   "base_candidate": 0.42,
+   "trained_learned": {
+    "accuracy": 0.54,
+    "calls": 0.52
+   },
+   "trained_always_verifier": 0.56,
+   "base_always_verifier": 0.57,
+   "tests": {
+    "always Verifier: trained - base": {
+     "diff": -0.01,
+     "ci95": [
+      -0.05,
+      0.03
+     ],
+     "p": 0.8348,
+     "mcnemar_p": 1.0
+    },
+    "trained learned calling - base with a confidence gate": {
+     "diff": 0.05,
+     "ci95": [
+      -0.01,
+      0.12
+     ],
+     "p": 0.156,
+     "mcnemar_p": 0.2265625
+    }
+   },
+   "gain_per_call": {
+    "trained_learned": 0.2500000000000001,
+    "trained_always_verifier": 0.15000000000000008,
+    "base_always_verifier": 0.14999999999999997
+   },
+   "base_confidence_gate": {
+    "accuracy": 0.49,
+    "calls": 0.52
+   },
+   "trained_confidence_gate": {
+    "accuracy": 0.52,
+    "calls": 0.52
+   },
+   "gap_decomposition": {
+    "draft": -0.010000000000000009,
+    "gate_gain": 0.040000000000000036,
+    "learned_vs_own_gate": 0.020000000000000018
+   },
+   "base_random": {
+    "mean": 0.498075,
+    "ci95": [
+     0.46,
+     0.54
+    ]
+   }
+  }
+ },
+ "aqua": {
+  "n": 254,
+  "trained_root_agreement": {
+   "n_equal": 254,
+   "n": 254
+  },
+  "base_root_agreement": {
+   "n_equal": 254,
+   "n": 254
+  },
+  "draft": {
+   "trained": 0.36220472440944884,
+   "base": 0.3858267716535433,
+   "same_candidate": 0.8031496062992126,
+   "n_same": 204,
+   "test": {
+    "diff": -0.023622047244094488,
+    "ci95": [
+     -0.06299212598425197,
+     0.015748031496062992
+    ],
+    "p": 0.2914,
+    "mcnemar_p": 0.32693958282470703
+   },
+   "trained_accuracy_same_candidate": 0.4019607843137255,
+   "trained_accuracy_other": 0.2
+  },
+  "evidence": {
+   "verifier": {
+    "n": 204,
+    "candidate": 0.4019607843137255,
+    "trained": 0.8480392156862745,
+    "base": 0.8529411764705882,
+    "test": {
+     "diff": -0.004901960784313725,
+     "ci95": [
+      -0.024509803921568627,
+      0.014705882352941176
+     ],
+     "p": 0.829,
+     "mcnemar_p": 1.0
+    },
+    "same_outcome": 0.9754901960784313,
+    "fixed": {
+     "trained": 0.8032786885245902,
+     "base": 0.7868852459016393,
+     "n": 122
+    },
+    "broken": {
+     "trained": 0.08536585365853659,
+     "base": 0.04878048780487805,
+     "n": 82
+    }
+   },
+   "verifier_nocand": {
+    "n": 204,
+    "candidate": 0.4019607843137255,
+    "trained": 0.7990196078431373,
+    "base": 0.7843137254901961,
+    "test": {
+     "diff": 0.014705882352941176,
+     "ci95": [
+      0.0,
+      0.03431372549019608
+     ],
+     "p": 0.0982,
+     "mcnemar_p": 0.25
+    },
+    "same_outcome": 0.9852941176470589,
+    "fixed": {
+     "trained": 0.6721311475409836,
+     "base": 0.6475409836065574,
+     "n": 122
+    },
+    "broken": {
+     "trained": 0.012195121951219513,
+     "base": 0.012195121951219513,
+     "n": 82
+    }
+   },
+   "reasoner": {
+    "n": 204,
+    "candidate": 0.4019607843137255,
+    "trained": 0.4019607843137255,
+    "base": 0.4117647058823529,
+    "test": {
+     "diff": -0.00980392156862745,
+     "ci95": [
+      -0.05392156862745098,
+      0.0392156862745098
+     ],
+     "p": 0.7742,
+     "mcnemar_p": 0.8388197422027588
+    },
+    "same_outcome": 0.8823529411764706,
+    "fixed": {
+     "trained": 0.13114754098360656,
+     "base": 0.040983606557377046,
+     "n": 122
+    },
+    "broken": {
+     "trained": 0.1951219512195122,
+     "base": 0.036585365853658534,
+     "n": 82
+    }
+   },
+   "extractor": {
+    "n": 204,
+    "candidate": 0.4019607843137255,
+    "trained": 0.3235294117647059,
+    "base": 0.4019607843137255,
+    "test": {
+     "diff": -0.0784313725490196,
+     "ci95": [
+      -0.12745098039215685,
+      -0.029411764705882353
+     ],
+     "p": 0.001,
+     "mcnemar_p": 0.0037191659212112427
+    },
+    "same_outcome": 0.8627450980392157,
+    "fixed": {
+     "trained": 0.05737704918032787,
+     "base": 0.00819672131147541,
+     "n": 122
+    },
+    "broken": {
+     "trained": 0.2804878048780488,
+     "base": 0.012195121951219513,
+     "n": 82
+    }
+   },
+   "null": {
+    "n": 204,
+    "candidate": 0.4019607843137255,
+    "trained": 0.36764705882352944,
+    "base": 0.4019607843137255,
+    "test": {
+     "diff": -0.03431372549019608,
+     "ci95": [
+      -0.06372549019607843,
+      -0.00980392156862745
+     ],
+     "p": 0.0194,
+     "mcnemar_p": 0.0390625
+    },
+    "same_outcome": 0.9558823529411765,
+    "fixed": {
+     "trained": 0.00819672131147541,
+     "base": 0.0,
+     "n": 122
+    },
+    "broken": {
+     "trained": 0.0975609756097561,
+     "base": 0.0,
+     "n": 82
+    }
+   }
+  },
+  "selection": {
+   "calls": 0.7716535433070866,
+   "n_calls": 196,
+   "trained_policy": {
+    "call_rate": 0.7716535433070866,
+    "call_rate_candidate_wrong": 0.845679012345679,
+    "call_rate_candidate_right": 0.6413043478260869
+   },
+   "base_policy": {
+    "call_rate": 0.0,
+    "call_rate_candidate_wrong": 0.0,
+    "call_rate_candidate_right": 0.0
+   },
+   "learned": 0.7716535433070866,
+   "random": {
+    "mean": 0.7390354330708662,
+    "ci95": [
+     0.7086614173228346,
+     0.7677165354330708
+    ]
+   },
+   "trained_confidence": 0.7677165354330708,
+   "base_confidence": 0.7559055118110236,
+   "tests": {
+    "learned - base confidence": {
+     "diff": 0.015748031496062992,
+     "ci95": [
+      -0.031496062992125984,
+      0.05905511811023622
+     ],
+     "p": 0.55,
+     "mcnemar_p": 0.6075913612730801
+    },
+    "learned - trained confidence": {
+     "diff": 0.003937007874015748,
+     "ci95": [
+      -0.04330708661417323,
+      0.051181102362204724
+     ],
+     "p": 0.9418,
+     "mcnemar_p": 1.0
+    },
+    "trained confidence - base confidence": {
+     "diff": 0.011811023622047244,
+     "ci95": [
+      -0.015748031496062992,
+      0.04330708661417323
+     ],
+     "p": 0.517,
+     "mcnemar_p": 0.60723876953125
+    }
+   },
+   "random_same_calls_per_advisor": {
+    "mean": 0.7390354330708662,
+    "ci95": [
+     0.7086614173228346,
+     0.7677165354330708
+    ],
+    "share_at_least_learned": 0.0165
+   },
+   "auroc_candidate_wrong": {
+    "trained_confidence": 0.6320450885668277,
+    "untrained_confidence_for_trained_draft_wrong": 0.6599570585077832,
+    "untrained_confidence_for_untrained_draft_wrong": 0.6302328623757195,
+    "trained_call_decision": 0.602187332259796
+   }
+  },
+  "systems": {
+   "trained_candidate": 0.36220472440944884,
+   "base_candidate": 0.3858267716535433,
+   "trained_learned": {
+    "accuracy": 0.7716535433070866,
+    "calls": 0.7716535433070866
+   },
+   "trained_always_verifier": 0.8503937007874016,
+   "base_always_verifier": 0.84251968503937,
+   "tests": {
+    "always Verifier: trained - base": {
+     "diff": 0.007874015748031496,
+     "ci95": [
+      -0.01968503937007874,
+      0.03543307086614173
+     ],
+     "p": 0.6616,
+     "mcnemar_p": 0.7744140625
+    },
+    "trained learned calling - base with a confidence gate": {
+     "diff": 0.023622047244094488,
+     "ci95": [
+      -0.031496062992125984,
+      0.07480314960629922
+     ],
+     "p": 0.4156,
+     "mcnemar_p": 0.4613911821367651
+    }
+   },
+   "gain_per_call": {
+    "trained_learned": 0.5306122448979591,
+    "trained_always_verifier": 0.4881889763779528,
+    "base_always_verifier": 0.45669291338582674
+   },
+   "base_confidence_gate": {
+    "accuracy": 0.7480314960629921,
+    "calls": 0.7716535433070866
+   },
+   "trained_confidence_gate": {
+    "accuracy": 0.7677165354330708,
+    "calls": 0.7716535433070866
+   },
+   "gap_decomposition": {
+    "draft": -0.023622047244094446,
+    "gate_gain": 0.04330708661417315,
+    "learned_vs_own_gate": 0.003937007874015741
+   },
+   "base_random": {
+    "mean": 0.7384015748031496,
+    "ci95": [
+     0.7086614173228346,
+     0.7677165354330708
+    ]
+   }
+  }
+ },
+ "pooled": {
+  "draft: trained - untrained": {
+   "diff": -0.014771048744460856,
+   "ci95": [
+    -0.029542097488921712,
+    0.0
+   ],
+   "p": 0.0562,
+   "mcnemar_p": 0.06192637987862746,
+   "n": 1354
+  },
+  "evidence (verifier), same candidate: trained - untrained": {
+   "diff": -0.005988023952095809,
+   "ci95": [
+    -0.01454234388366125,
+    0.001710863986313088
+   ],
+   "p": 0.1678,
+   "mcnemar_p": 0.21003961563110352,
+   "n": 1169
+  },
+  "evidence (verifier_nocand), same candidate: trained - untrained": {
+   "diff": 0.009409751924721984,
+   "ci95": [
+    0.0,
+    0.018819503849443968
+   ],
+   "p": 0.0594,
+   "mcnemar_p": 0.08014331245794892,
+   "n": 1169
+  },
+  "evidence (reasoner), same candidate: trained - untrained": {
+   "diff": 0.0,
+   "ci95": [
+    -0.015397775876817793,
+    0.016253207869974338
+   ],
+   "p": 1.0,
+   "mcnemar_p": 1.0,
+   "n": 1169
+  },
+  "evidence (extractor), same candidate: trained - untrained": {
+   "diff": -0.011976047904191617,
+   "ci95": [
+    -0.02566295979469632,
+    0.001710863986313088
+   ],
+   "p": 0.097,
+   "mcnemar_p": 0.11425430684992328,
+   "n": 1169
+  },
+  "evidence (null), same candidate: trained - untrained": {
+   "diff": -0.007698887938408896,
+   "ci95": [
+    -0.01454234388366125,
+    -0.001710863986313088
+   ],
+   "p": 0.023,
+   "mcnemar_p": 0.03515625,
+   "n": 1169
+  },
+  "selection: learned - untrained confidence": {
+   "diff": 0.0066469719350073855,
+   "ci95": [
+    -0.009601181683899557,
+    0.022895125553914326
+   ],
+   "p": 0.4512,
+   "mcnemar_p": 0.4779219422067188,
+   "n": 1354
+  },
+  "selection: learned - trained confidence": {
+   "diff": 0.0103397341211226,
+   "ci95": [
+    -0.0066469719350073855,
+    0.028064992614475627
+   ],
+   "p": 0.2586,
+   "mcnemar_p": 0.27861454634422106,
+   "n": 1354
+  },
+  "selection: trained - untrained confidence": {
+   "diff": -0.003692762186115214,
+   "ci95": [
+    -0.0155096011816839,
+    0.00812407680945347
+   ],
+   "p": 0.57,
+   "mcnemar_p": 0.620144765081303,
+   "n": 1354
+  },
+  "systems: always Verifier, trained - untrained": {
+   "diff": -0.0066469719350073855,
+   "ci95": [
+    -0.01846381093057607,
+    0.0051698670605613
+   ],
+   "p": 0.292,
+   "mcnemar_p": 0.3284320626971899,
+   "n": 1354
+  },
+  "systems: learned calling - untrained manager with a confidence gate": {
+   "diff": -0.007385524372230428,
+   "ci95": [
+    -0.028064992614475627,
+    0.012555391432791729
+   ],
+   "p": 0.498,
+   "mcnemar_p": 0.5182802738139712,
+   "n": 1354
+  }
+ },
+ "references": null
+}
