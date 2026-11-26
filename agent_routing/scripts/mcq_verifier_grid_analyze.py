@@ -10,7 +10,10 @@ rule that decides which questions get a call differs.
 Rules (accuracy and calls per question; every rule makes at most one call per question):
 
   candidate            never call
-  learned              the policy's own action (its advisor, or commit); the revision is the forced-commit one
+  learned              the policy's FIRST action (its advisor, or commit) followed by the forced-commit revision. The
+                       deployed policy may call again after an advisor answers; this rule and every other rule here
+                       stop after one call, so that all of them are scored by the same revision step. The note reports
+                       how often the commit had to be forced.
   learned -> Verifier  the policy's selection of questions, always sent to the Verifier
   random (roles)       the policy's number of calls per advisor, on random questions (2,000 draws: mean, 95% interval,
                        share of draws at least as accurate as the learned rule)
@@ -18,8 +21,11 @@ Rules (accuracy and calls per question; every rule makes at most one call per qu
   confidence           call the Verifier on the k least confident candidates (confidence = renormalised probability
                        of the candidate key); k = the policy's number of calls, and the whole curve k = 0..n
   confidence (dev)     the same rule with the threshold fixed on a dev grid (``--dev``): the threshold that matches
-                       the policy's dev call rate, and the dev-accuracy-maximising one
-  always <advisor>     always call that advisor; ``verifier_nocand`` and ``null`` when the grid has them
+                       the policy's dev call rate, and the dev-accuracy-maximising one. Thresholds lie between distinct
+                       dev confidences. Questions that are also in the dev grid (same question hash) are left out of
+                       these two rules and their tests (MMLU-Pro ``test_paper`` contains the whole dev pool)
+  always <advisor>     always call that advisor (``verifier_nocand``: the candidate removed from the Verifier's input)
+  null                 the Verifier call turn with an empty tool output: no advisor call, one extra revision turn
   oracle               best of {candidate, one call}
 
 Paired tests against the learned rule use the paper's paired bootstrap and exact McNemar (``mcq_rsi_analysis``).
@@ -70,12 +76,18 @@ def table(records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
             raise ValueError(f"example {r.get('example_id')}: not a policy-root record")
         if not r.get("direct_valid", True):
             raise ValueError(f"example {r.get('example_id')}: invalid root")
-        one = {b["sequence"][0]: bool(b["correct"]) for b in r["branches"] if len(b["sequence"]) == 1}
+        single = [b for b in r["branches"] if len(b["sequence"]) == 1]
+        one = {b["sequence"][0]: bool(b["correct"]) for b in single}
+        # would_call: without forcing, the revision after this call would not have been the commit
+        again = {b["sequence"][0]: (b.get("revision") or {}).get("would_call") for b in single}
         extra = {b["kind"]: bool(b["correct"]) for b in r.get("extra_branches") or []}
         action = r["policy_action"]["action"]
+        check = r.get("root_check")
         if action != "commit" and action not in one:
             raise ValueError(f"example {r['example_id']}: the policy calls {action} but that branch is missing")
-        rows.append({"id": int(r["example_id"]), "commit": bool(r["direct_correct"]), **one, **extra, "action": action,
+        rows.append({"id": int(r["example_id"]), "qid": r.get("question_hash") or int(r["example_id"]),
+                     "commit": bool(r["direct_correct"]), **one, **extra, "action": action, "again": again,
+                     "root_ok": (check.get("mismatch") == 0) if check else None,
                      "conf": confidence(r["policy_action"], r["direct_pred"])})
     kinds = [k for k in ADVISORS + EXTRA if any(k in row for row in rows)]
     for k in kinds:
@@ -146,7 +158,8 @@ def threshold_for_k(rows, k: int) -> float:
         return 0.0
     if k >= len(confs):
         return math.inf
-    return (confs[k - 1] + confs[k]) / 2
+    mid = (confs[k - 1] + confs[k]) / 2
+    return mid if mid > confs[k - 1] else confs[k]  # two adjacent floats: the midpoint can round down
 
 
 def compare(a: Sequence[bool], b: Sequence[bool], n_boot: int, seed: int) -> Dict[str, Any]:
@@ -167,11 +180,22 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
     commit = [row["commit"] for row in rows]
     out: Dict[str, Any] = {"n": n, "policy_calls": m, "policy_call_counts": counts, "rules": {}, "tests": {}}
     rule = lambda name, acc, calls, **kw: out["rules"].__setitem__(name, {"accuracy": acc, "calls": calls, **kw})
+    if all(row["root_ok"] is not None for row in rows):
+        # the grid's first turn is grammar-constrained; this is how often plain greedy decoding writes the same turn
+        out["root_agreement"] = {"n_equal": sum(row["root_ok"] for row in rows), "n": n}
 
     rule("candidate", _mean(commit), 0.0)
-    rule("learned", _mean(learned), m / n)
+    forced = [row["again"].get(row["action"]) for row in rows if row["action"] != "commit"]
+    if forced and all(f is not None for f in forced):
+        rule("learned", _mean(learned), m / n, commit_forced=sum(map(bool, forced)), commit_forced_share=_mean(forced))
+    else:
+        rule("learned", _mean(learned), m / n)
     for k in kinds:
-        rule(f"always_{k}", _mean(row[k] for row in rows), 1.0)
+        if k == "null":  # the call turn with an empty tool output: no advisor request is made
+            rule("always_null", _mean(row[k] for row in rows), 0.0,
+                 note="one extra manager revision turn on an empty Verifier output; no advisor call")
+        else:
+            rule(f"always_{k}", _mean(row[k] for row in rows), 1.0)
     one_call = [k for k in ADVISORS if k in kinds]
     rule("oracle", _mean(row["commit"] or any(row[k] for k in one_call) for row in rows),
          _mean((not row["commit"]) and any(row[k] for k in one_call) for row in rows))
@@ -214,16 +238,33 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
         if dev_records is not None:
             dev = table(dev_records)
             dev_curve = confidence_curve(dev)
-            if dev_curve is not None:
+            # questions that are also in the dev grid would make the "dev threshold" partly in-sample: leave them out
+            shared = {row["qid"] for row in dev} & {row["qid"] for row in rows}
+            keep = [i for i, row in enumerate(rows) if row["qid"] not in shared]
+            if shared:
+                out["dev_overlap"] = {"shared": n - len(keep), "kept": len(keep)}
+            if dev_curve is not None and keep:
+                sub, sub_learned = [rows[i] for i in keep], [learned[i] for i in keep]
                 dev_m = sum(row["action"] != "commit" for row in dev)
-                dev_best = max(range(len(dev) + 1), key=lambda k: (dev_curve[k], -k))
-                for name, k in (("confidence_dev_matched", dev_m), ("confidence_dev_best", dev_best)):
+                dev_confs = sorted(row["conf"] for row in dev)
+                # realisable thresholds only: cuts between two distinct dev confidences (and the two ends)
+                cuts = [k for k in range(len(dev) + 1) if k in (0, len(dev)) or dev_confs[k - 1] < dev_confs[k]]
+                dev_matched = min(cuts, key=lambda k: (abs(k - dev_m), k))
+                dev_best = max(cuts, key=lambda k: (dev_curve[k], -k))
+                for name, k in (("confidence_dev_matched", dev_matched), ("confidence_dev_best", dev_best)):
                     t = threshold_for_k(dev, k)
-                    gated = [row["conf"] < t for row in rows]
-                    outcome = gated_outcomes(rows, gated)
-                    rule(name, _mean(outcome), sum(gated) / n, threshold=t if math.isfinite(t) else None,
-                         dev_calls=k / len(dev), dev_accuracy=dev_curve[k])
-                    out["tests"][f"learned - {name}"] = compare(outcome, learned, n_boot, seed)
+                    gated = [row["conf"] < t for row in sub]
+                    outcome = gated_outcomes(sub, gated)
+                    dev_gated = [row["conf"] < t for row in dev]
+                    kw: Dict[str, Any] = {}
+                    if shared:  # the learned rule on the same reduced set of questions, for the reader of the table
+                        kw = {"n": len(keep), "dev_overlap_excluded": n - len(keep),
+                              "learned_same_questions": {"accuracy": _mean(sub_learned),
+                                                         "calls": _mean(row["action"] != "commit" for row in sub)}}
+                    rule(name, _mean(outcome), sum(gated) / len(sub), threshold=t if math.isfinite(t) else None,
+                         dev_calls=sum(dev_gated) / len(dev), dev_accuracy=_mean(gated_outcomes(dev, dev_gated)),
+                         dev_policy_calls=dev_m / len(dev), **kw)
+                    out["tests"][f"learned - {name}"] = compare(outcome, sub_learned, n_boot, seed)
     return out
 
 
@@ -237,7 +278,7 @@ def _p(p) -> str:
 
 LABELS = [
     ("candidate", "Candidate only (never call)"),
-    ("learned", "Learned calling (policy's advisor)"),
+    ("learned", "Learned calling, first call only (policy's advisor, then commit)"),
     ("learned_selection_verifier", "Learned selection, Verifier only"),
     ("random_roles", "Random questions, same calls per advisor"),
     ("random_verifier", "Random questions, Verifier only"),
@@ -249,26 +290,53 @@ LABELS = [
     ("always_verifier_nocand", "Always Verifier, candidate removed"),
     ("always_reasoner", "Always Reasoner"),
     ("always_extractor", "Always Extractor"),
-    ("always_null", "Revision without specialist evidence"),
+    ("always_null", "Revision turn on an empty Verifier output (no advisor call)"),
     ("oracle", "Oracle (best of candidate / one call)"),
 ]
 
 
+ROOT_AGREEMENT_FLOOR = 0.95  # below it the first turn is the grammar's doing, not the model's own behaviour
+
+
 def markdown(result: Dict[str, Any], title: str) -> str:
+    agreement = result.get("root_agreement")
+    forced_root = bool(agreement) and agreement["n_equal"] < ROOT_AGREEMENT_FLOOR * agreement["n"]
+    who = "the grammar-constrained first action" if forced_root else "the learned policy's first action"
     lines = [f"### {title}", "",
-             f"n = {result['n']}; the learned policy calls on {result['policy_calls']} questions "
-             f"({', '.join(f'{k} {v}' for k, v in result['policy_call_counts'].items())}).", "",
-             "| Rule | Calls per question | Accuracy (%) | Note |", "|:--|--:|--:|:--|"]
+             f"n = {result['n']}; {who} is a call on {result['policy_calls']} questions "
+             f"({', '.join(f'{k} {v}' for k, v in result['policy_call_counts'].items())}). Every rule makes at most one "
+             "call and is scored by the same forced-commit revision.", ""]
+    if agreement:
+        lines += [f"The grid's first turn equals unconstrained greedy decoding on {agreement['n_equal']}/{agreement['n']} "
+                  "questions." + (" This manager does not follow the DRAFT / commit / call grammar on its own: the rows "
+                                  "below describe the grammar-forced model, not its deployed behaviour, and the budget-"
+                                  "matched rows use that forced call budget." if forced_root else ""), ""]
+    if result.get("dev_overlap"):
+        o = result["dev_overlap"]
+        lines += [f"{o['shared']} of the {result['n']} questions are also in the dev grid; the two dev-threshold rows and "
+                  f"their tests use the other {o['kept']}.", ""]
+    lines += ["| Rule | Calls per question | Accuracy (%) | Note |", "|:--|--:|--:|:--|"]
     for key, label in LABELS:
         r = result["rules"].get(key)
         if r is None:
             continue
+        if key == "learned" and forced_root:
+            label = "Grammar-constrained first action, then commit (not the deployed policy)"
         note = ""
         if "ci95" in r:
             note = (f"95% of draws in [{_pct(r['ci95'][0])}, {_pct(r['ci95'][1])}]; "
                     f"{_p(r['share_at_least_learned'])} of draws ≥ learned")
+            if "share_at_least_learned_selection_verifier" in r:
+                note += f"; {_p(r['share_at_least_learned_selection_verifier'])} ≥ learned selection (Verifier only)"
         elif "threshold" in r:
             note = f"dev: {_pct(r['dev_accuracy'])} at {r['dev_calls']:.2f} calls"
+            if "n" in r:
+                same = r["learned_same_questions"]
+                note += (f"; n = {r['n']} ({r['dev_overlap_excluded']} dev questions excluded; learned on these: "
+                         f"{_pct(same['accuracy'])} at {same['calls']:.2f} calls)")
+        elif "commit_forced" in r:
+            note = (f"after {r['commit_forced']} of {result['policy_calls']} calls ({_pct(r['commit_forced_share'])}%) the "
+                    "commit was forced (the model's own next step was not the commit)")
         elif "note" in r:
             note = r["note"]
         lines.append(f"| {label} | {r['calls']:.2f} | {_pct(r['accuracy'])} | {note} |")

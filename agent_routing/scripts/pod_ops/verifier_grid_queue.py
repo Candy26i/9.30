@@ -5,7 +5,10 @@ A job is (checkpoint name, benchmark, pool). Jobs run in the priority order of `
 slot (``CUDA_VISIBLE_DEVICES``), all against the one advisor server. A job is finished when its ``grid_summary.json``
 exists; a job that exits without it is started again with ``--resume`` (its shards are kept), at most ``--retries``
 more times. After every finished job the offline statistics of that (checkpoint, benchmark) are rewritten
-(``mcq_verifier_grid_analyze.py``; a test pool uses the dev grid for the confidence threshold once that exists).
+(``mcq_verifier_grid_analyze.py``; a test pool uses the dev grid for the confidence threshold once that exists) by a
+background worker, so the GPUs never wait for them; finished jobs whose tables are missing or were made without the
+dev grid are analysed too (at start and before the queue ends). New starts are held while the advisor server is down.
+One queue per pod (lock file); stopping the queue stops its jobs (their shards stay, ``--resume`` continues them).
 
 Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<bench>/round1/sft
               dyn3   v3 dynamic round 3 (SFT only)              $CKPT/<bench>_dyn3
@@ -18,6 +21,7 @@ Slots: ``--slots 0:1,1:3`` (GPU:processes), or by default from the free memory o
     python3 scripts/pod_ops/verifier_grid_queue.py                       # everything, in priority order
     python3 scripts/pod_ops/verifier_grid_queue.py --only '^s1/.*/test$'  # a subset
     python3 scripts/pod_ops/verifier_grid_queue.py --list                # print the jobs and exit
+    python3 scripts/pod_ops/verifier_grid_queue.py --analyze-only        # only (re)write missing or stale tables
 
 State: $WORK/runs/verifier_grid/queue_state.json; logs: $WORK/logs/verifier_grid/. Marker when the queue is empty:
 $WORK/logs/verifier_grid/queue_done.
@@ -25,12 +29,17 @@ $WORK/logs/verifier_grid/queue_done.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
+import queue as queue_module
 import re
+import signal
 import subprocess
 import sys
+import threading
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -145,13 +154,70 @@ def analysis_commands(job: Job) -> List[List[str]]:
     return cmds
 
 
-def analyze(job: Job) -> None:
+def _arg(cmd: Sequence[str], flag: str) -> Optional[str]:
+    return cmd[cmd.index(flag) + 1] if flag in cmd else None
+
+
+def needs_analysis(job: Job) -> bool:
+    """True when a table of ``job`` is missing, unreadable, or was made with another ``--dev`` than it would get now."""
+    if not finished(job):
+        return False
+    for cmd in analysis_commands(job):
+        label = _arg(cmd, "--label")
+        try:
+            stored = json.loads((OUT / "analysis" / f"{label}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return True
+        if stored.get("dev") != _arg(cmd, "--dev") or not (OUT / "analysis" / f"{label}.md").is_file():
+            return True
+    return False
+
+
+def analyze(job: Job) -> bool:
     LOGS.mkdir(parents=True, exist_ok=True)
+    ok = True
     for cmd in analysis_commands(job):
         with open(LOGS / "analysis.log", "ab") as log:
             rc = subprocess.run(cmd, cwd=str(TREE), env={**os.environ, "CUDA_VISIBLE_DEVICES": ""}, stdout=log,
                                 stderr=subprocess.STDOUT).returncode
-        say(f"analysis {cmd[cmd.index('--label') + 1]}: {'ok' if rc == 0 else f'FAILED rc={rc}'}")
+        say(f"analysis {_arg(cmd, '--label')}: {'ok' if rc == 0 else f'FAILED rc={rc}'}")
+        ok = ok and rc == 0
+    return ok
+
+
+class AnalysisWorker:
+    """Runs the analyses one after another in a background thread (two of them may rewrite the same table)."""
+
+    def __init__(self, run: Callable = analyze):
+        self._run, self._jobs = run, queue_module.Queue()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def _loop(self):
+        while True:
+            job = self._jobs.get()
+            try:
+                if job is not None:
+                    self._run(job)
+            except Exception as exc:  # the scheduler must outlive a broken table
+                say(f"analysis {job_id(job)}: FAILED {type(exc).__name__}: {exc}")
+            finally:
+                self._jobs.task_done()
+
+    def submit(self, job: Job) -> None:
+        self._jobs.put(job)
+
+    def join(self) -> None:
+        self._jobs.join()
+
+
+def advisor_healthy() -> bool:
+    try:
+        url = f"http://127.0.0.1:{os.environ.get('MCQ_ADVISOR_PORT', '18002')}/health"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            return response.status == 200
+    except Exception:
+        return False
 
 
 def say(msg: str) -> None:
@@ -160,8 +226,13 @@ def say(msg: str) -> None:
 
 def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = launch, finished: Callable = finished,
               after: Optional[Callable] = None, retries: int = 2, poll_seconds: float = 20.0,
-              state_path: Optional[Path] = None, sleep: Callable = time.sleep) -> Dict[str, Dict[str, Any]]:
-    """Run ``jobs`` in order on ``slots`` (a list of GPU ids, one entry per process)."""
+              state_path: Optional[Path] = None, sleep: Callable = time.sleep,
+              ready: Callable = lambda: True) -> Dict[str, Dict[str, Any]]:
+    """Run ``jobs`` in order on ``slots`` (a list of GPU ids, one entry per process).
+
+    ``ready()`` False (the advisor server is down) holds new starts; running jobs are left alone. When this function
+    is left by an exception or a signal, the jobs it started are terminated (their shards stay).
+    """
     state: Dict[str, Dict[str, Any]] = {}
     pending: List[Job] = []
     for job in jobs:
@@ -182,6 +253,19 @@ def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = l
 
     say(f"{len(pending)} jobs to run, {len(jobs) - len(pending)} finished earlier; slots {','.join(slots)}")
     save()
+    try:
+        _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save)
+    finally:
+        for _, _, proc, _ in running:
+            if proc.poll() is None:
+                proc.terminate()
+    counts = {s: sum(e["status"] == s for e in state.values()) for s in ("done", "failed")}
+    say(f"queue empty: {counts['done']} done, {counts['failed']} failed")
+    return state
+
+
+def _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save) -> None:
+    held = False
     while pending or running:
         for item in list(running):
             job, gpu, proc, started = item
@@ -206,6 +290,14 @@ def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = l
                 say(f"FAILED {job_id(job)} after {entry['attempts']} attempts (rc={rc}); see its log")
             save()
         while pending and free:
+            if not ready():
+                if not held:
+                    say("the advisor server does not answer: holding new starts until it does")
+                held = True
+                break
+            if held:
+                say("the advisor server answers again")
+            held = False
             job, gpu = pending.pop(0), free.pop(0)
             entry = state[job_id(job)]
             entry.update(status="running", attempts=entry["attempts"] + 1, gpu=gpu)
@@ -220,11 +312,8 @@ def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = l
             running.append((job, gpu, proc, time.time()))
             say(f"start {job_id(job)} on gpu {gpu} (attempt {entry['attempts']})")
             save()
-        if running:
+        if running or pending:
             sleep(poll_seconds)
-    counts = {s: sum(e["status"] == s for e in state.values()) for s in ("done", "failed")}
-    say(f"queue empty: {counts['done']} done, {counts['failed']} failed")
-    return state
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -233,23 +322,53 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--slots", default=None, help="GPU:COUNT,... (default: from the free memory of each GPU)")
     ap.add_argument("--mib-per-job", type=int, default=26000)
     ap.add_argument("--max-per-gpu", type=int, default=3)
-    ap.add_argument("--retries", type=int, default=2)
+    ap.add_argument("--retries", type=int, default=3)
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--analyze-only", action="store_true", help="write the missing or stale tables and exit (no GPU)")
     args = ap.parse_args(argv)
     jobs = all_jobs(args.only)
     if args.list:
         for job in jobs:
-            print(job_id(job), "done" if finished(job) else "pending")
+            print(job_id(job), "done" if finished(job) else "pending", "(table missing or stale)" * needs_analysis(job))
         return 0
-    slots = parse_slots(args.slots) if args.slots else auto_slots(gpu_free_mib(), args.mib_per_job, args.max_per_gpu)
-    if not slots:
-        raise SystemExit("no GPU has enough free memory for one manager process (see --mib-per-job)")
-    state = run_queue(jobs, slots, after=analyze, retries=args.retries, state_path=OUT / "queue_state.json")
-    failed = [k for k, e in state.items() if e["status"] != "done"]
-    if not failed:
-        LOGS.mkdir(parents=True, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    LOGS.mkdir(parents=True, exist_ok=True)
+    lock = open(OUT / "queue.lock", "w")  # released by the kernel when this process dies, however it dies
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        raise SystemExit("another verifier_grid_queue is running on this pod (runs/verifier_grid/queue.lock)")
+    for sig in (signal.SIGTERM, signal.SIGHUP):  # e.g. tmux kill-session: leave through run_queue's finally
+        signal.signal(sig, lambda signum, frame: sys.exit(128 + signum))
+    worker = AnalysisWorker()
+    for job in jobs:
+        if needs_analysis(job):
+            worker.submit(job)
+    failed: List[str] = []
+    if not args.analyze_only:
+        if not advisor_healthy():
+            say("the advisor server does not answer on its /health endpoint; waiting for it")
+            while not advisor_healthy():
+                time.sleep(20)
+        slots = parse_slots(args.slots) if args.slots else auto_slots(gpu_free_mib(), args.mib_per_job, args.max_per_gpu)
+        if not slots:
+            raise SystemExit("no GPU has enough free memory for one manager process (see --mib-per-job)")
+        state = run_queue(jobs, slots, after=worker.submit, retries=args.retries, state_path=OUT / "queue_state.json",
+                          ready=advisor_healthy)
+        failed = [k for k, e in state.items() if e["status"] != "done"]
+    worker.join()
+    stale = [job for job in jobs if needs_analysis(job)]  # e.g. an analysis that failed: one more attempt
+    for job in stale:
+        worker.submit(job)
+    worker.join()
+    stale = [job_id(job) for job in jobs if needs_analysis(job)]
+    if stale:
+        say(f"tables still missing or stale: {', '.join(stale)} (see logs/verifier_grid/analysis.log)")
+    if failed:
+        say(f"jobs not finished: {', '.join(failed)}")
+    if not failed and not stale and not args.analyze_only:
         (LOGS / "queue_done").write_text(time.strftime("%F %T") + "\n", encoding="utf-8")
-    return 1 if failed else 0
+    return 1 if failed or stale else 0
 
 
 if __name__ == "__main__":

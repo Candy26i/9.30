@@ -42,7 +42,7 @@ from typing import Any, Dict, List, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-GRID_VERSION = "mcq_verifier_grid/1"
+GRID_VERSION = "mcq_verifier_grid/2"
 EXTRA_KINDS = ("verifier_nocand", "null")
 # An empty Verifier response: the Verifier's JSON schema with every field empty and no confidence value.
 NULL_OUTPUT = json.dumps({"relevant_principles": [], "checks": [], "potential_errors": [],
@@ -77,12 +77,34 @@ def extra_states(row: Dict[str, Any], record: Dict[str, Any], pool, kinds: Seque
     return out
 
 
+class _RootTap:
+    """The manager, keeping the check of its last root turn: the grammar-constrained path against unconstrained greedy.
+
+    ``mismatch == 0`` means the constrained first turn is what plain greedy decoding (the deployed evaluation) writes.
+    That holds for the trained managers; the untrained base model does not follow the DRAFT/commit/call grammar on its
+    own, so its grid describes a grammar-forced system and the analysis says so.
+    """
+
+    def __init__(self, manager):
+        self._manager, self.check = manager, None
+
+    def __getattr__(self, name):
+        return getattr(self._manager, name)
+
+    def root(self, *args, **kwargs):
+        decision = self._manager.root(*args, **kwargs)
+        self.check = dict(decision.check or {})
+        return decision
+
+
 def grid_question(row: Dict[str, Any], bench, manager, pool, extra: Sequence[str] = EXTRA_KINDS,
                   seed: int = 42) -> Dict[str, Any]:
     """The collector's depth-1 record of one root plus the extra branches from the same candidate."""
     from src.manager.mcq_rsi import collect
 
-    record = collect.collect_question(row, bench, manager, pool, root_mode="policy", max_depth=1, seed=seed)
+    tap = _RootTap(manager)
+    record = collect.collect_question(row, bench, tap, pool, root_mode="policy", max_depth=1, seed=seed)
+    record["root_check"] = tap.check
     record["extra_branches"] = []
     if not extra or not record["direct_valid"] or record["direct_pred"] is None:
         return record
@@ -121,9 +143,13 @@ def summarize(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         calls += action != "commit"
         policy.append(bool(r["direct_correct"]) if action == "commit" else one.get(action, False))
     acc = lambda xs: round(sum(xs) / len(xs), 6) if xs else None
+    checks = [r.get("root_check") for r in records]
     return {"n": n, "candidate_accuracy": acc([bool(r["direct_correct"]) for r in records]),
             "always": {k: {"accuracy": acc(v), "n": len(v)} for k, v in sorted(by_kind.items())},
-            "policy_single_call": {"accuracy": acc(policy), "call_rate": round(calls / n, 6)}}
+            "policy_single_call": {"accuracy": acc(policy), "call_rate": round(calls / n, 6)},
+            # questions whose constrained first turn is exactly what unconstrained greedy decoding writes
+            "root_equals_unconstrained_greedy": {"n_equal": sum(bool(c) and c.get("mismatch") == 0 for c in checks),
+                                                 "n_checked": sum(bool(c) for c in checks), "n": n}}
 
 
 def run_grid(rows: Sequence[Dict[str, Any]], bench, manager, pool, out_dir, *, pool_name: str,
@@ -134,6 +160,9 @@ def run_grid(rows: Sequence[Dict[str, Any]], bench, manager, pool, out_dir, *, p
     from src.verifiable.provenance import harness_identity
 
     out = Path(out_dir)
+    for kind in extra:
+        if kind not in EXTRA_KINDS:
+            raise ValueError(f"unknown extra branch {kind!r} (known: {EXTRA_KINDS})")
     eids = [int(r["example_id"]) for r in rows]
     if len(set(eids)) != len(eids):
         raise ValueError("duplicate example_id in the pool")
@@ -239,6 +268,7 @@ def main() -> int:
     always = " ".join(f"{k}={v['accuracy']:.3f}" for k, v in s["always"].items())
     print(f"[VERIFIER_GRID] {rt.bench.name}/{args.pool} n={s['n']} candidate={s['candidate_accuracy']:.3f} "
           f"policy={s['policy_single_call']['accuracy']:.3f}@{s['policy_single_call']['call_rate']:.3f} always: {always} "
+          f"root=greedy on {s['root_equals_unconstrained_greedy']['n_equal']}/{s['n']} "
           f"({time.time() - started:.0f}s) advisor_stats={getattr(pool, 'stats', None)} -> {result['records_jsonl']}",
           flush=True)
     return 0

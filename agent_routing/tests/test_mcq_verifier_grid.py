@@ -83,6 +83,8 @@ def test_grid_reuses_the_collector_and_adds_equal_information_branches(tmp_path)
     assert by[e[1]] == {"verifier_nocand": False, "null": False}    # gold B, only the candidate-conditioned call fixes it
     assert by[e[2]] == {"verifier_nocand": True, "null": True}      # gold C
     summary = out["summary"]
+    assert all(r["root_check"] == {"checked": 6, "mismatch": 0, "first_mismatch": None} for r in records)
+    assert summary["root_equals_unconstrained_greedy"] == {"n_equal": 4, "n_checked": 4, "n": 4}
     assert summary["n"] == 4 and summary["candidate_accuracy"] == 0.25
     assert summary["always"]["verifier"]["accuracy"] == 0.75        # A kept, B and C fixed, D not
     assert summary["always"]["null"]["accuracy"] == 0.5
@@ -223,14 +225,80 @@ def test_table_refuses_inconsistent_records():
 
 
 def test_markdown_and_cli(tmp_path):
-    path = tmp_path / "grid_records.jsonl"
+    path, dev = tmp_path / "grid_records.jsonl", tmp_path / "dev_records.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in toy()))
-    assert A.main(["--records", str(path), "--dev", str(path), "--out", str(tmp_path / "out"), "--label", "toy",
+    dev.write_text("".join(json.dumps({**r, "example_id": r["example_id"] + 100}) + "\n" for r in toy()))
+    assert A.main(["--records", str(path), "--dev", str(dev), "--out", str(tmp_path / "out"), "--label", "toy",
                    "--draws", "100", "--n-boot", "200"]) == 0
     text = (tmp_path / "out/toy.md").read_text()
     assert "Always Verifier, with the candidate" in text and "Confidence-gated Verifier, dev threshold" in text
     assert (tmp_path / "out/toy_curve.csv").read_text().count("\n") == 10
     assert json.loads((tmp_path / "out/toy.json").read_text())["rules"]["learned"]["accuracy"] == 0.75
+
+
+def test_dev_questions_inside_the_evaluated_pool_are_left_out_of_the_dev_rules():
+    dev = toy()
+    # the evaluated pool holds the whole dev grid (as MMLU-Pro test_paper does) plus four other questions
+    spec = [(11, False, False, False, True, "commit", 0.47), (12, True, True, True, False, "commit", 0.97),
+            (13, False, False, False, True, "verifier", 0.55), (14, True, True, True, True, "commit", 0.35)]
+    fresh = [record(*x, nocand=False, null=x[1]) for x in spec]
+    res = A.analyze(dev + fresh, dev, draws=200, n_boot=500)
+    assert res["dev_overlap"] == {"shared": 8, "kept": 4}
+    clean = A.analyze(fresh, dev, draws=200, n_boot=500)
+    for name in ("confidence_dev_matched", "confidence_dev_best"):
+        r = res["rules"][name]
+        assert r["n"] == 4 and r["dev_overlap_excluded"] == 8
+        assert (r["accuracy"], r["calls"], r["threshold"]) == tuple(clean["rules"][name][k] for k in ("accuracy", "calls", "threshold"))
+        assert res["tests"][f"learned - {name}"]["diff"] == clean["tests"][f"learned - {name}"]["diff"]
+    assert res["rules"]["confidence_dev_best"]["learned_same_questions"] == {"accuracy": 0.75, "calls": 0.25}
+    text = A.markdown(res, "t")
+    assert "8 of the 12 questions are also in the dev grid" in text and "8 dev questions excluded" in text
+    # the question hash, when recorded, is the identity (example ids of two pools are not comparable in general)
+    hashed = [{**r, "question_hash": f"h{r['example_id']}"} for r in fresh]
+    other = [{**r, "example_id": r["example_id"] + 500, "question_hash": f"h{r['example_id']}"} for r in fresh[:2]]
+    assert A.analyze(hashed, other + [{**r, "question_hash": f"d{r['example_id']}"} for r in dev], draws=50,
+                     n_boot=100)["dev_overlap"] == {"shared": 2, "kept": 2}
+    # nothing left to evaluate: the two rules are absent instead of being in-sample
+    assert "confidence_dev_best" not in A.analyze(dev, dev, draws=50, n_boot=100)["rules"]
+
+
+def test_dev_thresholds_are_cuts_between_distinct_confidences():
+    # dev: the 3rd and 4th least confident candidates tie at .50; the policy calls 3 times
+    dev = [record(1, False, False, False, True, "verifier", 0.30), record(2, False, False, False, True, "verifier", 0.40),
+           record(3, False, False, False, True, "verifier", 0.50), record(4, True, True, True, False, "commit", 0.50),
+           record(5, True, True, True, True, "commit", 0.90)]
+    test = [record(11, False, False, False, True, "commit", 0.46), record(12, True, True, True, False, "commit", 0.50),
+            record(13, True, True, True, True, "commit", 0.95)]
+    r = A.analyze(test, dev, draws=50, n_boot=100)["rules"]["confidence_dev_matched"]
+    # no threshold selects exactly 3 dev questions; the nearest realisable cuts are 2 and 4, and the smaller one is taken
+    assert r["threshold"] == pytest.approx(0.45) and r["dev_calls"] == 0.4 and r["dev_policy_calls"] == 0.6
+    assert r["dev_accuracy"] == 0.8      # questions 1 and 2 fixed, 3 not called (wrong), 4 and 5 kept
+    assert r["calls"] == 0.0 and r["accuracy"] == pytest.approx(2 / 3)   # no test candidate is below the .45 threshold
+    assert A.threshold_for_k([{"conf": 0.5, "id": 1}, {"conf": 0.5000000000000001, "id": 2}], 1) == 0.5000000000000001
+
+
+def test_first_call_only_disclosure_and_root_agreement():
+    recs = toy()
+    for r in recs:
+        r["root_check"] = {"checked": 6, "mismatch": 0}
+        for b in r["branches"]:
+            b["revision"] = {"would_call": b["sequence"] == ["verifier"] and r["example_id"] == 3}
+    res = A.analyze(recs, draws=100, n_boot=200)
+    assert res["root_agreement"] == {"n_equal": 8, "n": 8}
+    assert res["rules"]["learned"]["commit_forced"] == 1 and res["rules"]["learned"]["commit_forced_share"] == pytest.approx(1 / 3)
+    assert res["rules"]["always_null"]["calls"] == 0.0 and res["rules"]["always_verifier_nocand"]["calls"] == 1.0
+    text = A.markdown(res, "t")
+    assert "equals unconstrained greedy decoding on 8/8 questions" in text and "grammar-forced" not in text
+    assert "Learned calling, first call only" in text and "after 1 of 3 calls (33.3%) the commit was forced" in text
+    # a manager that does not follow the grammar on its own (the untrained base model): the table says so
+    for r in recs[:6]:
+        r["root_check"]["mismatch"] = 2
+    forced = A.markdown(A.analyze(recs, draws=100, n_boot=200), "t")
+    assert "on 2/8 questions" in forced and "grammar-forced model, not its deployed behaviour" in forced
+    assert "Grammar-constrained first action, then commit (not the deployed policy)" in forced
+    assert "Learned calling, first call only" not in forced
+    # records of an RSI collection have no root check: nothing is claimed
+    assert "root_agreement" not in A.analyze(toy(), draws=50, n_boot=100)
 
 
 # ------------------------------------------------------------------------------------------------ queue
@@ -337,3 +405,72 @@ def test_commands(tmp_path, monkeypatch):
     cmds = Q.analysis_commands(("s1", "medqa", "dev"))
     assert [c[c.index("--label") + 1] for c in cmds] == ["s1_medqa_dev", "s1_medqa_test"]
     assert "--dev" not in cmds[0] and cmds[1][cmds[1].index("--dev") + 1] == str(dev / "grid_records.jsonl")
+
+
+def test_queue_holds_starts_while_the_advisor_server_is_down_and_stops_its_jobs():
+    done, answers, started = set(), iter([False, False, True, True, True]), []
+
+    def launch(job, gpu):
+        started.append(job)
+        return FakeProc(0, 0, on_exit=lambda: done.add(job))
+
+    sleeps = []
+    state = Q.run_queue([("s1", "medqa", "test"), ("s1", "aqua", "test")], ["0"], launch=launch,
+                        finished=lambda j: j in done, sleep=sleeps.append, ready=lambda: next(answers))
+    assert len(sleeps) >= 2 and len(started) == 2 and all(e["status"] == "done" for e in state.values())
+
+    class Live:
+        terminated = False
+
+        def poll(self):
+            return 143 if self.terminated else None
+
+        def terminate(self):
+            self.terminated = True
+
+    live = Live()
+
+    def stop(seconds):
+        raise SystemExit(143)  # what the SIGTERM / SIGHUP handler does
+
+    with pytest.raises(SystemExit):
+        Q.run_queue([("s1", "medqa", "test")], ["0"], launch=lambda job, gpu: live, finished=lambda j: False, sleep=stop)
+    assert live.terminated
+
+
+def test_stale_tables_are_found_and_the_worker_survives_a_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(Q, "OUT", tmp_path / "runs/verifier_grid")
+    monkeypatch.setattr(Q, "PY", "py")
+    test, dev = ("s1", "medqa", "test"), ("s1", "medqa", "dev")
+    assert not Q.needs_analysis(test)  # not finished: nothing to analyse
+    for job in (test,):
+        Q.out_dir(job).mkdir(parents=True)
+        (Q.out_dir(job) / "grid_summary.json").write_text("{}")
+    assert Q.needs_analysis(test)      # finished, no table
+    analysis = Q.OUT / "analysis"
+    analysis.mkdir(parents=True)
+    (analysis / "s1_medqa_test.json").write_text(json.dumps({"dev": None}))
+    assert Q.needs_analysis(test)      # the markdown is missing
+    (analysis / "s1_medqa_test.md").write_text("x")
+    assert not Q.needs_analysis(test)
+    Q.out_dir(dev).mkdir(parents=True)
+    (Q.out_dir(dev) / "grid_summary.json").write_text("{}")
+    (Q.out_dir(dev) / "grid_records.jsonl").write_text("")
+    assert Q.needs_analysis(test) and Q.needs_analysis(dev)   # the test table was made without the dev threshold
+    (analysis / "s1_medqa_test.json").write_text(json.dumps({"dev": str(Q.out_dir(dev) / "grid_records.jsonl")}))
+    (analysis / "s1_medqa_dev.json").write_text(json.dumps({"dev": None}))
+    (analysis / "s1_medqa_dev.md").write_text("x")
+    assert not Q.needs_analysis(test) and not Q.needs_analysis(dev)
+
+    seen = []
+
+    def run(job):
+        seen.append(job)
+        if job == test:
+            raise RuntimeError("broken table")
+
+    worker = Q.AnalysisWorker(run)
+    worker.submit(test)
+    worker.submit(dev)
+    worker.join()
+    assert seen == [test, dev]
