@@ -104,6 +104,11 @@ want += [ASSETS("managers/medqa_marginal_9b_d2_400/sft_allcommit", "medqa_allc")
          ASSETS("managers/mmlu_marginal_9b_d2/sft_allcommit", "mmlu_pro_allc"),
          ASSETS("managers/aqua_marginal_9b_v1/sft_allcommit", "aqua_allc"),
          ("MaliDDD/gpqa_marginal_9b-sft_allcommit", "model", None, "", "gpqa_allc")]
+# the paper's siblings of S_1 trained with another commit cap rho (S_1: rho = 3 / 2 / 2 / 1)
+want += [ASSETS("managers/medqa_marginal_9b_d2_400/sft_0.0", "medqa_rho0"), ASSETS("managers/medqa_marginal_9b_d2_400/sft_1.0", "medqa_rho1"),
+         ASSETS("managers/medqa_marginal_9b_d2_400/sft_2.0", "medqa_rho2"), ASSETS("managers/mmlu_marginal_9b_d2/sft_1.0", "mmlu_pro_rho1"),
+         ASSETS("managers/aqua_marginal_9b_v1/sft_0.0", "aqua_rho0"), ASSETS("managers/aqua_marginal_9b_v1/sft_0.5", "aqua_rho05"),
+         ("MaliDDD/gpqa_marginal_9b-sft_1.0", "model", None, "", "gpqa_rho1")]
 KEEP = ("adapter_config.json", "adapter_model.safetensors", "chat_template.jinja", "tokenizer.json", "tokenizer_config.json")
 failed = []
 for repo, repo_type, revision, sub, name in want:

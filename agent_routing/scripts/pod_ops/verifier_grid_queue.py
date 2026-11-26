@@ -23,6 +23,9 @@ Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<be
                      commit cap; each kept record trains one successful option drawn at random instead of the
                      shortest one: `mcq_rsi select --arm success`; same SFT recipe; seed_sft_chain.sh VARIANT=sucd)
 
+              rhoX   the paper's siblings of S_1 with another    $CKPT/<bench>_rho0 / rho05 / rho1 / rho2 (commit cap rho =
+                     commit cap (same collection and recipe)     0, 0.5, 1, 2; S_1 itself is rho = 3 / 2 / 2 / 1 for MedQA /
+                                                                 MMLU-Pro / GPQA / AQuA and "allc" is no cap)
               cmto   commit-only control of S_1                 $CKPT/<bench>_cmto     (the same records with every commit
                      row kept and NO call row: a manager trained with the S_1 recipe that is never shown a call)
 
@@ -87,6 +90,8 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("seed3", "deploy_test", BENCHES), ("sucd", "deploy_test", BENCHES),
     ("s1", "forced_verifier_test", BENCHES), ("s1", "forced_all_test", BENCHES),
     ("s1", "forced_reasoner_test", BENCHES), ("s1", "forced_extractor_test", BENCHES),
+    ("rho1", "test", ("medqa", "mmlu_pro", "gpqa")), ("rho2", "test", ("medqa",)),
+    ("rho0", "test", ("medqa", "aqua")), ("rho05", "test", ("aqua",)),
     ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
@@ -112,7 +117,7 @@ def checkpoint_path(ckpt: str, bench: str) -> str:
         return str(WORK / "import" / bench / "round1" / "sft")
     if ckpt == "base":
         return (CKPT / "base_model_path.txt").read_text(encoding="utf-8").strip()
-    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc", "sucd", "cmto") or re.fullmatch(r"seed\d+", ckpt):
+    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc", "sucd", "cmto") or re.fullmatch(r"seed\d+|rho\d+", ckpt):
         return str(CKPT / f"{bench}_{ckpt}")
     raise ValueError(f"unknown checkpoint name {ckpt!r}")
 
