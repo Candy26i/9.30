@@ -598,3 +598,20 @@ def test_queue_passes_over_jobs_whose_checkpoint_is_not_on_disk_yet(tmp_path, mo
     assert Q.checkpoint_path("seed12", "aqua") == str(tmp_path / "ckpt/aqua_seed12")
     with pytest.raises(ValueError):
         Q.checkpoint_path("seedx", "aqua")
+
+
+def test_seed_replicates_table(tmp_path):
+    import mcq_verifier_grid_seeds as S
+
+    base = A.analyze(toy(), draws=100, n_boot=200)
+    base.pop("_vectors")
+    other = json.loads(json.dumps(base))
+    other["rules"]["learned"].update(accuracy=0.625, calls=0.5)
+    (tmp_path / "s1_medqa_test.json").write_text(json.dumps(base))
+    (tmp_path / "seed1_medqa_test.json").write_text(json.dumps(other))
+    text = S.markdown(S.load(tmp_path, ["s1", "seed1", "seed2"], "test"), ["s1", "seed1", "seed2"], "test")
+    assert "**MedQA** (n = 8; seeds present: s1, seed1)" in text
+    assert "| Learned calling (first call), accuracy (%) | 75.0 | 62.5 | 68.8 ± 8.8 |" in text
+    assert "| Learned calling, calls per question | 0.38 | 0.50 | 0.44 ± 0.09 |" in text
+    assert "| Learned − always Verifier (with candidate), pt (exact McNemar p) | +12.5 (1.000) | +12.5 (1.000) | 12.5 ± 0.0 |" in text
+    assert S.main(["--analysis", str(tmp_path), "--ckpts", "s1,seed1"]) == 0
