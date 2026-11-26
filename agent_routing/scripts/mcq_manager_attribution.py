@@ -83,11 +83,14 @@ def _rates(rows) -> Dict[str, Any]:
 
 def dev_threshold(trained_dev_rows, base_dev_rows) -> Optional[Dict[str, Any]]:
     """Confidence threshold of the comparison manager fixed on dev: the cut between two distinct dev confidences (or one
-    of the two ends) whose number of calls is closest to the trained policy's number of dev calls (the lower on a tie)."""
-    if not base_dev_rows or any(r["conf"] is None for r in base_dev_rows):
+    of the two ends) whose number of calls is closest to the trained policy's number of dev calls (the lower on a tie).
+    The two dev grids must hold the same questions, so the target is a whole number of calls."""
+    if not trained_dev_rows or not base_dev_rows or any(r["conf"] is None for r in base_dev_rows):
         return None
+    if {r["qid"] for r in trained_dev_rows} != {r["qid"] for r in base_dev_rows} or len(trained_dev_rows) != len(base_dev_rows):
+        raise ValueError("the two dev grids do not hold the same questions")
     n_dev = len(base_dev_rows)
-    target = sum(r["action"] != "commit" for r in trained_dev_rows) / len(trained_dev_rows) * n_dev
+    target = sum(r["action"] != "commit" for r in trained_dev_rows)
     confs = sorted(r["conf"] for r in base_dev_rows)
     cuts = [k for k in range(n_dev + 1) if k in (0, n_dev) or confs[k - 1] < confs[k]]
     k = min(cuts, key=lambda c: (abs(c - target), c))
@@ -350,12 +353,15 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
           "confidence gate." + pool_line("systems: learned calling - untrained manager with a confidence gate")
           + pool_line("systems: always Verifier, trained - untrained").replace("Pooled over", "Always Verifier, trained − untrained, over")]
     if any(dg(r) for r in R):
+        same = lambda r: dg(r)["trained_learned_same_questions"]
         note = lambda name, r: (f"{name} {_pct(dg(r)['dev_calls'] )}% of dev questions called (learned policy on dev: {_pct(dg(r)['dev_policy_calls'])}%)"
-                                + (f", {dg(r)['dev_overlap_excluded']} test questions that are in the dev pool left out" if dg(r)["dev_overlap_excluded"] else ""))
-        L += ["", "Dev-threshold gate: the untrained manager calls the Verifier when its confidence is below a threshold fixed on "
-              "the dev pool, the cut between two distinct dev confidences whose dev call count is closest to the trained "
-              "policy's (" + "; ".join(note(name, r) for (_, name), r in zip(present, R) if dg(r)) + "). Its calls on this pool "
-              "are whatever that threshold gives."
+                                + (f", {dg(r)['dev_overlap_excluded']} question(s) of this pool that are in the dev pool left out: the gate "
+                                   f"row and its difference are on the other n = {dg(r)['n']}, where learned calling is "
+                                   f"{_pct(same(r)['accuracy'])} / {same(r)['calls']:.2f}" if dg(r)["dev_overlap_excluded"] else ""))
+        L += ["", "Dev-threshold gate: the Verifier is called when the untrained manager's confidence in its draft is below a "
+              "threshold fixed on the dev pool, the cut between two distinct dev confidences of that manager whose dev call "
+              "count is closest to the trained policy's (" + "; ".join(note(name, r) for (_, name), r in zip(present, R) if dg(r))
+              + "). The gate's calls on this pool are whatever that threshold gives."
               + pool_line("systems: learned calling - untrained manager with a dev-threshold confidence gate").replace(
                   "Pooled over", "Learned calling − the dev-threshold gate, over")]
     return "\n".join(L) + "\n"
@@ -400,7 +406,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     stem = f"{args.trained}_vs_{args.base}_{args.pool}"
     pooled = A.pooled_tests([r.pop("_vectors") for r in results.values()], args.n_boot, args.seed) if len(results) > 1 else None
-    refs = references(args.reference, list(results)) if args.reference and args.pool == "test" else None
+    # the reference rows are measurements of the untrained base model: only next to the base manager
+    refs = (references(args.reference, list(results))
+            if args.reference and args.pool == "test" and args.base_label == "untrained" else None)
     (out / f"{stem}.json").write_text(json.dumps({**results, "pooled": pooled, "references": refs}, indent=1) + "\n", encoding="utf-8")
     text = relabel(markdown(results, args.trained, args.base, args.pool, pooled, refs), args.base_label)
     (out / f"{stem}.md").write_text(text, encoding="utf-8")

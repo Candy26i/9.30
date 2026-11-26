@@ -590,6 +590,20 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     one_call = [trained_dev[0]] + [rec(i, "A", True, True, True, True, "commit", 0.9, True, True) for i in (12, 13, 14)]
     t0 = M.dev_threshold(M.A.table(one_call), M.A.table(tied))
     assert t0["threshold"] == 0.0 and t0["dev_calls"] == 0.0 and t0["dev_policy_calls"] == 0.25
+    # the nearest cut can lie above the target: dev confidences .25 .25 .25 .85 and 2 policy calls -> cuts 0, 3, 4 -> 3 calls
+    three = [rec(i, "A", True, True, True, True, "commit", 0.25, True, True) for i in (11, 12, 13)] + [base_dev[3]]
+    t3 = M.dev_threshold(M.A.table(trained_dev), M.A.table(three))
+    assert t3["dev_calls"] == 0.75 and t3["threshold"] == pytest.approx(0.55)
+    # a confidence equal to the threshold is not below it: dev confidences .25 .75 -> threshold .5 exactly; question 5 at .5
+    half_t = [rec(11, "A", False, False, False, True, "verifier", 0.3, True, False), rec(12, "A", True, True, True, True, "commit", 0.9, True, True)]
+    half_b = [rec(11, "A", False, False, False, True, "commit", 0.25, True, False), rec(12, "A", True, True, True, True, "commit", 0.75, True, True)]
+    base_half = [dict(r) for r in base]
+    base_half[4] = rec(5, "D", True, True, True, True, "commit", 0.5, True, True, mismatch=3)
+    g = M.attribute(trained, base_half, trained_dev=half_t, base_dev=half_b, draws=200, n_boot=300)["systems"]["base_confidence_gate_dev"]
+    assert g["threshold"] == 0.5 and g["calls"] == pytest.approx(2 / 6)                # 2 (.20) and 6 (.30); not 5 (.50)
+    with pytest.raises(ValueError, match="dev grids"):                                # another dev question in one of the two grids
+        M.attribute(trained, base, trained_dev=trained_dev, base_dev=base_dev[:3] + [rec(15, "A", True, True, True, True, "commit", 0.9, True, True)])
+    assert M.dev_threshold([], M.A.table(base_dev)) is None
     # every dev confidence below the threshold: always call (no finite threshold is reported)
     g = M.attribute(trained, base, trained_dev=[rec(i, "A", False, False, False, True, "verifier", 0.3, True, False) for i in (11, 12)],
                     base_dev=base_dev[:2], draws=200, n_boot=300)["systems"]["base_confidence_gate_dev"]
@@ -608,8 +622,21 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200"]) == 0
     text = (tmp_path / "out/s1_vs_base_test.md").read_text()
     assert "| Untrained manager + Verifier below a confidence threshold fixed on dev | 66.7 / 0.50 |" in text
-    assert "MedQA 50.0% of dev questions called (learned policy on dev: 50.0%)" in text
+    assert "MedQA 50.0% of dev questions called (learned policy on dev: 50.0%))" in text
+    assert "the Verifier is called when the untrained manager's confidence in its draft is below" in text
     assert json.loads((tmp_path / "out/s1_vs_base_test.json").read_text())["medqa"]["systems"]["base_confidence_gate_dev"]["n"] == 6
+    # with a test question in the dev pool the note says what the gate row is computed on
+    for name, extra in (("s1", extra_t), ("base", extra_b)):
+        with open(tmp_path / "grids" / name / "medqa" / "dev" / "grid_records.jsonl", "a") as fh:
+            fh.write(json.dumps(extra) + "\n")
+    assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200",
+                   "--base-label", "commit-only", "--reference", str(tmp_path / "missing.json")]) == 0   # no reference rows: not read
+    text = (tmp_path / "out/s1_vs_base_test.md").read_text()
+    assert ("1 question(s) of this pool that are in the dev pool left out: the gate row and its difference are on the other "
+            "n = 5, where learned calling is 80.0 / 0.40") in text
+    assert "the Verifier is called when the commit-only manager's confidence in its draft is below" in text
+    assert "| Commit-only manager + Verifier below a confidence threshold fixed on dev | 60.0 / 0.40 |" in text and "Reference:" not in text
+    assert json.loads((tmp_path / "out/s1_vs_base_test.json").read_text())["medqa"]["systems"]["base_confidence_gate_dev"]["n"] == 5
     with pytest.raises(ValueError, match="same questions"):
         M.attribute(trained, base[:5])
 

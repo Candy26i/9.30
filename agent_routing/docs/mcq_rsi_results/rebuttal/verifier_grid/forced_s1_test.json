@@ -1,0 +1,334 @@
+{
+ "paired": {
+  "medqa": {
+   "n": 500,
+   "tests": {
+    "Learned calling \u2212 original forced Verifier": {
+     "diff": -0.056,
+     "ci95": [
+      -0.09,
+      -0.024
+     ],
+     "p": 0.0006,
+     "mcnemar_p": 0.0012935849626762883
+    },
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
+     "diff": -0.052,
+     "ci95": [
+      -0.084,
+      -0.02
+     ],
+     "p": 0.0008,
+     "mcnemar_p": 0.002547564898253958
+    },
+    "Always Verifier with the candidate \u2212 original forced Verifier": {
+     "diff": -0.01,
+     "ci95": [
+      -0.038,
+      0.018
+     ],
+     "p": 0.5226,
+     "mcnemar_p": 0.5681724128491652
+    },
+    "Original forced Verifier \u2212 always Verifier, candidate removed": {
+     "diff": 0.002,
+     "ci95": [
+      -0.008,
+      0.012
+     ],
+     "p": 0.8432,
+     "mcnemar_p": 1.0
+    },
+    "Original forced Reasoner \u2212 always Reasoner": {
+     "diff": 0.004,
+     "ci95": [
+      -0.012,
+      0.02
+     ],
+     "p": 0.7002,
+     "mcnemar_p": 0.803619384765625
+    },
+    "Original forced Extractor \u2212 always Extractor": {
+     "diff": -0.022,
+     "ci95": [
+      -0.044,
+      0.0
+     ],
+     "p": 0.0584,
+     "mcnemar_p": 0.07075554598122835
+    }
+   },
+   "same_outcome": {
+    "Learned calling \u2212 original forced Verifier": 0.856,
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": 0.86,
+    "Always Verifier with the candidate \u2212 original forced Verifier": 0.902,
+    "Original forced Verifier \u2212 always Verifier, candidate removed": 0.986,
+    "Original forced Reasoner \u2212 always Reasoner": 0.968,
+    "Original forced Extractor \u2212 always Extractor": 0.938
+   }
+  },
+  "mmlu_pro": {
+   "n": 500,
+   "tests": {
+    "Learned calling \u2212 original forced Verifier": {
+     "diff": -0.05,
+     "ci95": [
+      -0.092,
+      -0.008
+     ],
+     "p": 0.0202,
+     "mcnemar_p": 0.02607556223566354
+    },
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
+     "diff": -0.068,
+     "ci95": [
+      -0.11,
+      -0.026
+     ],
+     "p": 0.0012,
+     "mcnemar_p": 0.0020493292522852594
+    },
+    "Always Verifier with the candidate \u2212 original forced Verifier": {
+     "diff": 0.042,
+     "ci95": [
+      0.008,
+      0.076
+     ],
+     "p": 0.0164,
+     "mcnemar_p": 0.020298406990107445
+    },
+    "Original forced Verifier \u2212 always Verifier, candidate removed": {
+     "diff": -0.01,
+     "ci95": [
+      -0.024,
+      0.004
+     ],
+     "p": 0.201,
+     "mcnemar_p": 0.266845703125
+    },
+    "Original forced Reasoner \u2212 always Reasoner": {
+     "diff": -0.004,
+     "ci95": [
+      -0.028,
+      0.02
+     ],
+     "p": 0.8234,
+     "mcnemar_p": 0.8714146793645341
+    },
+    "Original forced Extractor \u2212 always Extractor": {
+     "diff": -0.01,
+     "ci95": [
+      -0.032,
+      0.01
+     ],
+     "p": 0.4066,
+     "mcnemar_p": 0.45825831964612007
+    }
+   },
+   "same_outcome": {
+    "Learned calling \u2212 original forced Verifier": 0.766,
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": 0.768,
+    "Always Verifier with the candidate \u2212 original forced Verifier": 0.85,
+    "Original forced Verifier \u2212 always Verifier, candidate removed": 0.974,
+    "Original forced Reasoner \u2212 always Reasoner": 0.924,
+    "Original forced Extractor \u2212 always Extractor": 0.942
+   }
+  },
+  "gpqa": {
+   "n": 100,
+   "tests": {
+    "Learned calling \u2212 original forced Verifier": {
+     "diff": -0.06,
+     "ci95": [
+      -0.14,
+      0.02
+     ],
+     "p": 0.1986,
+     "mcnemar_p": 0.237884521484375
+    },
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
+     "diff": -0.02,
+     "ci95": [
+      -0.1,
+      0.06
+     ],
+     "p": 0.727,
+     "mcnemar_p": 0.803619384765625
+    },
+    "Always Verifier with the candidate \u2212 original forced Verifier": {
+     "diff": -0.04,
+     "ci95": [
+      -0.12,
+      0.04
+     ],
+     "p": 0.424,
+     "mcnemar_p": 0.480682373046875
+    },
+    "Original forced Verifier \u2212 always Verifier, candidate removed": {
+     "diff": -0.01,
+     "ci95": [
+      -0.06,
+      0.04
+     ],
+     "p": 0.8338,
+     "mcnemar_p": 1.0
+    },
+    "Original forced Reasoner \u2212 always Reasoner": {
+     "diff": 0.03,
+     "ci95": [
+      -0.02,
+      0.08
+     ],
+     "p": 0.3412,
+     "mcnemar_p": 0.453125
+    },
+    "Original forced Extractor \u2212 always Extractor": {
+     "diff": 0.02,
+     "ci95": [
+      -0.04,
+      0.08
+     ],
+     "p": 0.6444,
+     "mcnemar_p": 0.75390625
+    }
+   },
+   "same_outcome": {
+    "Learned calling \u2212 original forced Verifier": 0.82,
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": 0.84,
+    "Always Verifier with the candidate \u2212 original forced Verifier": 0.82,
+    "Original forced Verifier \u2212 always Verifier, candidate removed": 0.93,
+    "Original forced Reasoner \u2212 always Reasoner": 0.93,
+    "Original forced Extractor \u2212 always Extractor": 0.9
+   }
+  },
+  "aqua": {
+   "n": 254,
+   "tests": {
+    "Learned calling \u2212 original forced Verifier": {
+     "diff": -0.003937007874015748,
+     "ci95": [
+      -0.06299212598425197,
+      0.051181102362204724
+     ],
+     "p": 0.9574,
+     "mcnemar_p": 1.0
+    },
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
+     "diff": -0.01968503937007874,
+     "ci95": [
+      -0.07480314960629922,
+      0.03543307086614173
+     ],
+     "p": 0.5324,
+     "mcnemar_p": 0.5831321542611763
+    },
+    "Always Verifier with the candidate \u2212 original forced Verifier": {
+     "diff": 0.07480314960629922,
+     "ci95": [
+      0.027559055118110236,
+      0.1220472440944882
+     ],
+     "p": 0.0014,
+     "mcnemar_p": 0.0033778479119064286
+    },
+    "Original forced Verifier \u2212 always Verifier, candidate removed": {
+     "diff": -0.007874015748031496,
+     "ci95": [
+      -0.031496062992125984,
+      0.011811023622047244
+     ],
+     "p": 0.5984,
+     "mcnemar_p": 0.7265625
+    },
+    "Original forced Reasoner \u2212 always Reasoner": {
+     "diff": -0.031496062992125984,
+     "ci95": [
+      -0.07874015748031496,
+      0.011811023622047244
+     ],
+     "p": 0.1956,
+     "mcnemar_p": 0.22948101302608848
+    },
+    "Original forced Extractor \u2212 always Extractor": {
+     "diff": -0.051181102362204724,
+     "ci95": [
+      -0.0984251968503937,
+      -0.003937007874015748
+     ],
+     "p": 0.044,
+     "mcnemar_p": 0.05325191409792751
+    }
+   },
+   "same_outcome": {
+    "Learned calling \u2212 original forced Verifier": 0.7834645669291339,
+    "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": 0.7913385826771654,
+    "Always Verifier with the candidate \u2212 original forced Verifier": 0.8464566929133859,
+    "Original forced Verifier \u2212 always Verifier, candidate removed": 0.968503937007874,
+    "Original forced Reasoner \u2212 always Reasoner": 0.8661417322834646,
+    "Original forced Extractor \u2212 always Extractor": 0.8464566929133859
+   }
+  }
+ },
+ "pooled": {
+  "Learned calling \u2212 original forced Verifier": {
+   "diff": -0.04431314623338257,
+   "ci95": [
+    -0.0672082717872969,
+    -0.0206794682422452
+   ],
+   "p": 0.0006,
+   "mcnemar_p": 0.000252665338925159,
+   "n": 1354
+  },
+  "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
+   "diff": -0.04948301329394387,
+   "ci95": [
+    -0.0723781388478582,
+    -0.026587887740029542
+   ],
+   "p": 0.0,
+   "mcnemar_p": 3.2479528435460725e-05,
+   "n": 1354
+  },
+  "Always Verifier with the candidate \u2212 original forced Verifier": {
+   "diff": 0.022895125553914326,
+   "ci95": [
+    0.003692762186115214,
+    0.042097488921713444
+   ],
+   "p": 0.025,
+   "mcnemar_p": 0.025483292434829635,
+   "n": 1354
+  },
+  "Original forced Verifier \u2212 always Verifier, candidate removed": {
+   "diff": -0.0051698670605613,
+   "ci95": [
+    -0.014032496307237814,
+    0.003692762186115214
+   ],
+   "p": 0.2622,
+   "mcnemar_p": 0.31050465907901525,
+   "n": 1354
+  },
+  "Original forced Reasoner \u2212 always Reasoner": {
+   "diff": -0.003692762186115214,
+   "ci95": [
+    -0.01772525849335303,
+    0.0103397341211226
+   ],
+   "p": 0.6618,
+   "mcnemar_p": 0.6817425059181855,
+   "n": 1354
+  },
+  "Original forced Extractor \u2212 always Extractor": {
+   "diff": -0.019940915805022157,
+   "ci95": [
+    -0.03545051698670606,
+    -0.0051698670605613
+   ],
+   "p": 0.0104,
+   "mcnemar_p": 0.01240363724333,
+   "n": 1354
+  }
+ }
+}
