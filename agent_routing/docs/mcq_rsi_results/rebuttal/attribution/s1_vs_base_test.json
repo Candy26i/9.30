@@ -1402,5 +1402,10 @@
     "calls": 0.776
    }
   }
+ },
+ "managers": {
+  "trained": "s1",
+  "comparison": "base",
+  "comparison_label": "untrained"
  }
 }

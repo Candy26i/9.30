@@ -1349,5 +1349,10 @@
    "n": 1354
   }
  },
- "references": null
+ "references": null,
+ "managers": {
+  "trained": "s1",
+  "comparison": "cmto",
+  "comparison_label": "commit-only"
+ }
 }

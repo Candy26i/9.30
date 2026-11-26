@@ -409,7 +409,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     # the reference rows are measurements of the untrained base model: only next to the base manager
     refs = (references(args.reference, list(results))
             if args.reference and args.pool == "test" and args.base_label == "untrained" else None)
-    (out / f"{stem}.json").write_text(json.dumps({**results, "pooled": pooled, "references": refs}, indent=1) + "\n", encoding="utf-8")
+    # the test names say "untrained" for the comparison manager whatever it is: this field says which manager that was
+    managers = {"trained": args.trained, "comparison": args.base, "comparison_label": args.base_label}
+    (out / f"{stem}.json").write_text(json.dumps({**results, "pooled": pooled, "references": refs, "managers": managers}, indent=1) + "\n",
+                                      encoding="utf-8")
     text = relabel(markdown(results, args.trained, args.base, args.pool, pooled, refs), args.base_label)
     (out / f"{stem}.md").write_text(text, encoding="utf-8")
     print(text)
