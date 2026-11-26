@@ -387,7 +387,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     (out / f"{args.label}.md").write_text(markdown(result, args.label), encoding="utf-8")
     if "confidence_curve" in result:
         with open(out / f"{args.label}_curve.csv", "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["calls_per_question", "confidence_gated_accuracy", "random_verifier_expected_accuracy"])
             for p in result["confidence_curve"]:
                 w.writerow([f"{p['calls']:.6f}", f"{p['accuracy']:.6f}", f"{p['random_expected']:.6f}"])
