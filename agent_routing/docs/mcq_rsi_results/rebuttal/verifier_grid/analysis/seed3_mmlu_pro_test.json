@@ -77,6 +77,22 @@
    "accuracy": 0.738,
    "calls": 0.81,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.638,
+   "calls": 0.348,
+   "threshold": 0.870549611814889,
+   "dev_calls": 0.395,
+   "dev_accuracy": 0.66,
+   "dev_policy_calls": 0.395
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.734,
+   "calls": 0.772,
+   "threshold": 0.9943304704368263,
+   "dev_calls": 0.785,
+   "dev_accuracy": 0.725,
+   "dev_policy_calls": 0.395
   }
  },
  "tests": {
@@ -133,6 +149,24 @@
    ],
    "p": 0.9388,
    "mcnemar_p": 1.0
+  },
+  "learned - confidence_dev_matched": {
+   "diff": 0.01,
+   "ci95": [
+    -0.024,
+    0.044
+   ],
+   "p": 0.6006,
+   "mcnemar_p": 0.644463913894226
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.086,
+   "ci95": [
+    -0.114,
+    -0.058
+   ],
+   "p": 0.0,
+   "mcnemar_p": 4.236709844063213e-09
   }
  },
  "root_agreement": {
@@ -2647,6 +2681,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/seed3/mmlu_pro/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/seed3/mmlu_pro/dev/grid_records.jsonl",
  "label": "seed3_mmlu_pro_test"
 }

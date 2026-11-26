@@ -9,6 +9,8 @@ Accuracy (%) / advisor calls per question. Every rule starts from the same manag
 | Learned selection, Verifier only | 80.6 / 0.36 | 65.4 / 0.37 | 52.0 / 0.73 | 75.6 / 0.72 |
 | Random questions, same calls per advisor | 76.5 / 0.36 [74.8, 78.2] | 58.2 / 0.37 [56.4, 60.2] | 49.5 / 0.73 [45.0, 54.0] | 71.7 / 0.72 [68.5, 74.8] |
 | Random subset, Verifier only (same budget) | 77.4 / 0.36 [75.8, 79.0] | 59.3 / 0.37 [57.4, 61.2] | 51.2 / 0.73 [48.0, 55.0] | 71.7 / 0.72 [68.5, 74.8] |
+| Confidence-gated Verifier (dev threshold, matched call rate) | 81.0 / 0.34 | 63.8 / 0.35 | 54.0 / 0.89 | 75.2 / 0.74 |
+| Confidence-gated Verifier (dev threshold, best dev accuracy) | 84.0 / 0.59 | 73.4 / 0.77 | 55.0 / 0.91 | 81.9 / 0.92 |
 | Confidence-gated Verifier (same number of calls, in-pool ranking) | 81.0 / 0.36 | 64.6 / 0.37 | 53.0 / 0.73 | 74.0 / 0.72 |
 | Always Verifier, with the candidate | 84.8 / 1.00 | 73.6 / 1.00 | 55.0 / 1.00 | 85.0 / 1.00 |
 | Always Verifier, candidate removed | 84.4 / 1.00 | 68.4 / 1.00 | 59.0 / 1.00 | 78.7 / 1.00 |
@@ -27,6 +29,8 @@ Share of 2,000 random draws at least as accurate as the learned calling (one-sid
 |:--|--:|--:|--:|--:|--:|
 | Learned − always Verifier (with candidate) | -5.8 [-8.8, -2.8], <.001 | -8.8 [-11.6, -6.0], <.001 | -3.0 [-8.0, +1.0], .375 | -9.4 [-13.4, -5.9], <.001 | -7.4 [-9.2, -5.7], <.001 |
 | Learned − learned selection sent to the Verifier | -1.6 [-3.8, +0.6], .215 | -0.6 [-1.6, +0.2], .375 | +0.0 [+0.0, +0.0], 1.000 | +0.0 [+0.0, +0.0], 1.000 | -0.8 [-1.7, +0.1], .099 |
+| Learned − confidence gate (dev threshold, matched) | -2.0 [-5.0, +1.0], .237 | +1.0 [-2.4, +4.4], .644 | -2.0 [-7.0, +3.0], .688 | +0.4 [-5.1, +5.5], 1.000 | -0.4 [-2.4, +1.6], .714 |
+| Learned − confidence gate (dev threshold, best) | -5.0 [-8.0, -2.2], <.001 | -8.6 [-11.4, -5.8], <.001 | -3.0 [-8.0, +1.0], .375 | -6.3 [-10.6, -2.0], .007 | -6.4 [-8.2, -4.7], <.001 |
 | Learned − confidence gate (same number of calls) | -2.0 [-5.0, +0.8], .229 | +0.2 [-3.0, +3.6], 1.000 | -1.0 [-6.0, +3.0], 1.000 | +1.6 [-3.9, +6.7], .665 | -0.4 [-2.4, +1.6], .711 |
 | Always Verifier: with − without the candidate | +0.4 [-2.2, +3.0], .883 | +5.2 [+1.8, +8.6], .004 | -4.0 [-11.0, +3.0], .424 | +6.3 [+1.6, +11.0], .014 | +3.0 [+1.0, +4.9], .003 |
 | Always Verifier − empty-output revision | +12.2 [+8.8, +15.6], <.001 | +22.6 [+18.4, +26.8], <.001 | +14.0 [+5.0, +23.0], .004 | +49.2 [+42.5, +55.9], <.001 | +23.1 [+20.6, +25.7], <.001 |

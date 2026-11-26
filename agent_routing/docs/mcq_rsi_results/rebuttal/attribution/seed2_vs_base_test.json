@@ -252,6 +252,15 @@
      ],
      "p": 0.172,
      "mcnemar_p": 0.21160856876151612
+    },
+    "trained learned calling - base with a dev-threshold confidence gate": {
+     "diff": -0.018,
+     "ci95": [
+      -0.046,
+      0.01
+     ],
+     "p": 0.222,
+     "mcnemar_p": 0.2624375357110438
     }
    },
    "gain_per_call": {
@@ -278,6 +287,22 @@
      0.738,
      0.774
     ]
+   },
+   "base_confidence_gate_dev": {
+    "threshold": 0.5281666535096488,
+    "dev_n": 200,
+    "dev_calls": 0.4,
+    "dev_policy_calls": 0.4,
+    "dev_candidate": 0.685,
+    "dev_accuracy": 0.805,
+    "accuracy": 0.804,
+    "calls": 0.346,
+    "n": 500,
+    "dev_overlap_excluded": 0,
+    "trained_learned_same_questions": {
+     "accuracy": 0.786,
+     "calls": 0.382
+    }
    }
   }
  },
@@ -534,6 +559,15 @@
      ],
      "p": 0.0022,
      "mcnemar_p": 0.0020493292522852594
+    },
+    "trained learned calling - base with a dev-threshold confidence gate": {
+     "diff": 0.066,
+     "ci95": [
+      0.024,
+      0.108
+     ],
+     "p": 0.0028,
+     "mcnemar_p": 0.00268570100596285
     }
    },
    "gain_per_call": {
@@ -560,6 +594,22 @@
      0.518,
      0.558
     ]
+   },
+   "base_confidence_gate_dev": {
+    "threshold": 0.38517600370266236,
+    "dev_n": 200,
+    "dev_calls": 0.41,
+    "dev_policy_calls": 0.41,
+    "dev_candidate": 0.425,
+    "dev_accuracy": 0.6,
+    "accuracy": 0.588,
+    "calls": 0.37,
+    "n": 500,
+    "dev_overlap_excluded": 0,
+    "trained_learned_same_questions": {
+     "accuracy": 0.654,
+     "calls": 0.366
+    }
    }
   }
  },
@@ -816,6 +866,15 @@
      ],
      "p": 0.093,
      "mcnemar_p": 0.143463134765625
+    },
+    "trained learned calling - base with a dev-threshold confidence gate": {
+     "diff": 0.02,
+     "ci95": [
+      -0.06,
+      0.1
+     ],
+     "p": 0.694,
+     "mcnemar_p": 0.803619384765625
     }
    },
    "gain_per_call": {
@@ -842,6 +901,22 @@
      0.36,
      0.46
     ]
+   },
+   "base_confidence_gate_dev": {
+    "threshold": 0.4923525391251396,
+    "dev_n": 100,
+    "dev_calls": 0.56,
+    "dev_policy_calls": 0.56,
+    "dev_candidate": 0.43,
+    "dev_accuracy": 0.53,
+    "accuracy": 0.49,
+    "calls": 0.64,
+    "n": 100,
+    "dev_overlap_excluded": 0,
+    "trained_learned_same_questions": {
+     "accuracy": 0.51,
+     "calls": 0.44
+    }
    }
   }
  },
@@ -1098,6 +1173,15 @@
      ],
      "p": 0.1222,
      "mcnemar_p": 0.14089542359848076
+    },
+    "trained learned calling - base with a dev-threshold confidence gate": {
+     "diff": 0.01968503937007874,
+     "ci95": [
+      -0.03543307086614173,
+      0.07480314960629922
+     ],
+     "p": 0.5214,
+     "mcnemar_p": 0.5681724128491652
     }
    },
    "gain_per_call": {
@@ -1124,6 +1208,22 @@
      0.6653543307086615,
      0.7244094488188977
     ]
+   },
+   "base_confidence_gate_dev": {
+    "threshold": 0.5018358657376499,
+    "dev_n": 254,
+    "dev_calls": 0.7913385826771654,
+    "dev_policy_calls": 0.7913385826771654,
+    "dev_candidate": 0.3464566929133858,
+    "dev_accuracy": 0.7244094488188977,
+    "accuracy": 0.7401574803149606,
+    "calls": 0.8031496062992126,
+    "n": 254,
+    "dev_overlap_excluded": 0,
+    "trained_learned_same_questions": {
+     "accuracy": 0.7598425196850394,
+     "calls": 0.7480314960629921
+    }
    }
   }
  },
@@ -1237,6 +1337,16 @@
    "p": 0.0056,
    "mcnemar_p": 0.006699308380625608,
    "n": 1354
+  },
+  "systems: learned calling - untrained manager with a dev-threshold confidence gate": {
+   "diff": 0.022895125553914326,
+   "ci95": [
+    0.0007385524372230429,
+    0.045051698670605614
+   ],
+   "p": 0.0452,
+   "mcnemar_p": 0.04816305344074454,
+   "n": 1354
   }
  },
  "references": {
@@ -1292,5 +1402,10 @@
     "calls": 0.776
    }
   }
+ },
+ "managers": {
+  "trained": "seed2",
+  "comparison": "base",
+  "comparison_label": "untrained"
  }
 }

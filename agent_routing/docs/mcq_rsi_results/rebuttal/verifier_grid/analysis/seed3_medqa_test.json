@@ -77,6 +77,22 @@
    "accuracy": 0.848,
    "calls": 0.814,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.81,
+   "calls": 0.336,
+   "threshold": 0.9762765269061393,
+   "dev_calls": 0.345,
+   "dev_accuracy": 0.795,
+   "dev_policy_calls": 0.345
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.84,
+   "calls": 0.588,
+   "threshold": 0.9979561571993985,
+   "dev_calls": 0.645,
+   "dev_accuracy": 0.855,
+   "dev_policy_calls": 0.345
   }
  },
  "tests": {
@@ -133,6 +149,24 @@
    ],
    "p": 0.1962,
    "mcnemar_p": 0.22880554123435617
+  },
+  "learned - confidence_dev_matched": {
+   "diff": -0.02,
+   "ci95": [
+    -0.05,
+    0.01
+   ],
+   "p": 0.2062,
+   "mcnemar_p": 0.2370471147627195
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.05,
+   "ci95": [
+    -0.08,
+    -0.022
+   ],
+   "p": 0.0004,
+   "mcnemar_p": 0.0008023308868949641
   }
  },
  "root_agreement": {
@@ -2647,6 +2681,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/seed3/medqa/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/seed3/medqa/dev/grid_records.jsonl",
  "label": "seed3_medqa_test"
 }

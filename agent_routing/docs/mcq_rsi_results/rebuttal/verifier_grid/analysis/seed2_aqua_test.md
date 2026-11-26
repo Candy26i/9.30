@@ -12,6 +12,8 @@ The grid's first turn equals unconstrained greedy decoding on 254/254 questions.
 | Random questions, same calls per advisor | 0.75 | 71.7 | 95% of draws in [68.9, 74.8]; 0.005 of draws ≥ learned |
 | Random questions, Verifier only | 0.75 | 71.7 | 95% of draws in [68.9, 74.8]; 0.005 of draws ≥ learned; 0.005 ≥ learned selection (Verifier only) |
 | Confidence-gated Verifier, same number of calls | 0.75 | 73.6 |  |
+| Confidence-gated Verifier, dev threshold (matched call rate) | 0.79 | 76.0 | dev: 76.4 at 0.79 calls |
+| Confidence-gated Verifier, dev threshold (best dev accuracy) | 0.93 | 80.7 | dev: 81.9 at 0.96 calls |
 | Confidence-gated Verifier, best threshold on this pool | 1.00 | 83.9 | threshold chosen on this pool (upper bound) |
 | Always Verifier, with the candidate | 1.00 | 83.9 |  |
 | Always Verifier, candidate removed | 1.00 | 79.5 |  |
@@ -28,3 +30,5 @@ The grid's first turn equals unconstrained greedy decoding on 254/254 questions.
 | evidence value: always_verifier - always_null | +48.0 | [+40.9, +54.7] | <0.001 | <0.001 |
 | revision without evidence: always_null - candidate | +0.0 | [-2.0, +2.0] | 1.000 | 1.000 |
 | learned - confidence_matched | +2.4 | [-2.8, +7.5] | 0.418 | 0.461 |
+| learned - confidence_dev_matched | +0.0 | [-5.1, +5.1] | 1.000 | 1.000 |
+| learned - confidence_dev_best | -4.7 | [-9.1, -0.4] | 0.032 | 0.043 |
