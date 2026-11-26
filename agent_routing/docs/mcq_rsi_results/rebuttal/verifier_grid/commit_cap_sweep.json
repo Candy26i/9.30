@@ -11,6 +11,7 @@
    "calls": 1.0,
    "learned": 0.822,
    "random_roles": 0.826909,
+   "random_share": 0.7855,
    "confidence_matched": 0.846,
    "always_verifier": 0.846,
    "learned_vs_gate": {
@@ -43,6 +44,7 @@
    "calls": 0.602,
    "learned": 0.8,
    "random_roles": 0.7819210000000001,
+   "random_share": 0.051,
    "confidence_matched": 0.828,
    "always_verifier": 0.84,
    "learned_vs_gate": {
@@ -75,6 +77,7 @@
    "calls": 0.502,
    "learned": 0.788,
    "random_roles": 0.774342,
+   "random_share": 0.096,
    "confidence_matched": 0.822,
    "always_verifier": 0.838,
    "learned_vs_gate": {
@@ -107,6 +110,7 @@
    "calls": 0.366,
    "learned": 0.788,
    "random_roles": 0.765507,
+   "random_share": 0.008,
    "confidence_matched": 0.796,
    "always_verifier": 0.834,
    "learned_vs_gate": {
@@ -139,6 +143,7 @@
    "calls": 0.234,
    "learned": 0.772,
    "random_roles": 0.751717,
+   "random_share": 0.0055,
    "confidence_matched": 0.782,
    "always_verifier": 0.832,
    "learned_vs_gate": {
@@ -173,6 +178,7 @@
    "calls": 0.332,
    "learned": 0.62,
    "random_roles": 0.5609489999999999,
+   "random_share": 0.0,
    "confidence_matched": 0.606,
    "always_verifier": 0.728,
    "learned_vs_gate": {
@@ -205,6 +211,7 @@
    "calls": 0.332,
    "learned": 0.632,
    "random_roles": 0.571682,
+   "random_share": 0.0,
    "confidence_matched": 0.616,
    "always_verifier": 0.724,
    "learned_vs_gate": {
@@ -237,6 +244,7 @@
    "calls": 0.212,
    "learned": 0.592,
    "random_roles": 0.556528,
+   "random_share": 0.0,
    "confidence_matched": 0.59,
    "always_verifier": 0.732,
    "learned_vs_gate": {
@@ -271,6 +279,7 @@
    "calls": 0.82,
    "learned": 0.51,
    "random_roles": 0.50475,
+   "random_share": 0.492,
    "confidence_matched": 0.52,
    "always_verifier": 0.54,
    "learned_vs_gate": {
@@ -303,6 +312,7 @@
    "calls": 0.52,
    "learned": 0.54,
    "random_roles": 0.476635,
+   "random_share": 0.005,
    "confidence_matched": 0.52,
    "always_verifier": 0.56,
    "learned_vs_gate": {
@@ -335,6 +345,7 @@
    "calls": 0.68,
    "learned": 0.54,
    "random_roles": 0.4875,
+   "random_share": 0.035,
    "confidence_matched": 0.53,
    "always_verifier": 0.55,
    "learned_vs_gate": {
@@ -369,6 +380,7 @@
    "calls": 1.0,
    "learned": 0.8503937007874016,
    "random_roles": 0.844246062992126,
+   "random_share": 0.192,
    "confidence_matched": 0.8543307086614174,
    "always_verifier": 0.8543307086614174,
    "learned_vs_gate": {
@@ -401,6 +413,7 @@
    "calls": 0.8818897637795275,
    "learned": 0.8188976377952756,
    "random_roles": 0.7871102362204724,
+   "random_share": 0.0055,
    "confidence_matched": 0.8070866141732284,
    "always_verifier": 0.8464566929133859,
    "learned_vs_gate": {
@@ -433,6 +446,7 @@
    "calls": 0.7716535433070866,
    "learned": 0.7716535433070866,
    "random_roles": 0.7390354330708662,
+   "random_share": 0.0165,
    "confidence_matched": 0.7677165354330708,
    "always_verifier": 0.8503937007874016,
    "learned_vs_gate": {
@@ -465,6 +479,7 @@
    "calls": 0.6299212598425197,
    "learned": 0.6968503937007874,
    "random_roles": 0.6698779527559056,
+   "random_share": 0.0565,
    "confidence_matched": 0.6889763779527559,
    "always_verifier": 0.8464566929133859,
    "learned_vs_gate": {

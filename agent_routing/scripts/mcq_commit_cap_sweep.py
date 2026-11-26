@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""The paper's managers trained with another commit cap, next to S_1 (no GPU).
+"""The submission's sibling checkpoints of S_1 stored under another commit cap, next to S_1 (no GPU).
 
-All of them use the round-1 collection of the benchmark and the SFT recipe of S_1; only the commit cap rho differs:
-every rescue record is kept and the commit records are cut to int(rho x number of rescue records) ("no cap": all kept).
+They are the ``sft_<rho>`` / ``sft_allcommit`` adapters of the collection run that produced S_1. Cap rule: every rescue
+record is kept and the commit records are cut to int(rho x number of rescue records) ("no cap": all kept). What is on
+record about each manager's training (label file, training log) is printed under the table title.
 Reads ``<analysis>/<ckpt>_<bench>_<pool>.json`` (``mcq_verifier_grid_analyze.py``) and writes, per benchmark, one row
 per cap: the commit records the cap keeps (computed from the collection counts with the cap rule, not counted from
 each manager's label file), the candidate (draft) accuracy, the learned policy's calls and accuracy, and the same
@@ -42,6 +43,10 @@ def _pct(x) -> str:
     return "–" if x is None else f"{100 * x:.1f}"
 
 
+def _share(x) -> str:
+    return "–" if x is None else ("<.001" if x < 0.001 else f"{x:.3f}".lstrip("0"))
+
+
 def _t(test) -> str:
     if test is None:
         return "–"
@@ -60,7 +65,8 @@ def rows(analysis: Path, bench: str, pool: str) -> List[Dict[str, Any]]:
         out.append({"cap": label, "ckpt": ckpt, "n": d["n"], "commit_kept": commit_kept(bench, rho),
                     "commit_all": RECORDS[bench][1], "rescue": RECORDS[bench][0],
                     "candidate": rule("candidate"), "calls": rule("learned", "calls"), "learned": rule("learned"),
-                    "random_roles": rule("random_roles"), "confidence_matched": rule("confidence_matched"),
+                    "random_roles": rule("random_roles"), "random_share": rule("random_roles", "share_at_least_learned"),
+                    "confidence_matched": rule("confidence_matched"),
                     "always_verifier": rule("always_verifier"),
                     "learned_vs_gate": d["tests"].get("learned - confidence_matched"),
                     "learned_vs_always": d["tests"].get("learned - always_verifier")})
@@ -69,29 +75,40 @@ def rows(analysis: Path, bench: str, pool: str) -> List[Dict[str, Any]]:
 
 def markdown(tables: Dict[str, List[Dict[str, Any]]], pool: str) -> str:
     L = [f"### Commit cap of the manager's training data, pool `{pool}`", "",
-         "Managers trained on the same round-1 collection with the S_1 recipe; only the commit cap rho differs (every "
-         "rescue record is kept, the commit records are cut to int(rho x rescue records)). The row marked S_1 is the "
-         "paper's manager. Accuracy in %, calls per question; every reference in a row is computed from that manager's "
-         "own equal-information grid (its own draft and confidences). The confidence gate sends the Verifier to the "
-         "manager's least confident candidates, as many as the learned policy calls, with the cut placed inside this "
-         "pool; the learned policy's calls can go to another advisor. Differences: pt [95% CI], exact McNemar p.", "",
-         "The second column is computed from the round-1 collection counts with the cap rule, not counted from each "
-         "manager's label file. Recorded label files or training logs agree with it for S_1 on all four benchmarks, for "
-         "MedQA at rho 0 / 1 / 2 and for the no-cap managers of MedQA, MMLU-Pro and GPQA; for MMLU-Pro rho 1, GPQA rho 1 "
-         "and AQuA rho 0 / 0.5 / no cap no label file or training log was read (the GPQA collection counts are derived, "
-         "see `configuration.md`).", ""]
+         "The submission's sibling checkpoints of S_1 stored under another commit cap rho (the `sft_<rho>` / "
+         "`sft_allcommit` adapters of the collection run that produced S_1; every rescue record is kept, the commit "
+         "records are cut to int(rho x rescue records)). The row marked S_1 is the registered S_1 of the benchmark (the "
+         "paper's manager; for MedQA the same-configuration substitute of the paper's unarchived checkpoint, see "
+         "`configuration.md`, section 1). Accuracy in %, calls per question; every reference in a row is computed from "
+         "that manager's own equal-information grid (its own draft and confidences). Learned calling is the policy's "
+         "first call followed by a commit. The confidence gate sends the Verifier to the manager's least confident "
+         "candidates (the manager's probability of its candidate), as many as the learned policy calls, with the cut "
+         "placed inside this pool; the learned policy's calls can go to another advisor. At rho = 0 the learned policy "
+         "calls on every question, so that gate is always Verifier and the two difference columns hold the same test. "
+         "Random questions: mean of 2,000 draws with the same calls per advisor, and the share of those draws that are "
+         "at least as accurate as learned calling. Differences: pt [95% CI], exact McNemar p.", "",
+         "What is on record about the training of these managers (`configuration.md`, section 1). The second column is "
+         "computed from the round-1 collection counts with the cap rule, not counted from each manager's label file. "
+         "Recorded label files or training logs agree with it for S_1 on all four benchmarks, for MedQA at rho 0 / 1 / 2 "
+         "and for the no-cap managers of MedQA, MMLU-Pro and GPQA (10 of the 15); for GPQA the collection counts were "
+         "themselves solved from the row counts of those two training logs, so that agreement is not an independent "
+         "check. For MMLU-Pro rho 1, GPQA rho 1 and AQuA rho 0 / 0.5 / no cap no label file or training log was read: "
+         "their training data and recipe are known from the adapter names only. Training logs that print the S_1 "
+         "settings (lr 1e-5, 10 epochs) are cited for 8 of the 15 (MedQA rho 0 / 1 / 3 / no cap, MMLU-Pro rho 2 / no "
+         "cap, GPQA rho 2 / no cap).", ""]
     for bench, name in BENCHES:
         R = tables.get(bench) or []
         if not R:
             continue
         L += [f"**{name}** (n = {R[0]['n']}; round-1 collection: {R[0]['rescue']} rescue and {R[0]['commit_all']} commit records)", "",
-              "| Commit cap | Commit records kept by the cap (computed) | Candidate only | Calls | Learned calling | Random questions, same calls per advisor "
-              "| Verifier on its own least confident candidates, same calls | Learned − gate | Always Verifier | Learned − always Verifier |",
-              "|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
+              "| Commit cap | Commit records kept by the cap (computed) | Candidate only | Calls | Learned calling (first call) "
+              "| Random questions, same calls per advisor | Share of random draws ≥ learned "
+              "| Verifier on the manager's least confident candidates, same calls | Learned − gate | Always Verifier | Learned − always Verifier |",
+              "|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
         for r in R:
             cap = f"{r['cap']} (S_1)" if r["ckpt"] == "s1" else r["cap"]
             L.append(f"| {cap} | {r['commit_kept']} | {_pct(r['candidate'])} | {r['calls']:.2f} | {_pct(r['learned'])} | "
-                     f"{_pct(r['random_roles'])} | {_pct(r['confidence_matched'])} | {_t(r['learned_vs_gate'])} | "
+                     f"{_pct(r['random_roles'])} | {_share(r['random_share'])} | {_pct(r['confidence_matched'])} | {_t(r['learned_vs_gate'])} | "
                      f"{_pct(r['always_verifier'])} | {_t(r['learned_vs_always'])} |")
         L.append("")
     return "\n".join(L)

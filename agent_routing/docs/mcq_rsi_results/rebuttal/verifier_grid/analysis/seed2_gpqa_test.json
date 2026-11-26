@@ -77,6 +77,22 @@
    "accuracy": 0.56,
    "calls": 0.93,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.5,
+   "calls": 0.6,
+   "threshold": 0.7992437337477077,
+   "dev_calls": 0.56,
+   "dev_accuracy": 0.53,
+   "dev_policy_calls": 0.56
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.55,
+   "calls": 0.86,
+   "threshold": 0.9300733530371209,
+   "dev_calls": 0.72,
+   "dev_accuracy": 0.59,
+   "dev_policy_calls": 0.56
   }
  },
  "tests": {
@@ -133,6 +149,24 @@
    ],
    "p": 0.8892,
    "mcnemar_p": 1.0
+  },
+  "learned - confidence_dev_matched": {
+   "diff": 0.01,
+   "ci95": [
+    -0.06,
+    0.08
+   ],
+   "p": 0.8896,
+   "mcnemar_p": 1.0
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.04,
+   "ci95": [
+    -0.11,
+    0.03
+   ],
+   "p": 0.3124,
+   "mcnemar_p": 0.3876953125
   }
  },
  "root_agreement": {
@@ -647,6 +681,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/seed2/gpqa/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/seed2/gpqa/dev/grid_records.jsonl",
  "label": "seed2_gpqa_test"
 }

@@ -47,20 +47,34 @@ CONTRASTS = (("Learned calling − original forced Verifier", "learned", "forced
              ("Original forced Extractor − always Extractor", "forced:extractor", "always_extractor"))
 
 
+TOOLS = {"verifier": ["verifier"], "reasoner": ["reasoner"], "extractor": ["extractor"], "all": ["extractor", "reasoner", "verifier"]}
+
+
+def _only(files: List[Path], where: Path) -> Optional[Path]:
+    if len(files) > 1:
+        raise ValueError(f"{where}: more than one file of a forced run")
+    return files[0] if files else None
+
+
 def forced(root: Path, ckpt: str, bench: str, which: str, pool: str):
-    files = sorted((root / ckpt / bench / f"forced_{which}_{pool}").glob("mcq_rsi_forced_*.json"))
-    return json.loads(files[0].read_text(encoding="utf-8"))["metrics"] if files else None
+    where = root / ckpt / bench / f"forced_{which}_{pool}"
+    path = _only(sorted(where.glob("mcq_rsi_forced_*.json")), where)
+    return json.loads(path.read_text(encoding="utf-8"))["metrics"] if path else None
 
 
 def forced_outcomes(root: Path, ckpt: str, bench: str, which: str, pool: str) -> Optional[Dict[int, bool]]:
     """example id -> correct, from the per-question file of a forced run; checked against the run's summary."""
-    files = sorted((root / ckpt / bench / f"forced_{which}_{pool}").glob("manager_forced_*.jsonl"))
-    if not files:
+    where = root / ckpt / bench / f"forced_{which}_{pool}"
+    path = _only(sorted(where.glob("manager_forced_*.jsonl")), where)
+    if path is None:
         return None
-    rows = [json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines() if line.strip()]
+    files = [path]
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     out = {int(r["example_id"]): bool(r["correct"]) for r in rows}
     if len(out) != len(rows):
         raise ValueError(f"{files[0]}: duplicate example id")
+    if any(list(r.get("forced_tools") or []) != TOOLS[which] for r in rows):
+        raise ValueError(f"{files[0]}: not a forced-{which} run")
     m = forced(root, ckpt, bench, which, pool)
     if m is not None and (m["n"] != len(rows) or abs(m["accuracy"] - sum(out.values()) / len(rows)) > 1e-9
                           or abs(m.get("valid_answer_rate", 1.0) - sum(bool(r["valid_answer"]) for r in rows) / len(rows)) > 1e-9):
@@ -139,7 +153,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if missing:
         lines += ["", "Not finished: " + ", ".join(missing) + "."]
     pairs = {b: r for b, _ in BENCHES for r in [paired(root, args.ckpt, b, args.pool, args.n_boot, args.seed)] if r and r["tests"]}
-    pooled = A.pooled_tests([r.pop("_vectors") for r in pairs.values()], args.n_boot, args.seed) if len(pairs) > 1 else {}
+    vector_sets = [r.pop("_vectors") for r in pairs.values()]
+    pooled = A.pooled_tests(vector_sets, args.n_boot, args.seed) if len(pairs) > 1 else {}
+    for label, test in pooled.items():  # share of questions with the same outcome, over all pools
+        test["same_outcome"] = A._mean(x == y for v in vector_sets for x, y in zip(*v[label]))
     if pairs:
         cols = [(b, name) for b, name in BENCHES if b in pairs]
         lines += ["", "**Question by question** (the same questions, joined on the example id). First minus second, accuracy in pt "
@@ -153,7 +170,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 continue
             cells = [f"{_t(pairs[b]['tests'][label])} ({100 * pairs[b]['same_outcome'][label]:.1f})" if label in pairs[b]["tests"] else "–"
                      for b, _ in cols]
-            lines.append(f"| {label} | " + " | ".join(cells) + (f" | {_t(pooled.get(label))}" if pooled else "") + " |")
+            lines.append(f"| {label} | " + " | ".join(cells)
+                         + (f" | {_t(pooled[label])} ({100 * pooled[label]['same_outcome']:.1f})" if label in pooled else (" | –" if pooled else "")) + " |")
     text = "\n".join(lines) + "\n"
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")

@@ -278,7 +278,8 @@
    ],
    "p": 0.0006,
    "mcnemar_p": 0.000252665338925159,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.8064992614475628
   },
   "Learned calling \u2212 original forced Extractor, Reasoner, Verifier (3 calls)": {
    "diff": -0.04948301329394387,
@@ -288,7 +289,8 @@
    ],
    "p": 0.0,
    "mcnemar_p": 3.2479528435460725e-05,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.8116691285081241
   },
   "Always Verifier with the candidate \u2212 original forced Verifier": {
    "diff": 0.022895125553914326,
@@ -298,7 +300,8 @@
    ],
    "p": 0.025,
    "mcnemar_p": 0.025483292434829635,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.8663220088626292
   },
   "Original forced Verifier \u2212 always Verifier, candidate removed": {
    "diff": -0.0051698670605613,
@@ -308,7 +311,8 @@
    ],
    "p": 0.2622,
    "mcnemar_p": 0.31050465907901525,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.9741506646971935
   },
   "Original forced Reasoner \u2212 always Reasoner": {
    "diff": -0.003692762186115214,
@@ -318,7 +322,8 @@
    ],
    "p": 0.6618,
    "mcnemar_p": 0.6817425059181855,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.9298375184638109
   },
   "Original forced Extractor \u2212 always Extractor": {
    "diff": -0.019940915805022157,
@@ -328,7 +333,8 @@
    ],
    "p": 0.0104,
    "mcnemar_p": 0.01240363724333,
-   "n": 1354
+   "n": 1354,
+   "same_outcome": 0.9194977843426884
   }
  }
 }
