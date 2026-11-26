@@ -20,6 +20,12 @@ step() { local name=$1; shift; if [ -f "$M/$name" ]; then log "$name: done earli
 clone() { if [ ! -d $REPO/.git ]; then git clone https://github.com/Candy26i/9.30.git $REPO || return 1; fi
   cd $REPO && git fetch -q origin && git checkout -q "$BRANCH" && git pull -q --ff-only origin "$BRANCH" && git rev-parse HEAD; }
 setup() { cd $TREE && bash scripts/setup_mcq_rsi_pod.sh; }
+# vLLM 0.26.0 does not pin transformers: a venv built on 2026-11-25 got transformers 5.24.1, whose stricter multimodal
+# input check makes the server fail at start-up ("Found 1 <|image_pad|> tokens in the text but no images were passed").
+# The lock file is the pip freeze of the vLLM venv of the 2026-10 pods (transformers 5.18.0), installed as is.
+pin_vllm() { /workspace/vllm-venv/bin/python -m pip install --no-deps -q -r $TREE/scripts/pod_ops/vllm_env_2026-10.lock.txt \
+    && /workspace/vllm-venv/bin/python -m pip freeze > $WORK/logs/environment_vllm.lock.txt \
+    && /workspace/vllm-venv/bin/python -c 'import transformers, vllm; print("vllm", vllm.__version__, "transformers", transformers.__version__)'; }
 import_assets() { cd $TREE && $PY -m src.manager.mcq_rsi import --bench all --out $WORK/import --cache-dir $HF_HOME/hub \
     && $PY -m src.manager.mcq_rsi prepare-splits --bench all --import-dir $WORK/import --hf-cache-dir $HF_HOME/hub; }
 # The advisor cache is one file per request, keyed by content. Entries are created only when absent (never
@@ -167,6 +173,7 @@ queue() {
   mkdir -p $WORK/logs/verifier_grid
   step clone clone || exit 1
   step setup setup || exit 1
+  step pin_vllm pin_vllm || exit 1
   step import import_assets || exit 1
   step restore_cache restore_cache || { [ "${ALLOW_COLD_CACHE:-0}" = 1 ] || { log "restore_cache FAILED: run again, or ALLOW_COLD_CACHE=1 to compute every advisor output afresh"; exit 1; }
     log "restore_cache FAILED, ALLOW_COLD_CACHE=1: advisor outputs will NOT be the paper-era ones"; }
