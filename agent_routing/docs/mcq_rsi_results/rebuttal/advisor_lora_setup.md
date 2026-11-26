@@ -8,9 +8,11 @@ itself; **code** = training code, documentation or data files only (the run did 
 safetensors header). Every value was checked a second time by an independent recomputation. Details and file references:
 `configuration.md`, section 2.
 
-**What the paper's numbers used.** In every reported number (paper, RSI and rebuttal) the Extractor, Reasoner and Verifier were the
-base model Qwen3.5-9B under role-specific prompts: the adapters below were trained, but the paper-era server did not apply them, and the
-RSI and rebuttal runs use the base model by configuration (section 5). This document describes the adapters themselves.
+**What the paper's numbers used.** In every result of the paper, of the RSI runs and of the rebuttal experiments other than the advisor A/B
+of section 4, the Extractor, Reasoner and Verifier were the base model Qwen3.5-9B under role-specific prompts: the adapters below were
+trained, but the paper-era server did not apply them, and the RSI runs and the other rebuttal experiments use the base model by
+configuration (section 5). The A/B of section 4 and the replay check of section 5 are the only experiments that apply them (with corrected parameter names). This document
+describes the adapters themselves.
 
 ## 1. The adapters trained for the paper ("registered", August 2026)
 
@@ -84,7 +86,7 @@ v2 script of 2 October 2026 (section 3).
 ## 3. The retrained adapters with a validation split and best-epoch selection ("v2", 2 October 2026)
 
 Repositories (public): `MaliDDD/agent-routing-advisors-{medqa,mmlu_pro,gpqa,aqua}-9b-v2`; script `scripts/train_subagents_v2.py`.
-Used only for the advisor A/B below, not for any paper or rebuttal number.
+Used only in the advisor A/B of section 4; never an advisor in any result of the paper, the RSI runs or the other rebuttal experiments.
 
 | Parameter | v2 | Registered (MedQA, MMLU-Pro, GPQA; AQuA-RAT not recorded) |
 |:--|:--|:--|
@@ -94,7 +96,7 @@ Used only for the advisor A/B below, not for any paper or rebuttal number.
 | Batch | 1 × accumulation 8 | same |
 | Seed | 42 | 42 |
 | Maximum sequence length | 4096 (16384 for the GPQA Extractor and Reasoner) | 4096 (code default) |
-| Data cleaning | development and test questions removed; teacher responses that are not one complete JSON object removed | none (MMLU-Pro Verifier: two rows removed, section 2) |
+| Data cleaning | development and test questions removed (all 12 runs); teacher responses that are not one complete JSON object removed only in the MMLU-Pro Reasoner (5 rows) and the three GPQA runs (Extractor 4, Reasoner 7, Verifier 10); only these four reports carry the key `dropped_not_json`. The other eight runs record no such filter, and five of them kept 14 such responses in their training or validation data (the stored `data/{train,val}.jsonl`, checked with the script's `json_object`): MedQA Verifier 2, MMLU-Pro Verifier 1, AQuA-RAT Extractor 1, Reasoner 1, Verifier 9 | none (MMLU-Pro Verifier: two rows removed, section 2) |
 | Validation | 15% of the remaining questions (split by question), loss after every epoch | none |
 | Epochs | 3; all 12 runs trained the full 3 epochs (no run was stopped early) | 10 (scheduled) |
 | Exported adapter | the epoch with the lowest validation loss, chosen after training: **epoch 1 in all 12 runs** (validation loss rose after every epoch) | last stored checkpoint: epoch 10; MedQA Verifier epoch 8 of 10 |
@@ -114,7 +116,7 @@ v2 rows (train / validation) and validation loss by epoch (1 / 2 / 3):
 754 development questions (MedQA 200, MMLU-Pro 200, GPQA 100, AQuA-RAT 254). A fixed base-model solver writes a draft, one advisor
 answers (the Verifier gets the draft as its candidate), and the same solver answers again; only the advisor's weights differ. The
 adapters are loaded correctly here (renamed parameter names, section 5). Accuracy (%) after the advisor, pooled; Δ against the base
-model with the same role prompt, exact sign test (`paper_assets/tab/tab_app_advisors.md`, per benchmark there).
+model with the same role prompt (computed from unrounded accuracies), exact sign test (`paper_assets/tab/tab_app_advisors.md`, per benchmark there).
 
 | Role | Base model | Registered LoRA (loaded correctly) | v2 LoRA (best-epoch selection) |
 |:--|--:|--:|--:|
@@ -129,9 +131,9 @@ model with the same role prompt, exact sign test (`paper_assets/tab/tab_app_advi
   (`base_model.model.model.layers.N…`, saved from the text-only model class) match no module of the multimodal model class that vLLM
   serves, so vLLM loads them without error and answers with the base weights. Replay evidence (`configuration.md`, section 2): the
   Verifier adapter as served returned text identical to the base model on 20 of 20 prompts (a copy with renamed keys: 0 of 20); the
-  Extractor on 5 of 20 (median similarity 0.924 as served, 0.392 for the renamed copy); no identity check is recorded for the Reasoner.
+  Extractor on 5 of 20 (median similarity 0.924 as served, 0.392 for the renamed copy; the base model against a repeat of itself: 8 of 20, median 0.969); no identity check is recorded for the Reasoner.
   A correctly applied copy only renames the keys (the weights are byte-identical); the A/B above uses such copies.
-- The RSI runs and every rebuttal experiment set `advisor_mode: "base"`: the advisors are the base model under each role's prompt, with
+- The RSI runs and every rebuttal experiment other than the advisor A/B of section 4 set `advisor_mode: "base"`: the advisors are the base model under each role's prompt, with
   no LoRA, and every result records this.
 
 ## 6. Not recorded
@@ -151,7 +153,8 @@ the paper-era advisor outputs; an identity check for the Reasoner.
 
 ## 7. Suggested text for the response
 
-"In every reported number the Extractor, Reasoner and Verifier are the base model Qwen3.5-9B under role-specific prompts. Role adapters
+"In every result of the submission and of the rebuttal experiments other than the advisor A/B described below, the Extractor, Reasoner
+and Verifier are the base model Qwen3.5-9B under role-specific prompts. Role adapters
 were trained but were not applied at serving time: LoRA (rank 16, alpha 32, dropout 0.05, on the MLP projections of all layers and the
 attention projections of the full-attention layers), trained with response-only supervised fine-tuning on about 600 teacher (DeepSeek)
 outputs per role (160 for GPQA), with AdamW, learning rate 2e-4 with linear decay, effective batch 8, a 10-epoch schedule and bf16
