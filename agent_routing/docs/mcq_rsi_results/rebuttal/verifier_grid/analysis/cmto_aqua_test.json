@@ -64,6 +64,22 @@
    "accuracy": 0.84251968503937,
    "calls": 0.968503937007874,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.3858267716535433,
+   "calls": 0.0,
+   "threshold": 0.0,
+   "dev_calls": 0.0,
+   "dev_accuracy": 0.3937007874015748,
+   "dev_policy_calls": 0.0
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.8228346456692913,
+   "calls": 0.9173228346456693,
+   "threshold": 0.9497873710116036,
+   "dev_calls": 0.9566929133858267,
+   "dev_accuracy": 0.8110236220472441,
+   "dev_policy_calls": 0.0
   }
  },
  "tests": {
@@ -120,6 +136,24 @@
    ],
    "p": 1.0,
    "mcnemar_p": 1.0
+  },
+  "learned - confidence_dev_matched": {
+   "diff": 0.0,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "p": 1.0,
+   "mcnemar_p": 1.0
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.43700787401574803,
+   "ci95": [
+    -0.5039370078740157,
+    -0.3700787401574803
+   ],
+   "p": 0.0,
+   "mcnemar_p": 1.561683673969122e-28
   }
  },
  "root_agreement": {
@@ -1404,6 +1438,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/cmto/aqua/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/cmto/aqua/dev/grid_records.jsonl",
  "label": "cmto_aqua_test"
 }

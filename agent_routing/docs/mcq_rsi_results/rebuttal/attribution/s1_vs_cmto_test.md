@@ -55,10 +55,12 @@ Pooled:  learned − commit-only confidence, over the 1354 questions: +0.7 [-1.0
 |:--|--:|--:|--:|--:|
 | Commit-only manager, candidate only | 73.6 / 0.00 | 53.2 / 0.00 | 42.0 / 0.00 | 38.6 / 0.00 |
 | Commit-only manager + Verifier on its least confident candidates | 80.2 / 0.37 | 66.0 / 0.33 | 49.0 / 0.52 | 74.8 / 0.77 |
+| Commit-only manager + Verifier below a confidence threshold fixed on dev | 80.6 / 0.39 | 64.4 / 0.30 | 54.0 / 0.68 | 74.0 / 0.76 |
 | Trained manager, learned calling (first call) | 78.8 / 0.37 | 63.2 / 0.33 | 54.0 / 0.52 | 77.2 / 0.77 |
 | Commit-only manager + always Verifier | 83.2 / 1.00 | 74.6 / 1.00 | 57.0 / 1.00 | 84.3 / 1.00 |
 | Trained manager + always Verifier | 83.4 / 1.00 | 72.4 / 1.00 | 56.0 / 1.00 | 85.0 / 1.00 |
 | Learned calling − commit-only manager with a confidence gate | -1.4 [-4.4, +1.4], .376 / .410 | -2.8 [-6.4, +0.8], .131 / .156 | +5.0 [-1.0, +12.0], .156 / .227 | +2.4 [-3.1, +7.5], .416 / .461 |
+| Learned calling − commit-only manager with the dev-threshold gate | -1.8 [-4.8, +1.0], .247 / .272 | -1.2 [-4.8, +2.4], .539 / .590 | +0.0 [-5.0, +5.0], 1.000 / 1.000 | +3.1 [-2.4, +8.3], .275 / .312 |
 | Always Verifier: trained − commit-only | +0.2 [-1.6, +2.0], .894 / 1.000 | -2.2 [-4.4, +0.0], .056 / .071 | -1.0 [-5.0, +3.0], .835 / 1.000 | +0.8 [-2.0, +3.5], .662 / .774 |
 |   of which: draft | -0.2 | -2.4 | -1.0 | -2.4 |
 |   of which: what the same confidence-gated Verifier calls add (trained − commit-only) | -0.4 | -2.0 | +4.0 | +4.3 |
@@ -66,3 +68,5 @@ Pooled:  learned − commit-only confidence, over the 1354 questions: +0.7 [-1.0
 | Accuracy gained per advisor call (pt): learned calling / always Verifier (trained) | 14.8 / 10.0 | 37.3 / 21.6 | 25.0 / 15.0 | 53.1 / 48.8 |
 
 The three "of which" rows add up exactly to the gap between learned calling and the commit-only manager with a confidence gate. Pooled over the 1354 questions: -0.7 [-2.8, +1.3], .498 / .518. Always Verifier, trained − commit-only, over the 1354 questions: -0.7 [-1.8, +0.5], .292 / .328.
+
+Dev-threshold gate: the Verifier is called when the commit-only manager's confidence in its draft is below a threshold fixed on the dev pool, the cut between two distinct dev confidences of that manager whose dev call count is closest to the trained policy's (MedQA 37.0% of dev questions called (learned policy on dev: 37.0%); MMLU-Pro 30.5% of dev questions called (learned policy on dev: 30.5%); GPQA 62.0% of dev questions called (learned policy on dev: 62.0%); AQuA 78.0% of dev questions called (learned policy on dev: 78.0%)). The gate's calls on this pool are whatever that threshold gives. Learned calling − the dev-threshold gate, over the 1354 questions: -0.5 [-2.5, +1.5], .650 / .668.
