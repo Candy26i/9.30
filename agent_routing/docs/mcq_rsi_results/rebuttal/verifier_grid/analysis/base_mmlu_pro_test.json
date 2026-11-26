@@ -77,6 +77,22 @@
    "accuracy": 0.704,
    "calls": 0.866,
    "note": "threshold chosen on this pool (upper bound)"
+  },
+  "confidence_dev_matched": {
+   "accuracy": 0.698,
+   "calls": 0.854,
+   "threshold": 0.7781758455944396,
+   "dev_calls": 0.875,
+   "dev_accuracy": 0.7,
+   "dev_policy_calls": 0.875
+  },
+  "confidence_dev_best": {
+   "accuracy": 0.686,
+   "calls": 0.708,
+   "threshold": 0.6039204434357714,
+   "dev_calls": 0.73,
+   "dev_accuracy": 0.7,
+   "dev_policy_calls": 0.875
   }
  },
  "tests": {
@@ -133,6 +149,24 @@
    ],
    "p": 0.0,
    "mcnemar_p": 1.331790891874309e-26
+  },
+  "learned - confidence_dev_matched": {
+   "diff": -0.244,
+   "ci95": [
+    -0.288,
+    -0.2
+   ],
+   "p": 0.0,
+   "mcnemar_p": 7.854293204336358e-26
+  },
+  "learned - confidence_dev_best": {
+   "diff": -0.232,
+   "ci95": [
+    -0.274,
+    -0.19
+   ],
+   "p": 0.0,
+   "mcnemar_p": 9.874919036815883e-25
   }
  },
  "root_agreement": {
@@ -2647,6 +2681,6 @@
   }
  ],
  "records": "/workspace/mcq_rsi/runs/verifier_grid/base/mmlu_pro/test/grid_records.jsonl",
- "dev": null,
+ "dev": "/workspace/mcq_rsi/runs/verifier_grid/base/mmlu_pro/dev/grid_records.jsonl",
  "label": "base_mmlu_pro_test"
 }
