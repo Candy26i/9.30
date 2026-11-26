@@ -92,6 +92,12 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("s1", "forced_reasoner_test", BENCHES), ("s1", "forced_extractor_test", BENCHES),
     ("rho1", "test", ("medqa", "mmlu_pro", "gpqa")), ("rho2", "test", ("medqa",)),
     ("rho0", "test", ("medqa", "aqua")), ("rho05", "test", ("aqua",)),
+    # dev pools of the replicates and of the commit-only control: GPQA first (its dev pool is the one that never served
+    # as an evaluation set), then the commit-only control (a confidence threshold chosen on dev), then the other seeds
+    ("seed1", "dev", ("gpqa",)), ("seed2", "dev", ("gpqa",)), ("seed3", "dev", ("gpqa",)),
+    ("cmto", "dev", BENCHES),
+    ("seed1", "dev", ("medqa", "mmlu_pro", "aqua")), ("seed2", "dev", ("medqa", "mmlu_pro", "aqua")),
+    ("seed3", "dev", ("medqa", "mmlu_pro", "aqua")),
     ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
