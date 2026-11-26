@@ -334,7 +334,7 @@ def test_slots():
 def test_job_order_and_filter():
     jobs = Q.all_jobs()
     assert jobs[:4] == [("s1", b, "test") for b in ("medqa", "mmlu_pro", "aqua", "gpqa")]
-    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 1
+    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 2 + 1
     assert ("dyn3g", "mmlu_pro", "test") in jobs and ("dyn3g", "medqa", "test") not in jobs
     assert Q.all_jobs(r"^s1/.*/test$") == jobs[:4]
 

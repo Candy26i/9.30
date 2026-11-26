@@ -22,7 +22,8 @@ from matplotlib.ticker import MultipleLocator
 
 CKPT = sys.argv[1] if len(sys.argv) > 1 else "s1"
 SRC = style.ROOT.parent / "rebuttal" / "verifier_grid" / "analysis"
-NAME = {"s1": "MARGENT S$_1$", "dyn3": "MARGENT RSI (dynamic), SFT only", "dyn3g": "MARGENT RSI (dynamic)", "base": "Base manager"}
+NAME = {"s1": "MARGENT S$_1$", "dyn3": "MARGENT RSI (dynamic), SFT only", "dyn3g": "MARGENT RSI (dynamic)", "base": "Base manager",
+        "suc3g": "MARGENT RSI (success)"}
 
 benches = [b for b in style.BENCH_ORDER if (SRC / f"{CKPT}_{b}_test.json").is_file()]
 if not benches:

@@ -13,6 +13,8 @@ One queue per pod (lock file); stopping the queue stops its jobs (their shards s
 Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<bench>/round1/sft
               dyn3   v3 dynamic round 3 (SFT only)              $CKPT/<bench>_dyn3
               dyn3g  MMLU-Pro v3 + FA-GRPO dynamic round 3      $CKPT/mmlu_pro_dyn3g
+              suc3g  MMLU-Pro v3 + FA-GRPO success round 3      $CKPT/mmlu_pro_suc3g   (trained on successful
+                     trajectories only: the matched-data distillation baseline)
               base   the untrained base model as the manager    the path in $CKPT/base_model_path.txt
 
 Slots: ``--slots 0:1,1:3`` (GPU:processes), or by default from the free memory of each GPU (one process per
@@ -57,6 +59,7 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("dyn3", "test", BENCHES), ("dyn3g", "test", ("mmlu_pro",)),
     ("dyn3", "dev", BENCHES), ("dyn3g", "dev", ("mmlu_pro",)),
     ("base", "test", BENCHES), ("base", "dev", BENCHES),
+    ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
 )
 
@@ -80,7 +83,7 @@ def checkpoint_path(ckpt: str, bench: str) -> str:
         return str(WORK / "import" / bench / "round1" / "sft")
     if ckpt == "base":
         return (CKPT / "base_model_path.txt").read_text(encoding="utf-8").strip()
-    if ckpt in ("dyn3", "dyn3g"):
+    if ckpt in ("dyn3", "dyn3g", "suc3g"):
         return str(CKPT / f"{bench}_{ckpt}")
     raise ValueError(f"unknown checkpoint name {ckpt!r}")
 

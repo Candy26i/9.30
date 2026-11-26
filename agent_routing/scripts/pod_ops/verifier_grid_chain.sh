@@ -95,6 +95,7 @@ CK.mkdir(parents=True, exist_ok=True)
 print("base", (CK / "base_model_path.txt").read_text().strip())
 want = [(f"{b}_v3", f"runs/{b}_v3/r3/dynamic_sft/sft/model", f"{b}_dyn3") for b in ("medqa", "mmlu_pro", "gpqa", "aqua")]
 want.append(("mmlu_pro_v3g_dyn", "runs/mmlu_pro_v3g_dyn/r3/dynamic/grpo/final", "mmlu_pro_dyn3g"))
+want.append(("mmlu_pro_v3g_suc", "runs/mmlu_pro_v3g_suc/r3/success/grpo/final", "mmlu_pro_suc3g"))
 failed = []
 for run, sub, name in want:
     dst = CK / name
