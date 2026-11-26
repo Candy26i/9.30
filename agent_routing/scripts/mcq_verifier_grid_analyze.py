@@ -86,7 +86,8 @@ def table(records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if action != "commit" and action not in one:
             raise ValueError(f"example {r['example_id']}: the policy calls {action} but that branch is missing")
         rows.append({"id": int(r["example_id"]), "qid": r.get("question_hash") or int(r["example_id"]),
-                     "commit": bool(r["direct_correct"]), **one, **extra, "action": action, "again": again,
+                     "draft": r["direct_pred"], "commit": bool(r["direct_correct"]), **one, **extra, "action": action,
+                     "again": again,
                      "root_ok": (check.get("mismatch") == 0) if check else None,
                      "conf": confidence(r["policy_action"], r["direct_pred"])})
     kinds = [k for k in ADVISORS + EXTRA if any(k in row for row in rows)]

@@ -492,3 +492,70 @@ def test_cross_benchmark_table(tmp_path):
     assert T.main(["--analysis", str(tmp_path), "--ckpt", "s1", "--out", str(tmp_path / "t.md")]) == 0
     with pytest.raises(SystemExit):
         T.main(["--analysis", str(tmp_path), "--ckpt", "dyn3"])
+
+
+# ------------------------------------------------------------------------------------------ attribution
+
+def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
+    import mcq_manager_attribution as M
+
+    def rec(eid, draft, commit, e, r, v, action, conf, nocand, null, mismatch=0):
+        out = record(eid, commit, e, r, v, action, conf, nocand=nocand, null=null)
+        out.update(direct_pred=draft, question_hash=f"q{eid}", root_check={"checked": 6, "mismatch": mismatch})
+        klp = out["policy_action"]["key_logprobs"]
+        out["policy_action"]["key_logprobs"] = {draft: klp["A"], **{k: v for k, v in klp.items() if k not in ("A", draft)},
+                                                **({"A": klp["B"]} if draft != "A" else {})}
+        return out
+
+    #           id draft commit  E      R      V     action     conf  nocand null
+    trained = [rec(1, "A", True, True, True, True, "commit", 0.90, True, True),
+               rec(2, "A", False, False, False, True, "verifier", 0.30, False, False),
+               rec(3, "B", False, False, True, True, "verifier", 0.60, True, False),
+               rec(4, "A", True, True, True, False, "commit", 0.80, True, True),
+               rec(5, "C", False, False, False, False, "commit", 0.70, False, False),
+               rec(6, "A", False, False, False, True, "commit", 0.50, True, False)]
+    base = [rec(1, "A", True, True, True, True, "commit", 0.60, True, True, mismatch=3),
+            rec(2, "A", False, False, False, False, "commit", 0.20, False, False, mismatch=3),
+            rec(3, "B", False, False, False, True, "verifier", 0.90, False, False, mismatch=3),
+            rec(4, "A", True, True, True, True, "commit", 0.95, True, True, mismatch=3),
+            rec(5, "D", True, True, True, True, "commit", 0.40, True, True, mismatch=3),      # another candidate
+            rec(6, "A", False, False, False, True, "verifier", 0.30, True, False)]
+    res = M.attribute(trained, list(reversed(base)), draws=200, n_boot=300)   # joined on the question, not on the order
+    assert res["n"] == 6 and res["base_root_agreement"] == {"n_equal": 1, "n": 6}
+    d = res["draft"]
+    assert d["trained"] == pytest.approx(2 / 6) and d["base"] == pytest.approx(3 / 6) and d["n_same"] == 5
+    assert d["test"]["diff"] == pytest.approx(-1 / 6)
+    # same candidate on questions 1, 2, 3, 4, 6: Verifier trained T T T F T (4/5), base T F T T T (4/5)
+    v = res["evidence"]["verifier"]
+    assert v["n"] == 5 and v["trained"] == 0.8 and v["base"] == 0.8 and v["test"]["diff"] == 0 and v["agree"] == 0.6
+    assert v["fixed"] == {"trained": 1.0, "base": pytest.approx(2 / 3), "n": 3}      # wrong candidates 2, 3, 6
+    assert v["broken"] == {"trained": 0.5, "base": 0.0, "n": 2}                      # right candidates 1, 4
+    assert res["evidence"]["reasoner"]["trained"] == 0.6 and res["evidence"]["reasoner"]["base"] == 0.4
+    s = res["selection"]
+    # the learned policy calls on 2 and 3: with the Verifier both are fixed -> 1, 2, 3, 4 correct
+    assert s["n_calls"] == 2 and s["learned"] == pytest.approx(4 / 6)
+    # trained confidence: the two least confident are 2 (.30) and 6 (.50) -> 1, 2, 4, 6 correct
+    assert s["trained_confidence"] == pytest.approx(4 / 6)
+    # untrained confidence: 2 (.20) and 6 (.30) -> the same two questions
+    assert s["base_confidence"] == pytest.approx(4 / 6) and s["tests"]["trained confidence - base confidence"]["diff"] == 0
+    assert s["trained_policy"]["call_rate_candidate_wrong"] == 0.5 and s["trained_policy"]["call_rate_candidate_right"] == 0.0
+    au = s["auroc_candidate_wrong"]
+    # wrong candidates (trained): 2 (.30), 3 (.60), 5 (.70), 6 (.50); right: 1 (.90), 4 (.80): every wrong one is less confident
+    assert au["trained_confidence"] == 1.0 and au["trained_call_decision"] == 0.75
+    y = res["systems"]
+    assert y["base_always_verifier"] == pytest.approx(5 / 6) and y["trained_always_verifier"] == pytest.approx(4 / 6)
+    # untrained manager, gate on its own confidence, 2 calls: questions 2 (.20) and 6 (.30): 2 stays wrong, 6 is fixed
+    assert y["base_confidence_gate"] == {"accuracy": pytest.approx(4 / 6), "calls": pytest.approx(2 / 6)}
+    assert y["tests"]["trained learned calling - base with a confidence gate"]["diff"] == 0
+    assert M.auroc([0.1, 0.4, 0.4, 0.9], [False, True, False, True]) == pytest.approx(0.875)
+    assert M.auroc([1, 2], [True, True]) is None
+
+    for name, recs in (("s1", trained), ("base", base)):
+        path = tmp_path / "grids" / name / "medqa" / "test"
+        path.mkdir(parents=True)
+        (path / "grid_records.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
+    assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200"]) == 0
+    text = (tmp_path / "out/s1_vs_base_test.md").read_text()
+    assert "MedQA 1/6 questions: on its own it does not follow" in text and "| Same candidate (%) | 83.3 |" in text
+    with pytest.raises(ValueError, match="same questions"):
+        M.attribute(trained, base[:5])
