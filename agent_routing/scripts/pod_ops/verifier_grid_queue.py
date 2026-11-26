@@ -15,6 +15,12 @@ Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<be
               dyn3g  MMLU-Pro v3 + FA-GRPO dynamic round 3      $CKPT/mmlu_pro_dyn3g
               suc3g  MMLU-Pro v3 + FA-GRPO success round 3      $CKPT/mmlu_pro_suc3g   (trained on successful
                      trajectories only: the matched-data distillation baseline)
+              allc   the paper's "all commit" sibling of S_1    $CKPT/<bench>_allc     (same collection and SFT recipe,
+                     every target is a commit: an equally trained manager with no delegation supervision)
+              seedK  S_1 retrained with training seed K          $CKPT/<bench>_seedK    (scripts/pod_ops/seed_sft_chain.sh)
+
+A job whose checkpoint is not on disk yet is skipped until it appears; while $CKPT/TRAINING exists (a training chain
+is running) the queue waits for such jobs instead of failing them.
               base   the untrained base model as the manager    the path in $CKPT/base_model_path.txt
 
 Slots: ``--slots 0:1,1:3`` (GPU:processes), or by default from the free memory of each GPU (one process per
@@ -58,7 +64,10 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("s1", "test", BENCHES), ("s1", "dev", BENCHES),
     ("dyn3", "test", BENCHES), ("dyn3g", "test", ("mmlu_pro",)),
     ("dyn3", "dev", BENCHES), ("dyn3g", "dev", ("mmlu_pro",)),
-    ("base", "test", BENCHES), ("base", "dev", BENCHES),
+    ("base", "test", BENCHES),
+    ("allc", "test", BENCHES),
+    ("seed1", "test", BENCHES), ("seed2", "test", BENCHES),
+    ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
 )
@@ -83,9 +92,23 @@ def checkpoint_path(ckpt: str, bench: str) -> str:
         return str(WORK / "import" / bench / "round1" / "sft")
     if ckpt == "base":
         return (CKPT / "base_model_path.txt").read_text(encoding="utf-8").strip()
-    if ckpt in ("dyn3", "dyn3g", "suc3g"):
+    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc") or re.fullmatch(r"seed\d+", ckpt):
         return str(CKPT / f"{bench}_{ckpt}")
     raise ValueError(f"unknown checkpoint name {ckpt!r}")
+
+
+def available(job: Job) -> bool:
+    """The job's manager checkpoint is on disk (adapters are moved into place only when complete)."""
+    ckpt, bench, _ = job
+    if ckpt == "base":
+        return (CKPT / "base_model_path.txt").is_file()
+    path = Path(checkpoint_path(ckpt, bench))
+    return (path / "adapter_config.json").is_file() and (path / "adapter_model.safetensors").is_file()
+
+
+def producing() -> bool:
+    """A training chain is still writing checkpoints into $CKPT."""
+    return (CKPT / "TRAINING").exists()
 
 
 def out_dir(job: Job) -> Path:
@@ -230,11 +253,14 @@ def say(msg: str) -> None:
 def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = launch, finished: Callable = finished,
               after: Optional[Callable] = None, retries: int = 2, poll_seconds: float = 20.0,
               state_path: Optional[Path] = None, sleep: Callable = time.sleep,
-              ready: Callable = lambda: True) -> Dict[str, Dict[str, Any]]:
+              ready: Callable = lambda: True, available: Callable = lambda job: True,
+              producing: Callable = lambda: False) -> Dict[str, Dict[str, Any]]:
     """Run ``jobs`` in order on ``slots`` (a list of GPU ids, one entry per process).
 
-    ``ready()`` False (the advisor server is down) holds new starts; running jobs are left alone. When this function
-    is left by an exception or a signal, the jobs it started are terminated (their shards stay).
+    ``ready()`` False (the advisor server is down) holds new starts; running jobs are left alone. A job that is not
+    ``available`` (its checkpoint is not on disk) is passed over; when nothing else is left it is waited for while
+    ``producing()`` is true and failed otherwise. When this function is left by an exception or a signal, the jobs
+    it started are terminated (their shards stay).
     """
     state: Dict[str, Dict[str, Any]] = {}
     pending: List[Job] = []
@@ -257,7 +283,8 @@ def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = l
     say(f"{len(pending)} jobs to run, {len(jobs) - len(pending)} finished earlier; slots {','.join(slots)}")
     save()
     try:
-        _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save)
+        _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save,
+                  available, producing)
     finally:
         for _, _, proc, _ in running:
             if proc.poll() is None:
@@ -267,7 +294,8 @@ def run_queue(jobs: Sequence[Job], slots: Sequence[str], *, launch: Callable = l
     return state
 
 
-def _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save) -> None:
+def _schedule(pending, running, free, state, launch, finished, after, retries, poll_seconds, sleep, ready, save,
+              available, producing) -> None:
     held = False
     while pending or running:
         for item in list(running):
@@ -301,7 +329,10 @@ def _schedule(pending, running, free, state, launch, finished, after, retries, p
             if held:
                 say("the advisor server answers again")
             held = False
-            job, gpu = pending.pop(0), free.pop(0)
+            first = next((i for i, job in enumerate(pending) if available(job)), None)
+            if first is None:
+                break
+            job, gpu = pending.pop(first), free.pop(0)
             entry = state[job_id(job)]
             entry.update(status="running", attempts=entry["attempts"] + 1, gpu=gpu)
             try:
@@ -314,6 +345,12 @@ def _schedule(pending, running, free, state, launch, finished, after, retries, p
                 continue
             running.append((job, gpu, proc, time.time()))
             say(f"start {job_id(job)} on gpu {gpu} (attempt {entry['attempts']})")
+            save()
+        if pending and not running and not held and not any(available(job) for job in pending) and not producing():
+            for job in pending:  # nothing will ever write these checkpoints
+                state[job_id(job)].update(status="failed", error="checkpoint not on disk")
+                say(f"FAILED {job_id(job)}: its checkpoint is not on disk and no training chain is running")
+            pending.clear()
             save()
         if running or pending:
             sleep(poll_seconds)
@@ -332,7 +369,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     jobs = all_jobs(args.only)
     if args.list:
         for job in jobs:
-            print(job_id(job), "done" if finished(job) else "pending", "(table missing or stale)" * needs_analysis(job))
+            print(job_id(job), "done" if finished(job) else "pending" if available(job) else "waiting for its checkpoint",
+                  "(table missing or stale)" * needs_analysis(job))
         return 0
     OUT.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
@@ -357,7 +395,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not slots:
             raise SystemExit("no GPU has enough free memory for one manager process (see --mib-per-job)")
         state = run_queue(jobs, slots, after=worker.submit, retries=args.retries, state_path=OUT / "queue_state.json",
-                          ready=advisor_healthy)
+                          ready=advisor_healthy, available=available, producing=producing)
         failed = [k for k, e in state.items() if e["status"] != "done"]
     worker.join()
     stale = [job for job in jobs if needs_analysis(job)]  # e.g. an analysis that failed: one more attempt

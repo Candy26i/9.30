@@ -334,7 +334,7 @@ def test_slots():
 def test_job_order_and_filter():
     jobs = Q.all_jobs()
     assert jobs[:4] == [("s1", b, "test") for b in ("medqa", "mmlu_pro", "aqua", "gpqa")]
-    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 2 + 1
+    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 4 + 8 + 2 + 1
     assert ("dyn3g", "mmlu_pro", "test") in jobs and ("dyn3g", "medqa", "test") not in jobs
     assert Q.all_jobs(r"^s1/.*/test$") == jobs[:4]
 
@@ -559,3 +559,38 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     assert "MedQA 1/6 questions: on its own it does not follow" in text and "| Same candidate (%) | 83.3 |" in text
     with pytest.raises(ValueError, match="same questions"):
         M.attribute(trained, base[:5])
+
+
+def test_queue_passes_over_jobs_whose_checkpoint_is_not_on_disk_yet(tmp_path, monkeypatch):
+    jobs = [("seed1", "gpqa", "test"), ("allc", "gpqa", "test"), ("seed2", "gpqa", "test")]
+    done, started, on_disk, training, ticks = set(), [], {jobs[1]}, [True], [0]
+
+    def launch(job, gpu):
+        started.append(job)
+        return FakeProc(1, 0, on_exit=lambda: done.add(job))
+
+    def sleep(seconds):
+        ticks[0] += 1
+        if ticks[0] == 4:
+            on_disk.add(jobs[0])      # the training chain delivers seed 1 ...
+        if ticks[0] == 8:
+            training[0] = False       # ... and ends without seed 2
+
+    state = Q.run_queue(jobs, ["0", "1"], launch=launch, finished=lambda j: j in done, sleep=sleep,
+                        available=lambda j: j in on_disk, producing=lambda: training[0])
+    assert started == [jobs[1], jobs[0]]
+    assert [state[Q.job_id(j)]["status"] for j in jobs] == ["done", "done", "failed"]
+    assert state["seed2/gpqa/test"]["error"] == "checkpoint not on disk" and state["seed2/gpqa/test"]["attempts"] == 0
+
+    monkeypatch.setattr(Q, "WORK", tmp_path)
+    monkeypatch.setattr(Q, "CKPT", tmp_path / "ckpt")
+    (tmp_path / "ckpt/gpqa_seed1").mkdir(parents=True)
+    assert not Q.available(("seed1", "gpqa", "test")) and not Q.available(("base", "gpqa", "test")) and not Q.producing()
+    for f in ("adapter_config.json", "adapter_model.safetensors"):
+        (tmp_path / "ckpt/gpqa_seed1" / f).write_text("x")
+    (tmp_path / "ckpt/base_model_path.txt").write_text("/hub/base")
+    (tmp_path / "ckpt/TRAINING").write_text("")
+    assert Q.available(("seed1", "gpqa", "test")) and Q.available(("base", "gpqa", "test")) and Q.producing()
+    assert Q.checkpoint_path("seed12", "aqua") == str(tmp_path / "ckpt/aqua_seed12")
+    with pytest.raises(ValueError):
+        Q.checkpoint_path("seedx", "aqua")

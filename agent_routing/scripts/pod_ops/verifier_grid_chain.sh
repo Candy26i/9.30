@@ -93,16 +93,26 @@ CK = pathlib.Path("/workspace/mcq_rsi/ckpt/verifier_grid")
 CK.mkdir(parents=True, exist_ok=True)
 (CK / "base_model_path.txt").write_text(resolve_base("Qwen/Qwen3.5-9B", "c202236235762e1c871ad0ccb60c8ee5ba337b9a") + "\n")
 print("base", (CK / "base_model_path.txt").read_text().strip())
-want = [(f"{b}_v3", f"runs/{b}_v3/r3/dynamic_sft/sft/model", f"{b}_dyn3") for b in ("medqa", "mmlu_pro", "gpqa", "aqua")]
-want.append(("mmlu_pro_v3g_dyn", "runs/mmlu_pro_v3g_dyn/r3/dynamic/grpo/final", "mmlu_pro_dyn3g"))
-want.append(("mmlu_pro_v3g_suc", "runs/mmlu_pro_v3g_suc/r3/success/grpo/final", "mmlu_pro_suc3g"))
+RSI = lambda run, sub, name: (f"MaliDDD/margent-mcq-rsi-{run}", "model", None, sub, name)
+ASSETS = lambda sub, name: ("MaliDDD/agent-routing-9b-assets", "dataset", "e240a6a8b934637418d925aa78efba431fc1fc74", sub, name)
+want = [RSI(f"{b}_v3", f"runs/{b}_v3/r3/dynamic_sft/sft/model", f"{b}_dyn3") for b in ("medqa", "mmlu_pro", "gpqa", "aqua")]
+want.append(RSI("mmlu_pro_v3g_dyn", "runs/mmlu_pro_v3g_dyn/r3/dynamic/grpo/final", "mmlu_pro_dyn3g"))
+want.append(RSI("mmlu_pro_v3g_suc", "runs/mmlu_pro_v3g_suc/r3/success/grpo/final", "mmlu_pro_suc3g"))
+# the paper's "all commit" managers: the same collection and SFT recipe as S_1, every target a commit
+want += [ASSETS("managers/medqa_marginal_9b_d2_400/sft_allcommit", "medqa_allc"),
+         ASSETS("managers/mmlu_marginal_9b_d2/sft_allcommit", "mmlu_pro_allc"),
+         ASSETS("managers/aqua_marginal_9b_v1/sft_allcommit", "aqua_allc"),
+         ("MaliDDD/gpqa_marginal_9b-sft_allcommit", "model", None, "", "gpqa_allc")]
+KEEP = ("adapter_config.json", "adapter_model.safetensors", "chat_template.jinja", "tokenizer.json", "tokenizer_config.json")
 failed = []
-for run, sub, name in want:
+for repo, repo_type, revision, sub, name in want:
     dst = CK / name
     if (dst / "adapter_model.safetensors").is_file() and (dst / "adapter_config.json").is_file():
         print(name, "present"); continue
     try:
-        local = snapshot_download(f"MaliDDD/margent-mcq-rsi-{run}", allow_patterns=[f"{sub}/*"], local_dir=f"/workspace/tmp/ckpt_dl/{run}")
+        patterns = [f"{sub}/*"] if sub else list(KEEP)
+        local = snapshot_download(repo, repo_type=repo_type, revision=revision, allow_patterns=patterns,
+                                  local_dir=f"/workspace/tmp/ckpt_dl/{name}")
         files = [f for f in (pathlib.Path(local) / sub).iterdir() if f.is_file()]
         assert {"adapter_model.safetensors", "adapter_config.json"} <= {f.name for f in files}, f"{name}: adapter files missing"
         tmp = CK / f".{name}.part"
