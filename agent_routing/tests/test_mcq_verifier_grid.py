@@ -527,7 +527,7 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     assert d["test"]["diff"] == pytest.approx(-1 / 6)
     # same candidate on questions 1, 2, 3, 4, 6: Verifier trained T T T F T (4/5), base T F T T T (4/5)
     v = res["evidence"]["verifier"]
-    assert v["n"] == 5 and v["trained"] == 0.8 and v["base"] == 0.8 and v["test"]["diff"] == 0 and v["agree"] == 0.6
+    assert v["n"] == 5 and v["trained"] == 0.8 and v["base"] == 0.8 and v["test"]["diff"] == 0 and v["same_outcome"] == 0.6
     assert v["fixed"] == {"trained": 1.0, "base": pytest.approx(2 / 3), "n": 3}      # wrong candidates 2, 3, 6
     assert v["broken"] == {"trained": 0.5, "base": 0.0, "n": 2}                      # right candidates 1, 4
     assert res["evidence"]["reasoner"]["trained"] == 0.6 and res["evidence"]["reasoner"]["base"] == 0.4
@@ -547,6 +547,10 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     # untrained manager, gate on its own confidence, 2 calls: questions 2 (.20) and 6 (.30): 2 stays wrong, 6 is fixed
     assert y["base_confidence_gate"] == {"accuracy": pytest.approx(4 / 6), "calls": pytest.approx(2 / 6)}
     assert y["tests"]["trained learned calling - base with a confidence gate"]["diff"] == 0
+    dec = y["gap_decomposition"]   # draft 2/6 - 3/6; gate gain (4/6 - 2/6) - (4/6 - 3/6); learned 3/6 vs own gate 4/6
+    assert dec["draft"] == pytest.approx(-1 / 6) and dec["gate_gain"] == pytest.approx(1 / 6)
+    assert sum(dec.values()) == pytest.approx(y["trained_learned"]["accuracy"] - y["base_confidence_gate"]["accuracy"])
+    assert d["trained_accuracy_same_candidate"] == pytest.approx(2 / 5) and d["trained_accuracy_other"] == 0.0
     assert M.auroc([0.1, 0.4, 0.4, 0.9], [False, True, False, True]) == pytest.approx(0.875)
     assert M.auroc([1, 2], [True, True]) is None
 

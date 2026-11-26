@@ -85,7 +85,13 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
     t = t_all
     b = [by_q[r["qid"]] for r in t]
     n = len(t)
-    cmp = lambda first, second: A.compare(second, first, n_boot, seed)  # first minus second
+    vectors: Dict[str, Any] = {}  # test name -> (first, second) outcomes, for tests pooled over benchmarks
+
+    def cmp(first, second, name=None):  # first minus second
+        if name:
+            vectors[name] = ([bool(x) for x in first], [bool(x) for x in second])
+        return A.compare(second, first, n_boot, seed)
+
     out: Dict[str, Any] = {"n": n}
     for name, rows in (("trained", t), ("base", b)):
         if all(r["root_ok"] is not None for r in rows):
@@ -95,7 +101,11 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
     same = [i for i in range(n) if t[i]["draft"] == b[i]["draft"]]
     out["draft"] = {"trained": A._mean(r["commit"] for r in t), "base": A._mean(r["commit"] for r in b),
                     "same_candidate": len(same) / n, "n_same": len(same),
-                    "test": cmp([r["commit"] for r in t], [r["commit"] for r in b])}
+                    "test": cmp([r["commit"] for r in t], [r["commit"] for r in b], "draft: trained - untrained")}
+    inside = set(same)
+    out["draft"]["trained_accuracy_same_candidate"] = A._mean(t[i]["commit"] for i in same) if same else None
+    out["draft"]["trained_accuracy_other"] = (A._mean(t[i]["commit"] for i in range(n) if i not in inside)
+                                              if len(same) < n else None)
 
     # ---- evidence use, identical revision prompts
     out["evidence"] = {}
@@ -109,7 +119,8 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
         rate = lambda xs, idx, want: (sum(xs[i] == want for i in idx) / len(idx)) if idx else None
         out["evidence"][kind] = {
             "n": len(same), "candidate": A._mean(r["commit"] for r in ts), "trained": A._mean(tv), "base": A._mean(bv),
-            "test": cmp(tv, bv), "agree": A._mean(x == y for x, y in zip(tv, bv)),
+            "test": cmp(tv, bv, f"evidence ({kind}), same candidate: trained - untrained"),
+            "same_outcome": A._mean(x == y for x, y in zip(tv, bv)),
             "fixed": {"trained": rate(tv, wrong, True), "base": rate(bv, wrong, True), "n": len(wrong)},
             "broken": {"trained": rate(tv, right, False), "base": rate(bv, right, False), "n": len(right)}}
 
@@ -126,14 +137,21 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
             own = A.gated_outcomes(t, least_confident(t, [r["conf"] for r in t], m))
             other = A.gated_outcomes(t, least_confident(t, [r["conf"] for r in b], m))
             sel.update(trained_confidence=A._mean(own), base_confidence=A._mean(other),
-                       tests={"learned - base confidence": cmp(learned, other),
-                              "learned - trained confidence": cmp(learned, own),
-                              "trained confidence - base confidence": cmp(own, other)})
+                       tests={"learned - base confidence": cmp(learned, other, "selection: learned - untrained confidence"),
+                              "learned - trained confidence": cmp(learned, own, "selection: learned - trained confidence"),
+                              "trained confidence - base confidence": cmp(own, other, "selection: trained - untrained confidence")})
+        roles = {k: sum(r["action"] == k for r in t) for k in A.ADVISORS if k in t[0]}
+        mixed = A.random_matched(t, {k: c for k, c in roles.items() if c}, draws, seed) if m else None
+        if mixed:
+            policy = A._mean(A.learned_outcomes(t))
+            sel["random_same_calls_per_advisor"] = {"mean": mixed["mean"], "ci95": mixed["ci95"],
+                                                    "share_at_least_learned": sum(a >= policy for a in mixed["sorted"]) / draws}
     if have_conf:
         sel["auroc_candidate_wrong"] = {
             "trained_confidence": auroc([1 - r["conf"] for r in t], [not r["commit"] for r in t]),
-            "base_confidence_for_trained_candidate": auroc([1 - r["conf"] for r in b], [not r["commit"] for r in t]),
-            "base_confidence_for_base_candidate": auroc([1 - r["conf"] for r in b], [not r["commit"] for r in b]),
+            # the untrained manager's confidence is always the probability of ITS OWN draft letter
+            "untrained_confidence_for_trained_draft_wrong": auroc([1 - r["conf"] for r in b], [not r["commit"] for r in t]),
+            "untrained_confidence_for_untrained_draft_wrong": auroc([1 - r["conf"] for r in b], [not r["commit"] for r in b]),
             "trained_call_decision": auroc([float(r["action"] != "commit") for r in t], [not r["commit"] for r in t])}
     out["selection"] = sel
 
@@ -143,14 +161,42 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
     if "verifier" in t[0] and "verifier" in b[0]:
         sys_["trained_always_verifier"] = A._mean(r["verifier"] for r in t)
         sys_["base_always_verifier"] = A._mean(r["verifier"] for r in b)
-        sys_["tests"] = {"always Verifier: trained - base": cmp([r["verifier"] for r in t], [r["verifier"] for r in b])}
+        sys_["tests"] = {"always Verifier: trained - base": cmp([r["verifier"] for r in t], [r["verifier"] for r in b],
+                                                                "systems: always Verifier, trained - untrained")}
+        gain = lambda acc, cand, calls: (acc - cand) / calls if calls else None
+        sys_["gain_per_call"] = {"trained_learned": gain(A._mean(A.learned_outcomes(t)), sys_["trained_candidate"], m / n),
+                                 "trained_always_verifier": gain(sys_["trained_always_verifier"], sys_["trained_candidate"], 1.0),
+                                 "base_always_verifier": gain(sys_["base_always_verifier"], sys_["base_candidate"], 1.0)}
         if have_conf:
             gate = A.gated_outcomes(b, least_confident(b, [r["conf"] for r in b], m))
+            own_gate = A.gated_outcomes(t, least_confident(t, [r["conf"] for r in t], m))
             sys_["base_confidence_gate"] = {"accuracy": A._mean(gate), "calls": m / n}
-            sys_["tests"]["trained learned calling - base with a confidence gate"] = cmp(A.learned_outcomes(t), gate)
+            sys_["trained_confidence_gate"] = {"accuracy": A._mean(own_gate), "calls": m / n}
+            sys_["tests"]["trained learned calling - base with a confidence gate"] = cmp(
+                A.learned_outcomes(t), gate, "systems: learned calling - untrained manager with a confidence gate")
+            # exact additive split of that gap: draft, what the same gate adds for each manager, learned rule vs that gate
+            sys_["gap_decomposition"] = {
+                "draft": sys_["trained_candidate"] - sys_["base_candidate"],
+                "gate_gain": (A._mean(own_gate) - sys_["trained_candidate"]) - (A._mean(gate) - sys_["base_candidate"]),
+                "learned_vs_own_gate": A._mean(A.learned_outcomes(t)) - A._mean(own_gate)}
             rb = A.random_matched(b, {"verifier": m}, draws, seed)
             sys_["base_random"] = {"mean": rb["mean"], "ci95": rb["ci95"]}
     out["systems"] = sys_
+    out["_vectors"] = vectors
+    return out
+
+
+def references(path, benches) -> Dict[str, Dict[str, Any]]:
+    """Earlier measurements on the same test pools (paper_assets/data.json): single-model and deployed runs."""
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = {}
+    for bench in benches:
+        key = f"{bench}:test"
+        single, base_sys, locked = d["single_agent"].get(key, {}), d.get("base_system", {}).get(key), d["locked"].get(key, {})
+        out[bench] = {"base_letter_only": (single.get("base_nocot_f") or {}).get("acc"),
+                      "trained_letter_only": (single.get("s1_nocot_f") or {}).get("acc"),
+                      "base_deployed": base_sys and {k: base_sys[k] for k in ("acc", "calls", "valid")},
+                      "trained_deployed": locked.get("v3g/S_1") and {k: locked["v3g/S_1"][k] for k in ("acc", "calls")}}
     return out
 
 
@@ -165,12 +211,14 @@ def _t(test) -> str:
     return f"{100 * test['diff']:+.1f} [{100 * test['ci95'][0]:+.1f}, {100 * test['ci95'][1]:+.1f}], {p(test['p'])} / {p(test['mcnemar_p'])}"
 
 
-def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: str) -> str:
+def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: str,
+             pooled: Optional[Dict[str, Any]] = None, refs: Optional[Dict[str, Dict[str, Any]]] = None) -> str:
     present = [(b, name) for b, name in BENCHES if b in results]
     R = [results[b] for b, _ in present]
     head = " | ".join(f"{name} (n={results[b]['n']})" for b, name in present)
     row = lambda label, cells: f"| {label} | " + " | ".join(cells) + " |"
     sep = "|:--|" + "--:|" * len(present)
+    pool_line = lambda name: (f" Pooled over the {pooled[name]['n']} questions: {_t(pooled[name])}." if pooled and name in pooled else "")
     L = [f"### What training changed in the manager: `{trained}` against the untrained `{base}`, pool `{pool}`", "",
          "Same questions, advisors and advisor cache for both managers. Tests are paired: difference in accuracy, pt "
          "[95% CI], bootstrap p / McNemar p.", ""]
@@ -185,7 +233,13 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
           row("Untrained manager, accuracy (%)", [_pct(r["draft"]["base"]) for r in R]),
           row("Trained manager, accuracy (%)", [_pct(r["draft"]["trained"]) for r in R]),
           row("Trained − untrained", [_t(r["draft"]["test"]) for r in R]),
-          row("Same candidate (%)", [_pct(r["draft"]["same_candidate"]) for r in R]), ""]
+          row("Same candidate (%)", [_pct(r["draft"]["same_candidate"]) for r in R])]
+    if refs:
+        num = lambda v: "–" if v is None else f"{v:.1f}"
+        L += [row("Reference: untrained model, plain prompt, letter only", [num(refs[b]["base_letter_only"]) for b, _ in present]),
+              row("Reference: trained manager's weights, plain prompt, letter only", [num(refs[b]["trained_letter_only"]) for b, _ in present])]
+    L += ["", "The untrained draft is written under the manager prompt and output grammar; the letter-only rows are the same "
+          "weights answering a plain multiple-choice prompt." + pool_line("draft: trained - untrained"), ""]
     L += ["**2. Use of evidence** (questions with the same candidate: both managers read an identical revision prompt). "
           "Accuracy (%) after the forced call: untrained → trained; then trained − untrained.", "", f"| Forced call | {head} |", sep]
     for kind, label in KINDS:
@@ -196,22 +250,32 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
         e = lambda r, k, who: _pct(r["evidence"]["verifier"][k][who]) if "verifier" in r["evidence"] else "–"
         L += [row("Verifier: wrong candidates fixed (%), untrained / trained", [f"{e(r, 'fixed', 'base')} / {e(r, 'fixed', 'trained')}" for r in R]),
               row("Verifier: right candidates broken (%), untrained / trained", [f"{e(r, 'broken', 'base')} / {e(r, 'broken', 'trained')}" for r in R])]
+    L += ["", "Same-candidate questions are easier than the rest (trained draft accuracy inside / outside the subset: "
+          + "; ".join(f"{name} {_pct(r['draft']['trained_accuracy_same_candidate'])} / {_pct(r['draft']['trained_accuracy_other'])}"
+                      for (_, name), r in zip(present, R)) + ")."
+          + pool_line("evidence (verifier), same candidate: trained - untrained")]
     L += ["", "**3. Selection signal** (the trained manager's own outcomes with the Verifier, at the learned policy's number "
           "of calls; only the choice of questions differs). Accuracy (%).", "", f"| Questions chosen by | {head} |", sep,
           row("Calls per question", [f"{r['selection']['calls']:.2f}" for r in R]),
           row("The learned policy", [_pct(r["selection"].get("learned")) for r in R]),
           row("The trained manager's confidence", [_pct(r["selection"].get("trained_confidence")) for r in R]),
-          row("The untrained manager's confidence", [_pct(r["selection"].get("base_confidence")) for r in R]),
+          row("The untrained manager's confidence in its own draft", [_pct(r["selection"].get("base_confidence")) for r in R]),
           row("Chance (95% of random draws)", [f"{_pct(r['selection']['random']['mean'])} [{_pct(r['selection']['random']['ci95'][0])}, {_pct(r['selection']['random']['ci95'][1])}]"
                                               if "random" in r["selection"] else "–" for r in R])]
     for key in ("learned - base confidence", "learned - trained confidence", "trained confidence - base confidence"):
         L.append(row(key.replace(" - ", " − ").capitalize(), [_t(r["selection"].get("tests", {}).get(key)) for r in R]))
     au = lambda r, k: (lambda v: "–" if v is None else f"{v:.3f}")(r["selection"].get("auroc_candidate_wrong", {}).get(k))
-    L += [row("AUROC for a wrong candidate: trained confidence", [au(r, "trained_confidence") for r in R]),
-          row("AUROC for a wrong candidate: untrained confidence", [au(r, "base_confidence_for_trained_candidate") for r in R]),
-          row("AUROC for a wrong candidate: the learned call decision", [au(r, "trained_call_decision") for r in R]),
+    rs = lambda r: r["selection"].get("random_same_calls_per_advisor")
+    L += [row("Random questions, same calls per advisor; share of draws ≥ learned calling",
+              [f"{_pct(rs(r)['mean'])} [{_pct(rs(r)['ci95'][0])}, {_pct(rs(r)['ci95'][1])}]; {rs(r)['share_at_least_learned']:.3f}" if rs(r) else "–" for r in R]),
+          row("AUROC for a wrong trained draft: trained confidence", [au(r, "trained_confidence") for r in R]),
+          row("AUROC for a wrong trained draft: untrained confidence (in its own draft)", [au(r, "untrained_confidence_for_trained_draft_wrong") for r in R]),
+          row("AUROC for a wrong trained draft: the learned call decision", [au(r, "trained_call_decision") for r in R]),
           row("Learned call rate: wrong / right candidates (%)", [f"{_pct(r['selection']['trained_policy']['call_rate_candidate_wrong'])} / "
-                                                                  f"{_pct(r['selection']['trained_policy']['call_rate_candidate_right'])}" for r in R]), ""]
+                                                                  f"{_pct(r['selection']['trained_policy']['call_rate_candidate_right'])}" for r in R]),
+          "", "Pooled:" + (pool_line("selection: learned - untrained confidence").replace("Pooled over", " learned − untrained confidence, over")
+                           + pool_line("selection: learned - trained confidence").replace("Pooled over", " learned − trained confidence, over")
+                           if pooled else " –"), ""]
     L += ["**4. Whole systems.** Accuracy (%) / advisor calls per question.", "", f"| System | {head} |", sep,
           row("Untrained manager, candidate only", [f"{_pct(r['systems']['base_candidate'])} / 0.00" for r in R]),
           row("Untrained manager + Verifier on its least confident candidates", [f"{_pct(r['systems']['base_confidence_gate']['accuracy'])} / {r['systems']['base_confidence_gate']['calls']:.2f}"
@@ -221,6 +285,20 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
           row("Trained manager + always Verifier", [f"{_pct(r['systems'].get('trained_always_verifier'))} / 1.00" for r in R]),
           row("Learned calling − untrained manager with a confidence gate", [_t(r["systems"].get("tests", {}).get("trained learned calling - base with a confidence gate")) for r in R]),
           row("Always Verifier: trained − untrained", [_t(r["systems"].get("tests", {}).get("always Verifier: trained - base")) for r in R])]
+    dec = lambda r, k: (lambda v: "–" if v is None else f"{100 * v:+.1f}")((r["systems"].get("gap_decomposition") or {}).get(k))
+    gpc = lambda r, k: (lambda v: "–" if v is None else f"{100 * v:.1f}")((r["systems"].get("gain_per_call") or {}).get(k))
+    L += [row("  of which: draft", [dec(r, "draft") for r in R]),
+          row("  of which: what the same confidence-gated Verifier calls add (trained − untrained)", [dec(r, "gate_gain") for r in R]),
+          row("  of which: learned calling − the trained manager's own confidence gate", [dec(r, "learned_vs_own_gate") for r in R]),
+          row("Accuracy gained per advisor call (pt): learned calling / always Verifier (trained)",
+              [f"{gpc(r, 'trained_learned')} / {gpc(r, 'trained_always_verifier')}" for r in R])]
+    if refs:
+        dep = lambda v: "–" if not v else f"{v['acc']:.1f} / {v['calls']:.2f}" + (f" (valid answers {100 * v['valid']:.0f}%)" if "valid" in v else "")
+        L += [row("Reference: untrained manager deployed without the grammar (up to 3 calls)", [dep(refs[b]["base_deployed"]) for b, _ in present]),
+              row("Reference: trained manager deployed (Table 1; a second call is allowed)", [dep(refs[b]["trained_deployed"]) for b, _ in present])]
+    L += ["", "The three \"of which\" rows add up exactly to the gap between learned calling and the untrained manager with a "
+          "confidence gate." + pool_line("systems: learned calling - untrained manager with a confidence gate")
+          + pool_line("systems: always Verifier, trained - untrained").replace("Pooled over", "Always Verifier, trained − untrained, over")]
     return "\n".join(L) + "\n"
 
 
@@ -234,6 +312,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--draws", type=int, default=2000)
     ap.add_argument("--n-boot", type=int, default=10_000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--reference", default=None, help="paper_assets/data.json: adds the single-model and deployed reference rows")
     args = ap.parse_args(argv)
     root, out = Path(args.grid_root), Path(args.out)
     results = {}
@@ -245,8 +324,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise SystemExit(f"no benchmark has both {args.trained} and {args.base} grids for pool {args.pool} under {root}")
     out.mkdir(parents=True, exist_ok=True)
     stem = f"{args.trained}_vs_{args.base}_{args.pool}"
-    (out / f"{stem}.json").write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
-    text = markdown(results, args.trained, args.base, args.pool)
+    pooled = A.pooled_tests([r.pop("_vectors") for r in results.values()], args.n_boot, args.seed) if len(results) > 1 else None
+    refs = references(args.reference, list(results)) if args.reference and args.pool == "test" else None
+    (out / f"{stem}.json").write_text(json.dumps({**results, "pooled": pooled, "references": refs}, indent=1) + "\n", encoding="utf-8")
+    text = markdown(results, args.trained, args.base, args.pool, pooled, refs)
     (out / f"{stem}.md").write_text(text, encoding="utf-8")
     print(text)
     return 0

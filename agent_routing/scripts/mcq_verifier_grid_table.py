@@ -5,7 +5,11 @@ Reads ``<analysis>/<ckpt>_<bench>_<pool>.json`` (``mcq_verifier_grid_analyze.py`
 pool, the rules as rows and the benchmarks as columns (accuracy % / advisor calls per question), followed by the
 paired tests. Benchmarks whose analysis is missing are left out and named.
 
-    python scripts/mcq_verifier_grid_table.py --analysis runs/verifier_grid/analysis --ckpt s1 --pool test
+With ``--grid-root`` (the directory holding ``<ckpt>/<bench>/<pool>/grid_records.jsonl``) the paired tests are also
+computed over the questions of all benchmarks together ("Pooled" column).
+
+    python scripts/mcq_verifier_grid_table.py --analysis runs/verifier_grid/analysis --ckpt s1 --pool test \\
+        --grid-root runs/verifier_grid
 """
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ ROWS = (
     ("candidate", "Candidate only (no call)"),
     ("learned", "Learned calling (first call, then commit)"),
     ("learned_selection_verifier", "Learned selection, Verifier only"),
+    ("random_roles", "Random questions, same calls per advisor"),
     ("random_verifier", "Random subset, Verifier only (same budget)"),
     ("confidence_dev_matched", "Confidence-gated Verifier (dev threshold, matched call rate)"),
     ("confidence_dev_best", "Confidence-gated Verifier (dev threshold, best dev accuracy)"),
@@ -67,7 +72,22 @@ def cell(rule: Optional[Dict[str, Any]], key: str) -> str:
     return text
 
 
-def markdown(results: Dict[str, Dict[str, Any]], ckpt: str, pool: str) -> str:
+def pooled(root: Path, ckpt: str, pool: str, benches, n_boot: int = 10_000, seed: int = 0) -> Dict[str, Any]:
+    """Paired tests over the questions of all ``benches`` together, from the raw grid records."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mcq_verifier_grid_analyze as A
+
+    sets = []
+    for bench in benches:
+        records = A.read_records(root / ckpt / bench / pool / "grid_records.jsonl")
+        dev = root / ckpt / bench / "dev" / "grid_records.jsonl"
+        res = A.analyze(records, A.read_records(dev) if pool != "dev" and dev.is_file() else None, draws=200,
+                        n_boot=200, seed=seed)
+        sets.append(res["_vectors"])
+    return A.pooled_tests(sets, n_boot, seed)
+
+
+def markdown(results: Dict[str, Dict[str, Any]], ckpt: str, pool: str, pooled_tests: Optional[Dict[str, Any]] = None) -> str:
     present = [(b, name) for b, name in BENCHES if b in results]
     missing = [name for b, name in BENCHES if b not in results]
     head = " | ".join(f"{name} (n={results[b]['n']})" for b, name in present)
@@ -88,16 +108,24 @@ def markdown(results: Dict[str, Dict[str, Any]], ckpt: str, pool: str) -> str:
     if agreement:
         lines += ["First turn equal to unconstrained greedy decoding: "
                   + "; ".join(f"{name} {a['n_equal']}/{a['n']}" for name, a in agreement) + ".", ""]
-    lines += [f"| Paired difference in accuracy, pt [95% CI], bootstrap p / McNemar p | {' | '.join(name for _, name in present)} |",
-              "|:--|" + "--:|" * len(present)]
+    share = [(name, results[b]["rules"]) for b, name in present]
+    if all("random_roles" in r and "random_verifier" in r for _, r in share):
+        lines += ["Share of 2,000 random draws at least as accurate as the learned calling (one-sided): same calls per advisor "
+                  + "; ".join(f"{name} {_p(r['random_roles']['share_at_least_learned'])}" for name, r in share)
+                  + ". Verifier-only random subsets against the learned selection sent to the Verifier: "
+                  + "; ".join(f"{name} {_p(r['random_verifier']['share_at_least_learned_selection_verifier'])}" for name, r in share)
+                  + ".", ""]
+    fmt = lambda t: "–" if t is None else (f"{100 * t['diff']:+.1f} [{100 * t['ci95'][0]:+.1f}, {100 * t['ci95'][1]:+.1f}], "
+                                           f"{_p(t['mcnemar_p'])}")
+    extra = [f"Pooled (n={next(iter(pooled_tests.values()))['n']})"] if pooled_tests else []
+    lines += [f"| Paired difference in accuracy, pt [95% bootstrap CI], exact McNemar p | {' | '.join([name for _, name in present] + extra)} |",
+              "|:--|" + "--:|" * (len(present) + len(extra))]
     for key, label in TESTS:
         if not any(key in results[b]["tests"] for b, _ in present):
             continue
-        cells = []
-        for b, _ in present:
-            t = results[b]["tests"].get(key)
-            cells.append("–" if t is None else f"{100 * t['diff']:+.1f} [{100 * t['ci95'][0]:+.1f}, {100 * t['ci95'][1]:+.1f}], "
-                                                f"{_p(t['p'])} / {_p(t['mcnemar_p'])}")
+        cells = [fmt(results[b]["tests"].get(key)) for b, _ in present]
+        if pooled_tests:
+            cells.append(fmt(pooled_tests.get(key)))
         lines.append(f"| {label} | " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
 
@@ -108,11 +136,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--pool", default="test")
     ap.add_argument("--out", default=None, help="markdown file (default: print only)")
+    ap.add_argument("--grid-root", default=None, help="raw grid records, for the pooled column")
     args = ap.parse_args(argv)
     results = load(Path(args.analysis), args.ckpt, args.pool)
     if not results:
         raise SystemExit(f"no analysis for {args.ckpt} / {args.pool} in {args.analysis}")
-    text = markdown(results, args.ckpt, args.pool)
+    together = pooled(Path(args.grid_root), args.ckpt, args.pool, list(results)) if args.grid_root and len(results) > 1 else None
+    text = markdown(results, args.ckpt, args.pool, together)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
     print(text)

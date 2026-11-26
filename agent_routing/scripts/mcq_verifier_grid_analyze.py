@@ -169,6 +169,23 @@ def compare(a: Sequence[bool], b: Sequence[bool], n_boot: int, seed: int) -> Dic
     return {"diff": boot["diff"], "ci95": boot["ci95"], "p": boot["p_two_sided"], "mcnemar_p": mcnemar(a, b)["exact_p"]}
 
 
+def _test(vectors, name, second, first, n_boot, seed):
+    """``first`` minus ``second``; keeps the two outcome vectors under ``name`` for pooled tests."""
+    vectors[name] = ([bool(x) for x in first], [bool(x) for x in second])
+    return compare(second, first, n_boot, seed)
+
+
+def pooled_tests(vector_sets: Sequence[Dict[str, Any]], n_boot: int = 10_000, seed: int = 0) -> Dict[str, Any]:
+    """Paired tests over the questions of several pools together (only tests present in every pool)."""
+    names = [k for k in vector_sets[0] if all(k in v for v in vector_sets)] if vector_sets else []
+    out = {}
+    for name in names:
+        first = [x for v in vector_sets for x in v[name][0]]
+        second = [x for v in vector_sets for x in v[name][1]]
+        out[name] = {**compare(second, first, n_boot, seed), "n": len(first)}
+    return out
+
+
 def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Dict[str, Any]]] = None, *,
             draws: int = 2000, n_boot: int = 10_000, seed: int = 0) -> Dict[str, Any]:
     rows = table(records)
@@ -181,6 +198,7 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
     commit = [row["commit"] for row in rows]
     out: Dict[str, Any] = {"n": n, "policy_calls": m, "policy_call_counts": counts, "rules": {}, "tests": {}}
     rule = lambda name, acc, calls, **kw: out["rules"].__setitem__(name, {"accuracy": acc, "calls": calls, **kw})
+    vectors: Dict[str, Any] = {}  # test name -> (first, second) per-question outcomes; not written to the JSON
     if all(row["root_ok"] is not None for row in rows):
         # the grid's first turn is grammar-constrained; this is how often plain greedy decoding writes the same turn
         out["root_agreement"] = {"n_equal": sum(row["root_ok"] for row in rows), "n": n}
@@ -204,8 +222,8 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
     if "verifier" in kinds:
         learned_v = gated_outcomes(rows, called)
         rule("learned_selection_verifier", _mean(learned_v), m / n)
-        out["tests"]["learned - always_verifier"] = compare([row["verifier"] for row in rows], learned, n_boot, seed)
-        out["tests"]["learned - learned_selection_verifier"] = compare(learned_v, learned, n_boot, seed)
+        out["tests"]["learned - always_verifier"] = _test(vectors, "learned - always_verifier", [row["verifier"] for row in rows], learned, n_boot, seed)
+        out["tests"]["learned - learned_selection_verifier"] = _test(vectors, "learned - learned_selection_verifier", learned_v, learned, n_boot, seed)
         r = random_matched(rows, {"verifier": m}, draws, seed)
         acc_sorted = r.pop("sorted")
         rule("random_verifier", r["mean"], m / n, expected=r["expected"], ci95=r["ci95"], draws=draws,
@@ -214,10 +232,9 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
         for extra, name in (("verifier_nocand", "candidate value: always_verifier - always_verifier_nocand"),
                             ("null", "evidence value: always_verifier - always_null")):
             if extra in kinds:
-                out["tests"][name] = compare([row[extra] for row in rows], [row["verifier"] for row in rows], n_boot, seed)
+                out["tests"][name] = _test(vectors, name, [row[extra] for row in rows], [row["verifier"] for row in rows], n_boot, seed)
         if "null" in kinds:
-            out["tests"]["revision without evidence: always_null - candidate"] = compare(
-                commit, [row["null"] for row in rows], n_boot, seed)
+            out["tests"]["revision without evidence: always_null - candidate"] = _test(vectors, "revision without evidence: always_null - candidate", commit, [row["null"] for row in rows], n_boot, seed)
     if counts and m:
         r = random_matched(rows, {k: c for k, c in counts.items() if c}, draws, seed)
         acc_sorted = r.pop("sorted")
@@ -230,7 +247,7 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
         first_m = set(order[:m])
         conf_m = gated_outcomes(rows, [i in first_m for i in range(n)])
         rule("confidence_matched", curve[m], m / n)
-        out["tests"]["learned - confidence_matched"] = compare(conf_m, learned, n_boot, seed)
+        out["tests"]["learned - confidence_matched"] = _test(vectors, "learned - confidence_matched", conf_m, learned, n_boot, seed)
         best_k = max(range(n + 1), key=lambda k: (curve[k], -k))
         rule("confidence_best_in_pool", curve[best_k], best_k / n, note="threshold chosen on this pool (upper bound)")
         out["confidence_curve"] = [{"calls": k / n, "accuracy": a,
@@ -265,7 +282,8 @@ def analyze(records: Sequence[Dict[str, Any]], dev_records: Optional[Sequence[Di
                     rule(name, _mean(outcome), sum(gated) / len(sub), threshold=t if math.isfinite(t) else None,
                          dev_calls=sum(dev_gated) / len(dev), dev_accuracy=_mean(gated_outcomes(dev, dev_gated)),
                          dev_policy_calls=dev_m / len(dev), **kw)
-                    out["tests"][f"learned - {name}"] = compare(outcome, sub_learned, n_boot, seed)
+                    out["tests"][f"learned - {name}"] = _test(vectors, f"learned - {name}", outcome, sub_learned, n_boot, seed)
+    out["_vectors"] = vectors
     return out
 
 
@@ -361,6 +379,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = ap.parse_args(argv)
     result = analyze(read_records(args.records), read_records(args.dev) if args.dev else None, draws=args.draws,
                      n_boot=args.n_boot, seed=args.seed)
+    result.pop("_vectors", None)
     result.update(records=str(args.records), dev=args.dev, label=args.label)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
