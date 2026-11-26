@@ -1,8 +1,7 @@
 # Configuration appendix
 
 Reviewer-facing configuration of every result in the submission and in this response: which configuration produced each result (A),
-the manager's data collection, labels and SFT (B), the RSI rounds, FA-GRPO and the "Success" comparator (C), the exact prompts,
-decoding settings and release plan (D), and the advisors (E). Values are given in the order MedQA / MMLU-Pro / GPQA / AQuA-RAT unless a
+the manager's data collection, labels and SFT (B), the RSI rounds, FA-GRPO and the "Success" comparator (C), the exact prompts and decoding settings (D), and the advisors (E). Values are given in the order MedQA / MMLU-Pro / GPQA / AQuA-RAT unless a
 table has one column per benchmark. Every value comes from a stored record or from the code, and each section states how each value is
 sourced: stored by the run itself; reproduced exactly from stored outputs; taken from the configuration or code only; stated in the
 submission only; or not recorded. Gaps are stated as gaps. Table and figure numbers refer to the submission as reviewed.
@@ -519,7 +518,7 @@ Two analyses are not RSI conditions:
 - The matched-budget replay analyses development evaluations of S_1 and of the round-3 SFT-only checkpoints. It involves no training.
 - The label-quality table trains one SFT from S_1 per label set, with the v3 SFT settings, and evaluates each once on the development pool.
 
-## D. Prompts, decoding, advisors and release
+## D. Prompts, decoding and advisors
 
 **Status labels.** *Recorded*: stored by the run itself (evaluation signatures, collection records and label files, experiment manifests, training state). *Code*: fixed in the code, a code default or a documented intention, and not stored by the run. *Not recorded*: no source holds it.
 
@@ -1007,7 +1006,7 @@ Used only in the advisor A/B of E.4; never an advisor in any result of the submi
 
 | Parameter | v2 | Registered (MedQA, MMLU-Pro, GPQA; AQuA-RAT not recorded) |
 |:--|:--|:--|
-| Base model | Qwen/Qwen3.5-9B, revision of 2 March 2026 (hash in the release) | same model, revision not recorded |
+| Base model | Qwen/Qwen3.5-9B, revision of 2 March 2026 | same model, revision not recorded |
 | LoRA r / alpha / dropout / target modules | 16 / 32 / 0.05 / same 7 modules (same layer layout) | same |
 | Learning rate | 2e-4 | 2e-4 |
 | Batch | 1 × accumulation 8 | same |
@@ -1060,7 +1059,7 @@ versions, the GPU type, the maximum sequence length actually used, and whether t
 its last two checkpoints were not uploaded. For AQuA-RAT: every optimisation and compute setting and which checkpoint was exported (its
 LoRA configuration and layer layout are recorded, E.1).
 
-Data: the teacher's generator script, endpoint and sampling settings; which file each registered run trained on (the run stores only its output folder; the link to the data files rests on the registry of pinned inputs (D.7), which lists each adapter with its training file, pinned by digest, and on the matching row counts); the script and
+Data: the teacher's generator script, endpoint and sampling settings; which file each registered run trained on (the run stores only its output folder; the link to the data files rests on the project's registry of pinned inputs, which lists each adapter with its training file, pinned by digest, and on the matching row counts); the script and
 criterion that produced the MMLU-Pro Verifier's filtered file.
 
 Serving (paper era): the command lines of the MedQA and MMLU-Pro vLLM servers and whether the legacy launcher was run as written for GPQA
