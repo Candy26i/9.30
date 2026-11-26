@@ -8,8 +8,8 @@ Accuracy (%) / advisor calls per question. Every rule starts from the same manag
 | Learned calling (first call, then commit) | 78.8 / 0.37 | 63.2 / 0.33 | 54.0 / 0.52 | 77.2 / 0.77 |
 | Learned selection, Verifier only | 80.2 / 0.37 | 63.4 / 0.33 | 53.0 / 0.52 | 77.2 / 0.77 |
 | Random subset, Verifier only (same budget) | 77.1 / 0.37 [75.4, 78.8] | 58.0 / 0.33 [56.0, 60.0] | 48.8 / 0.52 [44.0, 53.0] | 73.9 / 0.77 [70.9, 76.8] |
-| Confidence-gated Verifier (dev threshold, matched call rate) | 79.2 / 0.31 | 58.0 / 0.24 | 53.0 / 0.71 | – |
-| Confidence-gated Verifier (dev threshold, best dev accuracy) | 83.0 / 0.80 | 71.4 / 0.68 | 55.0 / 0.84 | – |
+| Confidence-gated Verifier (dev threshold, matched call rate) | 79.2 / 0.31 | 58.0 / 0.24 | 53.0 / 0.71 | 76.0 / 0.75 |
+| Confidence-gated Verifier (dev threshold, best dev accuracy) | 83.0 / 0.80 | 71.4 / 0.68 | 55.0 / 0.84 | 81.9 / 0.93 |
 | Confidence-gated Verifier (same number of calls, in-pool ranking) | 79.6 / 0.37 | 61.6 / 0.33 | 52.0 / 0.52 | 76.8 / 0.77 |
 | Always Verifier, with the candidate | 83.4 / 1.00 | 72.4 / 1.00 | 56.0 / 1.00 | 85.0 / 1.00 |
 | Always Verifier, candidate removed | 84.2 / 1.00 | 69.2 / 1.00 | 61.0 / 1.00 | 78.3 / 1.00 |
@@ -26,8 +26,8 @@ First turn equal to unconstrained greedy decoding: MedQA 500/500; MMLU-Pro 499/5
 |:--|--:|--:|--:|--:|
 | Learned − always Verifier (with candidate) | -4.6 [-7.4, -1.8], <.001 / .001 | -9.2 [-12.2, -6.2], <.001 / <.001 | -2.0 [-9.0, +5.0], .653 / .774 | -7.9 [-11.4, -4.7], <.001 / <.001 |
 | Learned − learned selection sent to the Verifier | -1.4 [-3.4, +0.6], .216 / .248 | -0.2 [-1.2, +0.6], .830 / 1.000 | +1.0 [-2.0, +4.0], .784 / 1.000 | +0.0 [+0.0, +0.0], 1.000 / 1.000 |
-| Learned − confidence gate (dev threshold, matched) | -0.4 [-3.2, +2.4], .827 / .888 | +5.2 [+1.8, +8.6], .002 / .004 | +1.0 [-5.0, +7.0], .881 / 1.000 | – |
-| Learned − confidence gate (dev threshold, best) | -4.2 [-7.0, -1.6], .001 / .002 | -8.2 [-11.4, -5.2], <.001 / <.001 | -1.0 [-8.0, +5.0], .878 / 1.000 | – |
+| Learned − confidence gate (dev threshold, matched) | -0.4 [-3.2, +2.4], .827 / .888 | +5.2 [+1.8, +8.6], .002 / .004 | +1.0 [-5.0, +7.0], .881 / 1.000 | +1.2 [-3.5, +5.9], .706 / .755 |
+| Learned − confidence gate (dev threshold, best) | -4.2 [-7.0, -1.6], .001 / .002 | -8.2 [-11.4, -5.2], <.001 / <.001 | -1.0 [-8.0, +5.0], .878 / 1.000 | -4.7 [-8.7, -0.8], .021 / .029 |
 | Learned − confidence gate (same number of calls) | -0.8 [-3.6, +2.0], .626 / .672 | +1.6 [-1.6, +5.0], .380 / .416 | +2.0 [-4.0, +8.0], .638 / .754 | +0.4 [-4.3, +5.1], .942 / 1.000 |
 | Always Verifier: with − without the candidate | -0.8 [-3.6, +2.0], .624 / .672 | +3.2 [-0.2, +6.6], .072 / .089 | -5.0 [-13.0, +3.0], .279 / .332 | +6.7 [+2.0, +11.4], .006 / .012 |
 | Always Verifier − empty-output revision | +10.6 [+7.2, +14.2], <.001 / <.001 | +21.0 [+17.0, +25.2], <.001 / <.001 | +15.0 [+6.0, +24.0], <.001 / .003 | +52.4 [+45.7, +59.1], <.001 / <.001 |
