@@ -57,10 +57,12 @@ Pooled:  learned − untrained confidence, over the 1354 questions: +1.0 [-0.7, 
 |:--|--:|--:|--:|--:|
 | Untrained manager, candidate only | 70.6 / 0.00 | 44.2 / 0.00 | 32.0 / 0.00 | 32.7 / 0.00 |
 | Untrained manager + Verifier on its least confident candidates | 80.6 / 0.37 | 57.6 / 0.33 | 47.0 / 0.52 | 71.7 / 0.77 |
+| Untrained manager + Verifier below a confidence threshold fixed on dev | 80.6 / 0.32 | 56.0 / 0.28 | 49.0 / 0.71 | 73.6 / 0.79 |
 | Trained manager, learned calling (first call) | 78.8 / 0.37 | 63.2 / 0.33 | 54.0 / 0.52 | 77.2 / 0.77 |
 | Untrained manager + always Verifier | 83.6 / 1.00 | 70.4 / 1.00 | 52.0 / 1.00 | 81.9 / 1.00 |
 | Trained manager + always Verifier | 83.4 / 1.00 | 72.4 / 1.00 | 56.0 / 1.00 | 85.0 / 1.00 |
 | Learned calling − untrained manager with a confidence gate | -1.8 [-4.4, +0.8], .199 / .243 | +5.6 [+1.4, +9.8], .012 / .012 | +7.0 [+0.0, +14.0], .081 / .118 | +5.5 [-0.4, +11.0], .065 / .081 |
+| Learned calling − untrained manager with the dev-threshold gate | -1.8 [-4.6, +0.8], .216 / .253 | +7.2 [+3.0, +11.6], .001 / .001 | +5.0 [-1.0, +12.0], .154 / .227 | +3.5 [-2.0, +9.1], .243 / .272 |
 | Always Verifier: trained − untrained | -0.2 [-1.8, +1.6], .901 / 1.000 | +2.0 [-0.8, +5.0], .184 / .220 | +4.0 [-1.0, +10.0], .192 / .289 | +3.1 [+0.0, +6.3], .068 / .096 |
 |   of which: draft | +2.8 | +6.6 | +9.0 | +3.5 |
 |   of which: what the same confidence-gated Verifier calls add (trained − untrained) | -3.8 | -2.6 | -4.0 | +1.6 |
@@ -70,3 +72,5 @@ Pooled:  learned − untrained confidence, over the 1354 questions: +1.0 [-0.7, 
 | Reference: trained manager deployed (Table 1; a second call is allowed) | 78.8 / 0.37 | 63.6 / 0.35 | 54.0 / 0.52 | 77.2 / 0.78 |
 
 The three "of which" rows add up exactly to the gap between learned calling and the untrained manager with a confidence gate. Pooled over the 1354 questions: +3.0 [+0.7, +5.2], .011 / .011. Always Verifier, trained − untrained, over the 1354 questions: +1.6 [+0.1, +3.0], .038 / .044.
+
+Dev-threshold gate: the untrained manager calls the Verifier when its confidence is below a threshold fixed on the dev pool, the cut between two distinct dev confidences whose dev call count is closest to the trained policy's (MedQA 37.0% of dev questions called (learned policy on dev: 37.0%); MMLU-Pro 30.5% of dev questions called (learned policy on dev: 30.5%); GPQA 62.0% of dev questions called (learned policy on dev: 62.0%); AQuA 78.0% of dev questions called (learned policy on dev: 78.0%)). Its calls on this pool are whatever that threshold gives. Learned calling − the dev-threshold gate, over the 1354 questions: +3.0 [+0.9, +5.2], .008 / .009.

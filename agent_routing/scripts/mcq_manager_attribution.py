@@ -17,7 +17,12 @@ request with the same inputs returns the same output for both managers. Question
                  random             uniformly random questions (2,000 draws)
                and the area under the ROC curve of each signal for "the candidate is wrong"
   systems      whole pipelines at the trained policy's number of calls: the untrained manager with a gate on its own
-               confidence (grammar-constrained decoding, no training) against the trained manager's learned calling
+               confidence (grammar-constrained decoding, no training) against the trained manager's learned calling.
+               With the dev grids of both managers (``--dev-pool``, on by default when they exist) the same gate is also
+               given a threshold fixed BEFORE the test pool is seen: the cut between two distinct dev confidences of the
+               comparison manager whose dev call count is closest to the trained policy's dev call count. That rule can
+               be deployed as it is; its number of calls on the test pool is whatever the threshold gives. Questions
+               that are also in the dev grid are left out of it and of its test
 
 The base manager does not follow the DRAFT / commit / call format on its own; its grid is grammar-constrained (the share
 of first turns equal to unconstrained greedy decoding is reported). Its candidate and its confidence are therefore
@@ -30,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -75,7 +81,27 @@ def _rates(rows) -> Dict[str, Any]:
     return {"call_rate": call(rows), "call_rate_candidate_wrong": call(wrong), "call_rate_candidate_right": call(right)}
 
 
-def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int = 10_000, seed: int = 0) -> Dict[str, Any]:
+def dev_threshold(trained_dev_rows, base_dev_rows) -> Optional[Dict[str, Any]]:
+    """Confidence threshold of the comparison manager fixed on dev: the cut between two distinct dev confidences (or one
+    of the two ends) whose number of calls is closest to the trained policy's number of dev calls (the lower on a tie)."""
+    if not base_dev_rows or any(r["conf"] is None for r in base_dev_rows):
+        return None
+    n_dev = len(base_dev_rows)
+    target = sum(r["action"] != "commit" for r in trained_dev_rows) / len(trained_dev_rows) * n_dev
+    confs = sorted(r["conf"] for r in base_dev_rows)
+    cuts = [k for k in range(n_dev + 1) if k in (0, n_dev) or confs[k - 1] < confs[k]]
+    k = min(cuts, key=lambda c: (abs(c - target), c))
+    t = A.threshold_for_k(base_dev_rows, k)
+    gated = [r["conf"] < t for r in base_dev_rows]
+    out = {"threshold": t, "dev_n": n_dev, "dev_calls": sum(gated) / n_dev,
+           "dev_policy_calls": target / n_dev, "dev_candidate": A._mean(r["commit"] for r in base_dev_rows)}
+    if "verifier" in base_dev_rows[0]:
+        out["dev_accuracy"] = A._mean(A.gated_outcomes(base_dev_rows, gated))
+    return out
+
+
+def attribute(trained_records, base_records, *, trained_dev=None, base_dev=None, draws: int = 2000,
+              n_boot: int = 10_000, seed: int = 0) -> Dict[str, Any]:
     t_all, b_all = A.table(trained_records), A.table(base_records)
     by_q = {r["qid"]: r for r in b_all}
     if len(by_q) != len(b_all) or len({r["qid"] for r in t_all}) != len(t_all):
@@ -181,6 +207,24 @@ def attribute(trained_records, base_records, *, draws: int = 2000, n_boot: int =
                 "learned_vs_own_gate": A._mean(A.learned_outcomes(t)) - A._mean(own_gate)}
             rb = A.random_matched(b, {"verifier": m}, draws, seed)
             sys_["base_random"] = {"mean": rb["mean"], "ci95": rb["ci95"]}
+            if trained_dev is not None and base_dev is not None:  # the same gate, threshold fixed on dev
+                td, bd = A.table(trained_dev), A.table(base_dev)
+                fixed = dev_threshold(td, bd)
+                dev_q = {r["qid"] for r in td} | {r["qid"] for r in bd}
+                keep = [i for i in range(n) if t[i]["qid"] not in dev_q]
+                if fixed is not None and keep:
+                    bk, tk = [b[i] for i in keep], [t[i] for i in keep]
+                    called = [r["conf"] < fixed["threshold"] for r in bk]
+                    dev_gate, learned_k = A.gated_outcomes(bk, called), A.learned_outcomes(tk)
+                    if not math.isfinite(fixed["threshold"]):
+                        fixed["threshold"] = None  # every candidate is below it: always call
+                    sys_["base_confidence_gate_dev"] = {
+                        **fixed, "accuracy": A._mean(dev_gate), "calls": sum(called) / len(keep), "n": len(keep),
+                        "dev_overlap_excluded": n - len(keep),
+                        "trained_learned_same_questions": {"accuracy": A._mean(learned_k),
+                                                           "calls": A._mean(r["action"] != "commit" for r in tk)}}
+                    sys_["tests"]["trained learned calling - base with a dev-threshold confidence gate"] = cmp(
+                        learned_k, dev_gate, "systems: learned calling - untrained manager with a dev-threshold confidence gate")
     out["systems"] = sys_
     out["_vectors"] = vectors
     return out
@@ -276,14 +320,20 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
           "", "Pooled:" + (pool_line("selection: learned - untrained confidence").replace("Pooled over", " learned − untrained confidence, over")
                            + pool_line("selection: learned - trained confidence").replace("Pooled over", " learned − trained confidence, over")
                            if pooled else " –"), ""]
+    dg = lambda r: r["systems"].get("base_confidence_gate_dev")
     L += ["**4. Whole systems.** Accuracy (%) / advisor calls per question.", "", f"| System | {head} |", sep,
           row("Untrained manager, candidate only", [f"{_pct(r['systems']['base_candidate'])} / 0.00" for r in R]),
           row("Untrained manager + Verifier on its least confident candidates", [f"{_pct(r['systems']['base_confidence_gate']['accuracy'])} / {r['systems']['base_confidence_gate']['calls']:.2f}"
                                                                                   if "base_confidence_gate" in r["systems"] else "–" for r in R]),
+          *([row("Untrained manager + Verifier below a confidence threshold fixed on dev",
+                 [f"{_pct(dg(r)['accuracy'])} / {dg(r)['calls']:.2f}" if dg(r) else "–" for r in R])] if any(dg(r) for r in R) else []),
           row("Trained manager, learned calling (first call)", [f"{_pct(r['systems']['trained_learned']['accuracy'])} / {r['systems']['trained_learned']['calls']:.2f}" for r in R]),
           row("Untrained manager + always Verifier", [f"{_pct(r['systems'].get('base_always_verifier'))} / 1.00" for r in R]),
           row("Trained manager + always Verifier", [f"{_pct(r['systems'].get('trained_always_verifier'))} / 1.00" for r in R]),
           row("Learned calling − untrained manager with a confidence gate", [_t(r["systems"].get("tests", {}).get("trained learned calling - base with a confidence gate")) for r in R]),
+          *([row("Learned calling − untrained manager with the dev-threshold gate",
+                 [_t(r["systems"].get("tests", {}).get("trained learned calling - base with a dev-threshold confidence gate")) for r in R])]
+            if any(dg(r) for r in R) else []),
           row("Always Verifier: trained − untrained", [_t(r["systems"].get("tests", {}).get("always Verifier: trained - base")) for r in R])]
     dec = lambda r, k: (lambda v: "–" if v is None else f"{100 * v:+.1f}")((r["systems"].get("gap_decomposition") or {}).get(k))
     gpc = lambda r, k: (lambda v: "–" if v is None else f"{100 * v:.1f}")((r["systems"].get("gain_per_call") or {}).get(k))
@@ -299,6 +349,15 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
     L += ["", "The three \"of which\" rows add up exactly to the gap between learned calling and the untrained manager with a "
           "confidence gate." + pool_line("systems: learned calling - untrained manager with a confidence gate")
           + pool_line("systems: always Verifier, trained - untrained").replace("Pooled over", "Always Verifier, trained − untrained, over")]
+    if any(dg(r) for r in R):
+        note = lambda name, r: (f"{name} {_pct(dg(r)['dev_calls'] )}% of dev questions called (learned policy on dev: {_pct(dg(r)['dev_policy_calls'])}%)"
+                                + (f", {dg(r)['dev_overlap_excluded']} test questions that are in the dev pool left out" if dg(r)["dev_overlap_excluded"] else ""))
+        L += ["", "Dev-threshold gate: the untrained manager calls the Verifier when its confidence is below a threshold fixed on "
+              "the dev pool, the cut between two distinct dev confidences whose dev call count is closest to the trained "
+              "policy's (" + "; ".join(note(name, r) for (_, name), r in zip(present, R) if dg(r)) + "). Its calls on this pool "
+              "are whatever that threshold gives."
+              + pool_line("systems: learned calling - untrained manager with a dev-threshold confidence gate").replace(
+                  "Pooled over", "Learned calling − the dev-threshold gate, over")]
     return "\n".join(L) + "\n"
 
 
@@ -321,6 +380,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--n-boot", type=int, default=10_000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--reference", default=None, help="paper_assets/data.json: adds the single-model and deployed reference rows")
+    ap.add_argument("--dev-pool", default="dev", help="pool whose grids fix the confidence threshold of the deployable gate "
+                    "(used for a benchmark when both managers have it; '' turns it off)")
     ap.add_argument("--base-label", default="untrained",
                     help="word for the comparison manager in the table (default: untrained), e.g. 'all-commit'")
     args = ap.parse_args(argv)
@@ -329,7 +390,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     for bench, _ in BENCHES:
         a, b = (root / ck / bench / args.pool / "grid_records.jsonl" for ck in (args.trained, args.base))
         if a.is_file() and b.is_file():
-            results[bench] = attribute(A.read_records(a), A.read_records(b), draws=args.draws, n_boot=args.n_boot, seed=args.seed)
+            da, db = (root / ck / bench / args.dev_pool / "grid_records.jsonl" for ck in (args.trained, args.base))
+            dev = args.dev_pool and args.dev_pool != args.pool and da.is_file() and db.is_file()
+            results[bench] = attribute(A.read_records(a), A.read_records(b), trained_dev=A.read_records(da) if dev else None,
+                                       base_dev=A.read_records(db) if dev else None, draws=args.draws, n_boot=args.n_boot,
+                                       seed=args.seed)
     if not results:
         raise SystemExit(f"no benchmark has both {args.trained} and {args.base} grids for pool {args.pool} under {root}")
     out.mkdir(parents=True, exist_ok=True)

@@ -553,14 +553,63 @@ def test_manager_attribution_on_a_hand_computed_pair(tmp_path):
     assert d["trained_accuracy_same_candidate"] == pytest.approx(2 / 5) and d["trained_accuracy_other"] == 0.0
     assert M.auroc([0.1, 0.4, 0.4, 0.9], [False, True, False, True]) == pytest.approx(0.875)
     assert M.auroc([1, 2], [True, True]) is None
+    assert "base_confidence_gate_dev" not in y
 
-    for name, recs in (("s1", trained), ("base", base)):
-        path = tmp_path / "grids" / name / "medqa" / "test"
-        path.mkdir(parents=True)
-        (path / "grid_records.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
-    assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200"]) == 0
+    # the same gate with a threshold fixed on dev. The trained policy calls on 2 of its 4 dev questions; the untrained
+    # dev confidences are .25 .35 .55 .85, so 2 dev calls is the cut between .35 and .55: threshold .45
+    trained_dev = [rec(11, "A", False, False, False, True, "verifier", 0.30, True, False),
+                   rec(12, "A", False, False, False, True, "verifier", 0.40, True, False),
+                   rec(13, "A", True, True, True, True, "commit", 0.90, True, True),
+                   rec(14, "A", True, True, True, True, "commit", 0.80, True, True)]
+    base_dev = [rec(11, "A", False, False, False, True, "commit", 0.25, True, False),
+                rec(12, "A", True, True, True, False, "commit", 0.35, True, True),
+                rec(13, "A", True, True, True, True, "commit", 0.55, True, True),
+                rec(14, "A", False, False, False, True, "commit", 0.85, True, False)]
+    g = M.attribute(trained, base, trained_dev=trained_dev, base_dev=list(reversed(base_dev)), draws=200, n_boot=300)["systems"]
+    fixed = g["base_confidence_gate_dev"]
+    assert fixed["threshold"] == pytest.approx(0.45) and fixed["dev_calls"] == 0.5 and fixed["dev_policy_calls"] == 0.5
+    assert fixed["dev_accuracy"] == 0.5 and fixed["dev_candidate"] == 0.5        # dev: 11 fixed, 12 broken, 13 right, 14 wrong
+    # test pool: untrained confidence below .45 on 2 (.20), 5 (.40) and 6 (.30): 2 stays wrong, 5 stays right, 6 is fixed
+    assert fixed["accuracy"] == pytest.approx(4 / 6) and fixed["calls"] == 0.5 and fixed["n"] == 6 and fixed["dev_overlap_excluded"] == 0
+    assert g["tests"]["trained learned calling - base with a dev-threshold confidence gate"]["diff"] == 0
+    assert g["base_confidence_gate"] == y["base_confidence_gate"]                # the in-pool gate is unchanged
+    # a test question that is also in a dev grid is left out of the dev-threshold rule and of its test: question 5 here.
+    # 2 of 5 dev calls -> still the cut at .45; on 1, 2, 3, 4, 6 the gate calls on 2 and 6 -> 1, 4, 6 right (3/5);
+    # the learned policy on the same five questions: 1, 2, 3, 4 right (4/5) with 2 calls
+    extra_t = rec(5, "C", False, False, False, False, "commit", 0.70, False, False)
+    extra_b = rec(5, "D", True, True, True, True, "commit", 0.99, True, True)
+    g = M.attribute(trained, base, trained_dev=trained_dev + [extra_t], base_dev=base_dev + [extra_b], draws=200, n_boot=300)["systems"]
+    fixed = g["base_confidence_gate_dev"]
+    assert fixed["threshold"] == pytest.approx(0.45) and fixed["n"] == 5 and fixed["dev_overlap_excluded"] == 1
+    assert fixed["accuracy"] == pytest.approx(3 / 5) and fixed["calls"] == pytest.approx(2 / 5)
+    assert fixed["trained_learned_same_questions"] == {"accuracy": pytest.approx(4 / 5), "calls": pytest.approx(2 / 5)}
+    assert g["tests"]["trained learned calling - base with a dev-threshold confidence gate"]["diff"] == pytest.approx(1 / 5)
+    # ties: dev confidences .25 .25 .55 .85 have no cut at one call; a target of one call is equally far from 0 and 2 -> 0 calls
+    tied = [dict(r) for r in base_dev]
+    tied[1] = rec(12, "A", True, True, True, False, "commit", 0.25, True, True)
+    one_call = [trained_dev[0]] + [rec(i, "A", True, True, True, True, "commit", 0.9, True, True) for i in (12, 13, 14)]
+    t0 = M.dev_threshold(M.A.table(one_call), M.A.table(tied))
+    assert t0["threshold"] == 0.0 and t0["dev_calls"] == 0.0 and t0["dev_policy_calls"] == 0.25
+    # every dev confidence below the threshold: always call (no finite threshold is reported)
+    g = M.attribute(trained, base, trained_dev=[rec(i, "A", False, False, False, True, "verifier", 0.3, True, False) for i in (11, 12)],
+                    base_dev=base_dev[:2], draws=200, n_boot=300)["systems"]["base_confidence_gate_dev"]
+    assert g["threshold"] is None and g["calls"] == 1.0 and g["accuracy"] == pytest.approx(5 / 6)
+
+    for name, recs, dev in (("s1", trained, trained_dev), ("base", base, base_dev)):
+        for pool, rows in (("test", recs), ("dev", dev)):
+            path = tmp_path / "grids" / name / "medqa" / pool
+            path.mkdir(parents=True)
+            (path / "grid_records.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200",
+                   "--dev-pool", ""]) == 0
     text = (tmp_path / "out/s1_vs_base_test.md").read_text()
     assert "MedQA 1/6 questions: on its own it does not follow" in text and "| Same candidate (%) | 83.3 |" in text
+    assert "fixed on dev" not in text
+    assert M.main(["--grid-root", str(tmp_path / "grids"), "--out", str(tmp_path / "out"), "--draws", "100", "--n-boot", "200"]) == 0
+    text = (tmp_path / "out/s1_vs_base_test.md").read_text()
+    assert "| Untrained manager + Verifier below a confidence threshold fixed on dev | 66.7 / 0.50 |" in text
+    assert "MedQA 50.0% of dev questions called (learned policy on dev: 50.0%)" in text
+    assert json.loads((tmp_path / "out/s1_vs_base_test.json").read_text())["medqa"]["systems"]["base_confidence_gate_dev"]["n"] == 6
     with pytest.raises(ValueError, match="same questions"):
         M.attribute(trained, base[:5])
 
