@@ -1,0 +1,652 @@
+{
+ "n": 100,
+ "policy_calls": 73,
+ "policy_call_counts": {
+  "extractor": 3,
+  "reasoner": 14,
+  "verifier": 56
+ },
+ "rules": {
+  "candidate": {
+   "accuracy": 0.41,
+   "calls": 0.0
+  },
+  "learned": {
+   "accuracy": 0.52,
+   "calls": 0.73,
+   "commit_forced": 0,
+   "commit_forced_share": 0.0
+  },
+  "always_extractor": {
+   "accuracy": 0.38,
+   "calls": 1.0
+  },
+  "always_reasoner": {
+   "accuracy": 0.47,
+   "calls": 1.0
+  },
+  "always_verifier": {
+   "accuracy": 0.55,
+   "calls": 1.0
+  },
+  "always_verifier_nocand": {
+   "accuracy": 0.59,
+   "calls": 1.0
+  },
+  "always_null": {
+   "accuracy": 0.41,
+   "calls": 0.0,
+   "note": "one extra manager revision turn on an empty Verifier output; no advisor call"
+  },
+  "oracle": {
+   "accuracy": 0.62,
+   "calls": 0.21
+  },
+  "learned_selection_verifier": {
+   "accuracy": 0.52,
+   "calls": 0.73
+  },
+  "random_verifier": {
+   "accuracy": 0.51234,
+   "calls": 0.73,
+   "expected": 0.5122,
+   "ci95": [
+    0.48,
+    0.55
+   ],
+   "draws": 2000,
+   "share_at_least_learned": 0.4515,
+   "share_at_least_learned_selection_verifier": 0.4515
+  },
+  "random_roles": {
+   "accuracy": 0.49543,
+   "calls": 0.73,
+   "expected": 0.4959,
+   "ci95": [
+    0.45,
+    0.54
+   ],
+   "draws": 2000,
+   "share_at_least_learned": 0.196
+  },
+  "confidence_matched": {
+   "accuracy": 0.53,
+   "calls": 0.73
+  },
+  "confidence_best_in_pool": {
+   "accuracy": 0.55,
+   "calls": 0.91,
+   "note": "threshold chosen on this pool (upper bound)"
+  }
+ },
+ "tests": {
+  "learned - always_verifier": {
+   "diff": -0.03,
+   "ci95": [
+    -0.08,
+    0.01
+   ],
+   "p": 0.235,
+   "mcnemar_p": 0.375
+  },
+  "learned - learned_selection_verifier": {
+   "diff": 0.0,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "p": 1.0,
+   "mcnemar_p": 1.0
+  },
+  "candidate value: always_verifier - always_verifier_nocand": {
+   "diff": -0.04,
+   "ci95": [
+    -0.11,
+    0.03
+   ],
+   "p": 0.3574,
+   "mcnemar_p": 0.4239501953125
+  },
+  "evidence value: always_verifier - always_null": {
+   "diff": 0.14,
+   "ci95": [
+    0.05,
+    0.23
+   ],
+   "p": 0.003,
+   "mcnemar_p": 0.004343509674072266
+  },
+  "revision without evidence: always_null - candidate": {
+   "diff": 0.0,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "p": 1.0,
+   "mcnemar_p": 1.0
+  },
+  "learned - confidence_matched": {
+   "diff": -0.01,
+   "ci95": [
+    -0.06,
+    0.03
+   ],
+   "p": 0.8274,
+   "mcnemar_p": 1.0
+  }
+ },
+ "root_agreement": {
+  "n_equal": 100,
+  "n": 100
+ },
+ "confidence_curve": [
+  {
+   "calls": 0.0,
+   "accuracy": 0.41,
+   "random_expected": 0.41
+  },
+  {
+   "calls": 0.01,
+   "accuracy": 0.41,
+   "random_expected": 0.4114
+  },
+  {
+   "calls": 0.02,
+   "accuracy": 0.41,
+   "random_expected": 0.4128
+  },
+  {
+   "calls": 0.03,
+   "accuracy": 0.41,
+   "random_expected": 0.41419999999999996
+  },
+  {
+   "calls": 0.04,
+   "accuracy": 0.42,
+   "random_expected": 0.41559999999999997
+  },
+  {
+   "calls": 0.05,
+   "accuracy": 0.42,
+   "random_expected": 0.417
+  },
+  {
+   "calls": 0.06,
+   "accuracy": 0.42,
+   "random_expected": 0.4184
+  },
+  {
+   "calls": 0.07,
+   "accuracy": 0.42,
+   "random_expected": 0.4198
+  },
+  {
+   "calls": 0.08,
+   "accuracy": 0.42,
+   "random_expected": 0.42119999999999996
+  },
+  {
+   "calls": 0.09,
+   "accuracy": 0.43,
+   "random_expected": 0.4226
+  },
+  {
+   "calls": 0.1,
+   "accuracy": 0.44,
+   "random_expected": 0.424
+  },
+  {
+   "calls": 0.11,
+   "accuracy": 0.45,
+   "random_expected": 0.4254
+  },
+  {
+   "calls": 0.12,
+   "accuracy": 0.46,
+   "random_expected": 0.42679999999999996
+  },
+  {
+   "calls": 0.13,
+   "accuracy": 0.46,
+   "random_expected": 0.42819999999999997
+  },
+  {
+   "calls": 0.14,
+   "accuracy": 0.46,
+   "random_expected": 0.4296
+  },
+  {
+   "calls": 0.15,
+   "accuracy": 0.46,
+   "random_expected": 0.431
+  },
+  {
+   "calls": 0.16,
+   "accuracy": 0.45,
+   "random_expected": 0.4324
+  },
+  {
+   "calls": 0.17,
+   "accuracy": 0.45,
+   "random_expected": 0.43379999999999996
+  },
+  {
+   "calls": 0.18,
+   "accuracy": 0.45,
+   "random_expected": 0.4352
+  },
+  {
+   "calls": 0.19,
+   "accuracy": 0.46,
+   "random_expected": 0.4366
+  },
+  {
+   "calls": 0.2,
+   "accuracy": 0.46,
+   "random_expected": 0.438
+  },
+  {
+   "calls": 0.21,
+   "accuracy": 0.46,
+   "random_expected": 0.4394
+  },
+  {
+   "calls": 0.22,
+   "accuracy": 0.46,
+   "random_expected": 0.44079999999999997
+  },
+  {
+   "calls": 0.23,
+   "accuracy": 0.46,
+   "random_expected": 0.4422
+  },
+  {
+   "calls": 0.24,
+   "accuracy": 0.46,
+   "random_expected": 0.4436
+  },
+  {
+   "calls": 0.25,
+   "accuracy": 0.47,
+   "random_expected": 0.445
+  },
+  {
+   "calls": 0.26,
+   "accuracy": 0.47,
+   "random_expected": 0.4464
+  },
+  {
+   "calls": 0.27,
+   "accuracy": 0.47,
+   "random_expected": 0.4478
+  },
+  {
+   "calls": 0.28,
+   "accuracy": 0.47,
+   "random_expected": 0.4492
+  },
+  {
+   "calls": 0.29,
+   "accuracy": 0.48,
+   "random_expected": 0.4506
+  },
+  {
+   "calls": 0.3,
+   "accuracy": 0.48,
+   "random_expected": 0.452
+  },
+  {
+   "calls": 0.31,
+   "accuracy": 0.48,
+   "random_expected": 0.4534
+  },
+  {
+   "calls": 0.32,
+   "accuracy": 0.48,
+   "random_expected": 0.4548
+  },
+  {
+   "calls": 0.33,
+   "accuracy": 0.48,
+   "random_expected": 0.4562
+  },
+  {
+   "calls": 0.34,
+   "accuracy": 0.48,
+   "random_expected": 0.4576
+  },
+  {
+   "calls": 0.35,
+   "accuracy": 0.48,
+   "random_expected": 0.459
+  },
+  {
+   "calls": 0.36,
+   "accuracy": 0.49,
+   "random_expected": 0.4604
+  },
+  {
+   "calls": 0.37,
+   "accuracy": 0.49,
+   "random_expected": 0.4618
+  },
+  {
+   "calls": 0.38,
+   "accuracy": 0.49,
+   "random_expected": 0.4632
+  },
+  {
+   "calls": 0.39,
+   "accuracy": 0.49,
+   "random_expected": 0.4646
+  },
+  {
+   "calls": 0.4,
+   "accuracy": 0.49,
+   "random_expected": 0.466
+  },
+  {
+   "calls": 0.41,
+   "accuracy": 0.5,
+   "random_expected": 0.4674
+  },
+  {
+   "calls": 0.42,
+   "accuracy": 0.49,
+   "random_expected": 0.4688
+  },
+  {
+   "calls": 0.43,
+   "accuracy": 0.49,
+   "random_expected": 0.4702
+  },
+  {
+   "calls": 0.44,
+   "accuracy": 0.49,
+   "random_expected": 0.4716
+  },
+  {
+   "calls": 0.45,
+   "accuracy": 0.49,
+   "random_expected": 0.473
+  },
+  {
+   "calls": 0.46,
+   "accuracy": 0.5,
+   "random_expected": 0.47440000000000004
+  },
+  {
+   "calls": 0.47,
+   "accuracy": 0.5,
+   "random_expected": 0.4758
+  },
+  {
+   "calls": 0.48,
+   "accuracy": 0.5,
+   "random_expected": 0.4772
+  },
+  {
+   "calls": 0.49,
+   "accuracy": 0.5,
+   "random_expected": 0.4786
+  },
+  {
+   "calls": 0.5,
+   "accuracy": 0.5,
+   "random_expected": 0.48
+  },
+  {
+   "calls": 0.51,
+   "accuracy": 0.5,
+   "random_expected": 0.4814
+  },
+  {
+   "calls": 0.52,
+   "accuracy": 0.51,
+   "random_expected": 0.4828
+  },
+  {
+   "calls": 0.53,
+   "accuracy": 0.51,
+   "random_expected": 0.4842
+  },
+  {
+   "calls": 0.54,
+   "accuracy": 0.52,
+   "random_expected": 0.48560000000000003
+  },
+  {
+   "calls": 0.55,
+   "accuracy": 0.52,
+   "random_expected": 0.487
+  },
+  {
+   "calls": 0.56,
+   "accuracy": 0.52,
+   "random_expected": 0.4884
+  },
+  {
+   "calls": 0.57,
+   "accuracy": 0.51,
+   "random_expected": 0.4898
+  },
+  {
+   "calls": 0.58,
+   "accuracy": 0.51,
+   "random_expected": 0.4912
+  },
+  {
+   "calls": 0.59,
+   "accuracy": 0.5,
+   "random_expected": 0.49260000000000004
+  },
+  {
+   "calls": 0.6,
+   "accuracy": 0.51,
+   "random_expected": 0.494
+  },
+  {
+   "calls": 0.61,
+   "accuracy": 0.51,
+   "random_expected": 0.4954
+  },
+  {
+   "calls": 0.62,
+   "accuracy": 0.51,
+   "random_expected": 0.4968
+  },
+  {
+   "calls": 0.63,
+   "accuracy": 0.51,
+   "random_expected": 0.49820000000000003
+  },
+  {
+   "calls": 0.64,
+   "accuracy": 0.51,
+   "random_expected": 0.49960000000000004
+  },
+  {
+   "calls": 0.65,
+   "accuracy": 0.51,
+   "random_expected": 0.501
+  },
+  {
+   "calls": 0.66,
+   "accuracy": 0.52,
+   "random_expected": 0.5024000000000001
+  },
+  {
+   "calls": 0.67,
+   "accuracy": 0.52,
+   "random_expected": 0.5038
+  },
+  {
+   "calls": 0.68,
+   "accuracy": 0.52,
+   "random_expected": 0.5052
+  },
+  {
+   "calls": 0.69,
+   "accuracy": 0.52,
+   "random_expected": 0.5066
+  },
+  {
+   "calls": 0.7,
+   "accuracy": 0.52,
+   "random_expected": 0.508
+  },
+  {
+   "calls": 0.71,
+   "accuracy": 0.52,
+   "random_expected": 0.5094000000000001
+  },
+  {
+   "calls": 0.72,
+   "accuracy": 0.52,
+   "random_expected": 0.5108
+  },
+  {
+   "calls": 0.73,
+   "accuracy": 0.53,
+   "random_expected": 0.5122
+  },
+  {
+   "calls": 0.74,
+   "accuracy": 0.53,
+   "random_expected": 0.5136000000000001
+  },
+  {
+   "calls": 0.75,
+   "accuracy": 0.53,
+   "random_expected": 0.515
+  },
+  {
+   "calls": 0.76,
+   "accuracy": 0.53,
+   "random_expected": 0.5164
+  },
+  {
+   "calls": 0.77,
+   "accuracy": 0.53,
+   "random_expected": 0.5178
+  },
+  {
+   "calls": 0.78,
+   "accuracy": 0.53,
+   "random_expected": 0.5192
+  },
+  {
+   "calls": 0.79,
+   "accuracy": 0.53,
+   "random_expected": 0.5206000000000001
+  },
+  {
+   "calls": 0.8,
+   "accuracy": 0.53,
+   "random_expected": 0.522
+  },
+  {
+   "calls": 0.81,
+   "accuracy": 0.53,
+   "random_expected": 0.5234000000000001
+  },
+  {
+   "calls": 0.82,
+   "accuracy": 0.54,
+   "random_expected": 0.5248
+  },
+  {
+   "calls": 0.83,
+   "accuracy": 0.54,
+   "random_expected": 0.5262
+  },
+  {
+   "calls": 0.84,
+   "accuracy": 0.54,
+   "random_expected": 0.5276000000000001
+  },
+  {
+   "calls": 0.85,
+   "accuracy": 0.54,
+   "random_expected": 0.529
+  },
+  {
+   "calls": 0.86,
+   "accuracy": 0.54,
+   "random_expected": 0.5304
+  },
+  {
+   "calls": 0.87,
+   "accuracy": 0.54,
+   "random_expected": 0.5318
+  },
+  {
+   "calls": 0.88,
+   "accuracy": 0.54,
+   "random_expected": 0.5332
+  },
+  {
+   "calls": 0.89,
+   "accuracy": 0.54,
+   "random_expected": 0.5346000000000001
+  },
+  {
+   "calls": 0.9,
+   "accuracy": 0.54,
+   "random_expected": 0.536
+  },
+  {
+   "calls": 0.91,
+   "accuracy": 0.55,
+   "random_expected": 0.5374000000000001
+  },
+  {
+   "calls": 0.92,
+   "accuracy": 0.55,
+   "random_expected": 0.5388000000000001
+  },
+  {
+   "calls": 0.93,
+   "accuracy": 0.55,
+   "random_expected": 0.5402
+  },
+  {
+   "calls": 0.94,
+   "accuracy": 0.55,
+   "random_expected": 0.5416000000000001
+  },
+  {
+   "calls": 0.95,
+   "accuracy": 0.55,
+   "random_expected": 0.543
+  },
+  {
+   "calls": 0.96,
+   "accuracy": 0.55,
+   "random_expected": 0.5444
+  },
+  {
+   "calls": 0.97,
+   "accuracy": 0.55,
+   "random_expected": 0.5458000000000001
+  },
+  {
+   "calls": 0.98,
+   "accuracy": 0.55,
+   "random_expected": 0.5472
+  },
+  {
+   "calls": 0.99,
+   "accuracy": 0.55,
+   "random_expected": 0.5486
+  },
+  {
+   "calls": 1.0,
+   "accuracy": 0.55,
+   "random_expected": 0.55
+  }
+ ],
+ "records": "/workspace/mcq_rsi/runs/verifier_grid/seed3/gpqa/test/grid_records.jsonl",
+ "dev": null,
+ "label": "seed3_gpqa_test"
+}
