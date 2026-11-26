@@ -18,6 +18,10 @@
 #          keeping only the rows whose decision is the root commit (the questions the manager answers correctly on its
 #          own: DRAFT_ANSWER_X then ANSWER_X). The manager is trained with the S_1 recipe and seed 42 and never sees a
 #          call or an advisor output: the "equally trained manager-only" control.
+# The trainer refuses rows longer than the maximum sequence length (no silent truncation). When that is the reason of a
+# failure, the run is repeated once with MAX_SEQ_LEN_LONG (16384, the RSI GPQA setting): on 2026-11-26 one of the 86
+# GPQA commit-only rows exceeded 4096 tokens. WAIT_PID=<pid> waits for another chain to exit before training starts
+# (two chains must not train on one GPU).
 # Log: $WORK/logs/verifier_grid/seed_sft.log
 set -uo pipefail
 export HF_HOME=/workspace/hf-cache HF_HUB_DISABLE_XET=1 TMPDIR=/workspace/tmp PYTHONUNBUFFERED=1 MARGENT_WANDB_MODE=disabled
@@ -29,6 +33,12 @@ PLAN="${PLAN:-$(for k in $SEEDS; do printf 'seed%s ' "$k"; done)}"
 mkdir -p $CKPT $OUT $WORK/logs/verifier_grid
 log() { printf '[seed-sft %s] %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a $LOG; }
 BASE=$(cat $CKPT/base_model_path.txt) || { log "no $CKPT/base_model_path.txt (run verifier_grid_chain.sh first)"; exit 1; }
+MAX_SEQ_LEN="${MAX_SEQ_LEN:-4096}"; MAX_SEQ_LEN_LONG="${MAX_SEQ_LEN_LONG:-16384}"
+if [ -n "${WAIT_PID:-}" ]; then
+  log "waiting for process $WAIT_PID (another training chain) to exit"
+  while kill -0 "$WAIT_PID" 2>/dev/null; do sleep 5; done
+  while pgrep -f '[t]rain_manager_sft' >/dev/null; do sleep 5; done
+fi
 touch $CKPT/TRAINING; trap 'rm -f $CKPT/TRAINING' EXIT
 cd $TREE || exit 1
 failed=0
@@ -77,10 +87,15 @@ for item in $PLAN; do for b in $BENCHES; do
   rm -rf $out $CKPT/.$name.part
   log "$name: start ($(grep -c . $labels) rows from $(basename $labels), seed $seed, gpu $CUDA_VISIBLE_DEVICES)"
   started=$(date +%s)
-  $PY -m src.pipeline.cli train_manager_sft --base_model "$BASE" --teacher_id "$name" --output_root $OUT/_root --seed $seed \
+  train() { $PY -m src.pipeline.cli train_manager_sft --base_model "$BASE" --teacher_id "$name" --output_root $OUT/_root --seed $seed \
       --manager_sft_train_jsonl $labels --manager_sft_output_dir $out --manager_sft_epochs 10 --manager_sft_lr 1e-5 \
-      --sft_max_seq_len 4096 --sft_bs 1 --sft_grad_accum 8 > $WORK/logs/verifier_grid/seed_sft__$name.log 2>&1
-  rc=$?
+      --sft_max_seq_len $1 --sft_bs 1 --sft_grad_accum 8 > $WORK/logs/verifier_grid/seed_sft__$name.log 2>&1; }
+  train $MAX_SEQ_LEN; rc=$?
+  if [ $rc -ne 0 ] && grep -qE "n_dropped_truncated': [1-9]" $WORK/logs/verifier_grid/seed_sft__$name.log && [ "$MAX_SEQ_LEN" -lt "$MAX_SEQ_LEN_LONG" ]; then
+    log "$name: rows longer than $MAX_SEQ_LEN tokens ($(grep -oE "n_dropped_truncated': [0-9.]+" $WORK/logs/verifier_grid/seed_sft__$name.log | tail -1)); training again with max length $MAX_SEQ_LEN_LONG"
+    cp $WORK/logs/verifier_grid/seed_sft__$name.log $WORK/logs/verifier_grid/seed_sft__$name.maxlen$MAX_SEQ_LEN.log
+    rm -rf $out; train $MAX_SEQ_LEN_LONG; rc=$?
+  fi
   if [ $rc -eq 0 ] && [ -f $out/adapter_model.safetensors ] && [ -f $out/adapter_config.json ]; then
     mkdir -p $CKPT/.$name.part
     for f in adapter_config.json adapter_model.safetensors chat_template.jinja tokenizer.json tokenizer_config.json; do
