@@ -32,6 +32,9 @@ is running) the queue waits for such jobs instead of failing them.
 A pool named ``deploy_<pool>`` is not a grid: it is the paper-protocol evaluation of the checkpoint on <pool>
 (``python -m src.manager.mcq_rsi evaluate``: free routing, more than one call allowed), written to
 <ckpt>/<bench>/deploy_<pool>/mcq_rsi_eval.json. It gives the main-table numbers of the seed replicates.
+A pool named ``forced_<which>_<pool>`` (which = verifier, reasoner, extractor or all) is the paper's ORIGINAL fixed-role
+baseline on <pool> (``evaluate --forced``: no draft first, the Verifier gets no candidate; "all" = Extractor, Reasoner,
+Verifier in that order), written to <ckpt>/<bench>/forced_<which>_<pool>/mcq_rsi_forced_*.json.
               base   the untrained base model as the manager    the path in $CKPT/base_model_path.txt
 
 Slots: ``--slots 0:1,1:3`` (GPU:processes), or by default from the free memory of each GPU (one process per
@@ -82,6 +85,8 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("seed1", "deploy_test", BENCHES), ("seed2", "deploy_test", BENCHES),
     ("cmto", "test", BENCHES),
     ("seed3", "deploy_test", BENCHES), ("sucd", "deploy_test", BENCHES),
+    ("s1", "forced_verifier_test", BENCHES), ("s1", "forced_all_test", BENCHES),
+    ("s1", "forced_reasoner_test", BENCHES), ("s1", "forced_extractor_test", BENCHES),
     ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
@@ -131,11 +136,23 @@ def out_dir(job: Job) -> Path:
     return OUT / ckpt / bench / pool
 
 
+FORCED = {"verifier": "verifier", "reasoner": "reasoner", "extractor": "extractor", "all": "extractor,reasoner,verifier"}
+
+
+def forced_spec(job: Job) -> Optional[Tuple[str, str]]:
+    """(advisors to force, pool) of a ``forced_<which>_<pool>`` job, else None."""
+    m = re.fullmatch(r"forced_(verifier|reasoner|extractor|all)_(.+)", job[2])
+    return (FORCED[m.group(1)], m.group(2)) if m else None
+
+
 def is_deploy(job: Job) -> bool:
-    return job[2].startswith("deploy_")
+    """Not a grid: a paper-protocol evaluation (free routing, or a forced fixed-role baseline)."""
+    return job[2].startswith("deploy_") or forced_spec(job) is not None
 
 
 def finished(job: Job) -> bool:
+    if forced_spec(job):
+        return any(out_dir(job).glob("mcq_rsi_forced_*.json"))
     return (out_dir(job) / ("mcq_rsi_eval.json" if is_deploy(job) else "grid_summary.json")).is_file()
 
 
@@ -170,10 +187,13 @@ def command(job: Job) -> List[str]:
     ckpt, bench, pool = job
     out = out_dir(job)
     if is_deploy(job):  # resumable by itself (its result file is its completion marker); the gate is reported, not enforced
-        return [PY, "-m", "src.manager.mcq_rsi", "evaluate", "--bench", bench, "--pool", pool[len("deploy_"):],
+        forced = forced_spec(job)
+        return [PY, "-m", "src.manager.mcq_rsi", "evaluate", "--bench", bench,
+                "--pool", forced[1] if forced else pool[len("deploy_"):],
                 "--checkpoint", checkpoint_path(ckpt, bench), "--out", str(out),
                 "--advisor-url", f"http://127.0.0.1:{os.environ.get('MCQ_ADVISOR_PORT', '18002')}",
-                "--advisor-cache", str(WORK / "advisor_cache"), "--advisor-mode", "base", "--no-require-gate"]
+                "--advisor-cache", str(WORK / "advisor_cache"), "--advisor-mode", "base", "--no-require-gate"] \
+            + (["--forced", forced[0]] if forced else [])
     cmd = [PY, "scripts/mcq_verifier_grid.py", "--config", f"configs/mcq_rsi_{bench}_v3.json", "--pool", pool,
            "--checkpoint", checkpoint_path(ckpt, bench), "--out", str(out)]
     if (out / "grid_manifest.json").exists():

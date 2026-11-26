@@ -334,7 +334,7 @@ def test_slots():
 def test_job_order_and_filter():
     jobs = Q.all_jobs()
     assert jobs[:4] == [("s1", b, "test") for b in ("medqa", "mmlu_pro", "aqua", "gpqa")]
-    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 4 + 12 + 4 + 8 + 4 + 8 + 2 + 1
+    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 4 + 12 + 4 + 8 + 4 + 8 + 16 + 2 + 1
     assert ("dyn3g", "mmlu_pro", "test") in jobs and ("dyn3g", "medqa", "test") not in jobs
     assert Q.all_jobs(r"^s1/.*/test$") == jobs[:4]
 
@@ -636,3 +636,22 @@ def test_deployed_evaluation_jobs(tmp_path, monkeypatch):
     (out / "mcq_rsi_eval.json").write_text("{}")
     assert Q.finished(job) and Q.analysis_commands(job) == [] and not Q.needs_analysis(job)
     assert Q.checkpoint_path("cmto", "gpqa") == str(tmp_path / "ckpt/gpqa_cmto")
+
+
+def test_forced_baseline_jobs(tmp_path, monkeypatch):
+    monkeypatch.setattr(Q, "WORK", tmp_path)
+    monkeypatch.setattr(Q, "OUT", tmp_path / "runs/verifier_grid")
+    monkeypatch.setattr(Q, "PY", "py")
+    job = ("s1", "medqa", "forced_all_test")
+    assert job in Q.all_jobs() and Q.is_deploy(job) and Q.forced_spec(job) == ("extractor,reasoner,verifier", "test")
+    assert Q.forced_spec(("s1", "medqa", "forced_verifier_test_paper")) == ("verifier", "test_paper")
+    assert Q.forced_spec(("s1", "medqa", "deploy_test")) is None and Q.forced_spec(("s1", "medqa", "test")) is None
+    cmd = Q.command(job)
+    assert cmd[cmd.index("--pool") + 1] == "test" and cmd[-2:] == ["--forced", "extractor,reasoner,verifier"]
+    assert "--forced" not in Q.command(("seed1", "medqa", "deploy_test"))
+    out = Q.out_dir(job)
+    out.mkdir(parents=True)
+    (out / "mcq_rsi_eval.json").write_text("{}")
+    assert not Q.finished(job)
+    (out / "mcq_rsi_forced_extractor_reasoner_verifier.json").write_text("{}")
+    assert Q.finished(job) and Q.analysis_commands(job) == []
