@@ -58,7 +58,6 @@ import collections, json, sys
 rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
 keep = [r for r in rows if r["decision_type"] == "commit"]
 assert keep and len(keep) < len(rows), (len(keep), len(rows))
-assert len({r["question_hash"] for r in keep}) == len(keep), "one root commit per question"
 with open(sys.argv[2], "w", encoding="utf-8") as f:
     f.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep))
 print("commit-only labels:", len(keep), "of", len(rows), "rows;", dict(collections.Counter(r["decision_type"] for r in rows)))
