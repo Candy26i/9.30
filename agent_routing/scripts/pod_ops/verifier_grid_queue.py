@@ -15,9 +15,13 @@ Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<be
               dyn3g  MMLU-Pro v3 + FA-GRPO dynamic round 3      $CKPT/mmlu_pro_dyn3g
               suc3g  MMLU-Pro v3 + FA-GRPO success round 3      $CKPT/mmlu_pro_suc3g   (trained on successful
                      trajectories only: the matched-data distillation baseline)
-              allc   the paper's "all commit" sibling of S_1    $CKPT/<bench>_allc     (same collection and SFT recipe,
-                     every target is a commit: an equally trained manager with no delegation supervision)
+              allc   the paper's "allcommit" sibling of S_1     $CKPT/<bench>_allc     (same collection and SFT recipe,
+                     trained on manager_sft_marginal.jsonl: EVERY commit row kept, i.e. no commit cap, rho = -1.
+                     MedQA: 433 rows = 304 commit + 129 call-turn rows, against 315 for S_1 at rho = 3)
               seedK  S_1 retrained with training seed K          $CKPT/<bench>_seedK    (scripts/pod_ops/seed_sft_chain.sh)
+              sucd   matched-data success distillation of S_1   $CKPT/<bench>_sucd     (the same round-1 records and
+                     commit cap; each kept record trains one successful option drawn at random instead of the
+                     shortest one: `mcq_rsi select --arm success`; same SFT recipe; seed_sft_chain.sh VARIANT=sucd)
 
 A job whose checkpoint is not on disk yet is skipped until it appears; while $CKPT/TRAINING exists (a training chain
 is running) the queue waits for such jobs instead of failing them.
@@ -66,7 +70,7 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("dyn3", "dev", BENCHES), ("dyn3g", "dev", ("mmlu_pro",)),
     ("base", "test", BENCHES),
     ("allc", "test", BENCHES),
-    ("seed1", "test", BENCHES), ("seed2", "test", BENCHES),
+    ("seed1", "test", BENCHES), ("sucd", "test", BENCHES), ("seed2", "test", BENCHES),
     ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
@@ -92,7 +96,7 @@ def checkpoint_path(ckpt: str, bench: str) -> str:
         return str(WORK / "import" / bench / "round1" / "sft")
     if ckpt == "base":
         return (CKPT / "base_model_path.txt").read_text(encoding="utf-8").strip()
-    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc") or re.fullmatch(r"seed\d+", ckpt):
+    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc", "sucd") or re.fullmatch(r"seed\d+", ckpt):
         return str(CKPT / f"{bench}_{ckpt}")
     raise ValueError(f"unknown checkpoint name {ckpt!r}")
 

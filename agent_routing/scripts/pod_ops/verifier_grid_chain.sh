@@ -98,7 +98,8 @@ ASSETS = lambda sub, name: ("MaliDDD/agent-routing-9b-assets", "dataset", "e240a
 want = [RSI(f"{b}_v3", f"runs/{b}_v3/r3/dynamic_sft/sft/model", f"{b}_dyn3") for b in ("medqa", "mmlu_pro", "gpqa", "aqua")]
 want.append(RSI("mmlu_pro_v3g_dyn", "runs/mmlu_pro_v3g_dyn/r3/dynamic/grpo/final", "mmlu_pro_dyn3g"))
 want.append(RSI("mmlu_pro_v3g_suc", "runs/mmlu_pro_v3g_suc/r3/success/grpo/final", "mmlu_pro_suc3g"))
-# the paper's "all commit" managers: the same collection and SFT recipe as S_1, every target a commit
+# the paper's "allcommit" managers: the same collection and SFT recipe as S_1, trained with every commit row kept
+# (no commit cap; manager_sft_marginal.jsonl), not a commit-only control
 want += [ASSETS("managers/medqa_marginal_9b_d2_400/sft_allcommit", "medqa_allc"),
          ASSETS("managers/mmlu_marginal_9b_d2/sft_allcommit", "mmlu_pro_allc"),
          ASSETS("managers/aqua_marginal_9b_v1/sft_allcommit", "aqua_allc"),

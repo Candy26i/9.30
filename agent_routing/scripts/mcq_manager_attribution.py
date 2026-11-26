@@ -302,6 +302,14 @@ def markdown(results: Dict[str, Dict[str, Any]], trained: str, base: str, pool: 
     return "\n".join(L) + "\n"
 
 
+def relabel(text: str, word: str) -> str:
+    """The table is written for the untrained base manager; another comparison manager gets its own word."""
+    if word == "untrained":
+        return text
+    text = text.replace("Untrained", word[0].upper() + word[1:]).replace("untrained model", f"{word} manager")
+    return text.replace("untrained", word).replace("UNTRAINED", word.upper())
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--grid-root", required=True, help="directory with <checkpoint>/<benchmark>/<pool>/grid_records.jsonl")
@@ -313,6 +321,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--n-boot", type=int, default=10_000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--reference", default=None, help="paper_assets/data.json: adds the single-model and deployed reference rows")
+    ap.add_argument("--base-label", default="untrained",
+                    help="word for the comparison manager in the table (default: untrained), e.g. 'all-commit'")
     args = ap.parse_args(argv)
     root, out = Path(args.grid_root), Path(args.out)
     results = {}
@@ -327,7 +337,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     pooled = A.pooled_tests([r.pop("_vectors") for r in results.values()], args.n_boot, args.seed) if len(results) > 1 else None
     refs = references(args.reference, list(results)) if args.reference and args.pool == "test" else None
     (out / f"{stem}.json").write_text(json.dumps({**results, "pooled": pooled, "references": refs}, indent=1) + "\n", encoding="utf-8")
-    text = markdown(results, args.trained, args.base, args.pool, pooled, refs)
+    text = relabel(markdown(results, args.trained, args.base, args.pool, pooled, refs), args.base_label)
     (out / f"{stem}.md").write_text(text, encoding="utf-8")
     print(text)
     return 0
