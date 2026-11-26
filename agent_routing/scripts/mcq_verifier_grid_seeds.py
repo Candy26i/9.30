@@ -60,8 +60,12 @@ def _p(p: float) -> str:
 
 def markdown(results: Dict[str, Dict[str, Dict[str, Any]]], ckpts: List[str], pool: str) -> str:
     lines = [f"### Training-seed replicates of the manager, pool `{pool}`", "",
-             f"Checkpoints: {', '.join(f'`{c}`' for c in ckpts)}. They share the collection, the labels and the SFT recipe and "
-             "differ only in the training seed. Each cell lists the seeds in that order, then mean ± sample SD over the seeds present.", ""]
+             f"Checkpoints: {', '.join(f'`{c}`' for c in ckpts)}. `s1` is the paper's checkpoint; `seedK` is the same label file "
+             "retrained with the recipe printed in the paper-era training logs (LoRA r16 / alpha 32, lr 1e-5, 10 epochs, batch 1 x 8) "
+             "and training seed K. The original run's seed and maximum sequence length were not logged (command defaults 42 and "
+             "4096 are used for the re-trainings), and the re-trainings use the fast linear-attention kernels, so the replicates "
+             "differ from `s1` in the seed and possibly in those unlogged details. Each cell lists the checkpoints in that order, "
+             "then mean ± sample SD over the ones present.", ""]
     for bench, name in BENCHES:
         if bench not in results:
             continue
