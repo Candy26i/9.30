@@ -14,6 +14,10 @@
 #          instead of the shortest one), trained with the S_1 recipe and the training command's default seed (42).
 #          Before that, `select --arm dynamic` on the same records must reproduce the rows of the S_1 label file
 #          in the same order (checked: 315 / 331 / 148 / 402 rows on 2026-11-26).
+#   cmto   commit-only control: the selection of the same records with NO commit cap (`select --arm dynamic --rho -1`),
+#          keeping only the rows whose decision is the root commit (the questions the manager answers correctly on its
+#          own: DRAFT_ANSWER_X then ANSWER_X). The manager is trained with the S_1 recipe and seed 42 and never sees a
+#          call or an advisor output: the "equally trained manager-only" control.
 # Log: $WORK/logs/verifier_grid/seed_sft.log
 set -uo pipefail
 export HF_HOME=/workspace/hf-cache HF_HUB_DISABLE_XET=1 TMPDIR=/workspace/tmp PYTHONUNBUFFERED=1 MARGENT_WANDB_MODE=disabled
@@ -44,12 +48,30 @@ PYEOF
   CUDA_VISIBLE_DEVICES= $PY -m src.manager.mcq_rsi select --bench $b --arm success --records $records --out $dir/${b}_success.jsonl >> $LOG 2>&1 || return 1
   echo $dir/${b}_success.jsonl
 }
+commit_only_labels() {  # $1 = benchmark; prints the label file, or fails
+  local b=$1 dir=$OUT/labels records=$WORK/import/$1/round1/records.jsonl
+  [ -f $WORK/import/$b/round1/label_records.jsonl ] && records=$WORK/import/$b/round1/label_records.jsonl
+  mkdir -p $dir
+  CUDA_VISIBLE_DEVICES= $PY -m src.manager.mcq_rsi select --bench $b --arm dynamic --rho -1 --records $records --out $dir/${b}_nocap.jsonl >> $LOG 2>&1 || return 1
+  $PY - $dir/${b}_nocap.jsonl $dir/${b}_commit_only.jsonl >> $LOG 2>&1 <<'PYEOF' || return 1
+import collections, json, sys
+rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+keep = [r for r in rows if r["decision_type"] == "commit"]
+assert keep and len(keep) < len(rows), (len(keep), len(rows))
+assert len({r["question_hash"] for r in keep}) == len(keep), "one root commit per question"
+with open(sys.argv[2], "w", encoding="utf-8") as f:
+    f.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep))
+print("commit-only labels:", len(keep), "of", len(rows), "rows;", dict(collections.Counter(r["decision_type"] for r in rows)))
+PYEOF
+  echo $dir/${b}_commit_only.jsonl
+}
 for item in $PLAN; do for b in $BENCHES; do
   name=${b}_${item}; out=$OUT/$name
   if [ -f $CKPT/$name/adapter_model.safetensors ] && [ -f $CKPT/$name/adapter_config.json ]; then log "$name: present"; continue; fi
   case $item in
     seed[0-9]*) seed=${item#seed}; labels=$WORK/import/$b/round1/labels.jsonl ;;
     sucd) seed=42; labels=$(success_labels $b) || { log "$name: FAILED to build the success labels"; failed=1; continue; } ;;
+    cmto) seed=42; labels=$(commit_only_labels $b) || { log "$name: FAILED to build the commit-only labels"; failed=1; continue; } ;;
     *) log "$name: unknown plan item $item"; failed=1; continue ;;
   esac
   [ -f $labels ] || { log "$name: FAILED, no $labels"; failed=1; continue; }

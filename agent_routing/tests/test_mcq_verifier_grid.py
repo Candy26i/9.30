@@ -334,7 +334,7 @@ def test_slots():
 def test_job_order_and_filter():
     jobs = Q.all_jobs()
     assert jobs[:4] == [("s1", b, "test") for b in ("medqa", "mmlu_pro", "aqua", "gpqa")]
-    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 4 + 12 + 2 + 1
+    assert len(jobs) == len(set(jobs)) == 8 + 4 + 1 + 4 + 1 + 8 + 4 + 12 + 4 + 8 + 4 + 8 + 2 + 1
     assert ("dyn3g", "mmlu_pro", "test") in jobs and ("dyn3g", "medqa", "test") not in jobs
     assert Q.all_jobs(r"^s1/.*/test$") == jobs[:4]
 
@@ -615,3 +615,24 @@ def test_seed_replicates_table(tmp_path):
     assert "| Learned calling, calls per question | 0.38 | 0.50 | 0.44 ± 0.09 |" in text
     assert "| Learned − always Verifier (with candidate), pt (exact McNemar p) | +12.5 (1.000) | +12.5 (1.000) | 12.5 ± 0.0 |" in text
     assert S.main(["--analysis", str(tmp_path), "--ckpts", "s1,seed1"]) == 0
+
+
+def test_deployed_evaluation_jobs(tmp_path, monkeypatch):
+    monkeypatch.setattr(Q, "WORK", tmp_path)
+    monkeypatch.setattr(Q, "OUT", tmp_path / "runs/verifier_grid")
+    monkeypatch.setattr(Q, "CKPT", tmp_path / "ckpt")
+    monkeypatch.setattr(Q, "PY", "py")
+    job = ("seed2", "aqua", "deploy_test")
+    assert job in Q.all_jobs() and Q.is_deploy(job) and not Q.is_deploy(("seed2", "aqua", "test"))
+    cmd = Q.command(job)
+    assert cmd[:4] == ["py", "-m", "src.manager.mcq_rsi", "evaluate"]
+    assert cmd[cmd.index("--pool") + 1] == "test" and cmd[cmd.index("--bench") + 1] == "aqua"
+    assert cmd[cmd.index("--checkpoint") + 1] == str(tmp_path / "ckpt/aqua_seed2") and "--no-require-gate" in cmd
+    assert cmd[cmd.index("--out") + 1] == str(tmp_path / "runs/verifier_grid/seed2/aqua/deploy_test") and "--resume" not in cmd
+    out = Q.out_dir(job)
+    out.mkdir(parents=True)
+    (out / "grid_summary.json").write_text("{}")          # not the marker of a deployed evaluation
+    assert not Q.finished(job)
+    (out / "mcq_rsi_eval.json").write_text("{}")
+    assert Q.finished(job) and Q.analysis_commands(job) == [] and not Q.needs_analysis(job)
+    assert Q.checkpoint_path("cmto", "gpqa") == str(tmp_path / "ckpt/gpqa_cmto")

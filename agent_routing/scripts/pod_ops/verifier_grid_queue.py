@@ -23,8 +23,15 @@ Checkpoints:  s1     the paper's one-round SFT manager          $WORK/import/<be
                      commit cap; each kept record trains one successful option drawn at random instead of the
                      shortest one: `mcq_rsi select --arm success`; same SFT recipe; seed_sft_chain.sh VARIANT=sucd)
 
+              cmto   commit-only control of S_1                 $CKPT/<bench>_cmto     (the same records with every commit
+                     row kept and NO call row: a manager trained with the S_1 recipe that is never shown a call)
+
 A job whose checkpoint is not on disk yet is skipped until it appears; while $CKPT/TRAINING exists (a training chain
 is running) the queue waits for such jobs instead of failing them.
+
+A pool named ``deploy_<pool>`` is not a grid: it is the paper-protocol evaluation of the checkpoint on <pool>
+(``python -m src.manager.mcq_rsi evaluate``: free routing, more than one call allowed), written to
+<ckpt>/<bench>/deploy_<pool>/mcq_rsi_eval.json. It gives the main-table numbers of the seed replicates.
               base   the untrained base model as the manager    the path in $CKPT/base_model_path.txt
 
 Slots: ``--slots 0:1,1:3`` (GPU:processes), or by default from the free memory of each GPU (one process per
@@ -71,6 +78,10 @@ PHASES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("base", "test", BENCHES),
     ("allc", "test", BENCHES),
     ("seed1", "test", BENCHES), ("sucd", "test", BENCHES), ("seed2", "test", BENCHES),
+    ("seed3", "test", BENCHES),
+    ("seed1", "deploy_test", BENCHES), ("seed2", "deploy_test", BENCHES),
+    ("cmto", "test", BENCHES),
+    ("seed3", "deploy_test", BENCHES), ("sucd", "deploy_test", BENCHES),
     ("base", "dev", BENCHES),
     ("suc3g", "test", ("mmlu_pro",)), ("suc3g", "dev", ("mmlu_pro",)),
     ("s1", "test_paper", ("mmlu_pro",)),
@@ -96,7 +107,7 @@ def checkpoint_path(ckpt: str, bench: str) -> str:
         return str(WORK / "import" / bench / "round1" / "sft")
     if ckpt == "base":
         return (CKPT / "base_model_path.txt").read_text(encoding="utf-8").strip()
-    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc", "sucd") or re.fullmatch(r"seed\d+", ckpt):
+    if ckpt in ("dyn3", "dyn3g", "suc3g", "allc", "sucd", "cmto") or re.fullmatch(r"seed\d+", ckpt):
         return str(CKPT / f"{bench}_{ckpt}")
     raise ValueError(f"unknown checkpoint name {ckpt!r}")
 
@@ -120,8 +131,12 @@ def out_dir(job: Job) -> Path:
     return OUT / ckpt / bench / pool
 
 
+def is_deploy(job: Job) -> bool:
+    return job[2].startswith("deploy_")
+
+
 def finished(job: Job) -> bool:
-    return (out_dir(job) / "grid_summary.json").is_file()
+    return (out_dir(job) / ("mcq_rsi_eval.json" if is_deploy(job) else "grid_summary.json")).is_file()
 
 
 def parse_slots(text: str) -> List[str]:
@@ -154,6 +169,11 @@ def gpu_free_mib() -> List[int]:
 def command(job: Job) -> List[str]:
     ckpt, bench, pool = job
     out = out_dir(job)
+    if is_deploy(job):  # resumable by itself (its result file is its completion marker); the gate is reported, not enforced
+        return [PY, "-m", "src.manager.mcq_rsi", "evaluate", "--bench", bench, "--pool", pool[len("deploy_"):],
+                "--checkpoint", checkpoint_path(ckpt, bench), "--out", str(out),
+                "--advisor-url", f"http://127.0.0.1:{os.environ.get('MCQ_ADVISOR_PORT', '18002')}",
+                "--advisor-cache", str(WORK / "advisor_cache"), "--advisor-mode", "base", "--no-require-gate"]
     cmd = [PY, "scripts/mcq_verifier_grid.py", "--config", f"configs/mcq_rsi_{bench}_v3.json", "--pool", pool,
            "--checkpoint", checkpoint_path(ckpt, bench), "--out", str(out)]
     if (out / "grid_manifest.json").exists():
@@ -172,6 +192,8 @@ def launch(job: Job, gpu: str):
 def analysis_commands(job: Job) -> List[List[str]]:
     """The analysis runs that the end of ``job`` makes possible or changes."""
     ckpt, bench, pool = job
+    if is_deploy(job):
+        return []
     dev = out_dir((ckpt, bench, "dev")) / "grid_records.jsonl"
     targets = [pool] if pool != "dev" else ["dev"] + [p for p in ("test", "test_paper") if finished((ckpt, bench, p))]
     cmds = []
