@@ -55,7 +55,7 @@ First, a correction: the advisor LoRA adapters were never applied (their paramet
 | Commit cap ρ | 3 | 2 | 2 | 1 |
 | Training log available | yes | yes | yes | no |
 
-Manager SFT: LoRA r 16, α 32; lr 1e-5; 10 epochs; batch 8; last epoch. FA-GRPO: reward 1 if correct after one forced call; 4 questions × 3 advisors per step; lr 5e-6; ≤ 64 steps. Decoding: greedy, ≤ 3 calls. The appendix adds the full prompts, split definitions and per-condition rules.
+(Table 4's depths will be corrected.) Manager SFT: LoRA r 16, α 32; lr 1e-5; 10 epochs; batch 8; last epoch. FA-GRPO: reward 1 if correct after one forced call; 4 questions × 3 advisors per step; lr 5e-6; ≤ 64 steps. Decoding: greedy, ≤ 3 calls. The appendix adds the full prompts, split definitions and per-condition rules.
 
 **Your suggestions**
 
