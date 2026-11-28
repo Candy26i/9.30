@@ -15,11 +15,11 @@ Thank you for raising uneven call selection and harmful roles; calling only when
 
 *Rows 1–5: at most one call; rows 6–8: full system. Least-confident answers are ranked within the test set. The untrained manager is the base model with the same advisors, free format, up to 3 calls (valid answers 95 / 85 / 52 / 84%); it and the token counts are single runs.*
 
-MARGENT is above random questions in all 16 runs, significantly in 11, including every run on **MMLU-Pro and AQuA-RAT**. Its calls fix **2 to 15 times** as many answers as they break, and on AQuA-RAT every call goes to the Verifier.
+MARGENT is above random questions in all 16 run–benchmark cases, significantly in 11, including every run on **MMLU-Pro and AQuA-RAT**. Its calls fix **2 to 15 times** as many answers as they break, and on AQuA-RAT every call goes to the Verifier.
 
 Its main strength is cost. Against the untrained manager it makes **54–88% fewer calls** and uses **40–81% fewer tokens**, while keeping **94–97% of its accuracy** on MedQA, MMLU-Pro and AQuA-RAT.
 
-Selection is weaker on MedQA and absent on GPQA, calling on the least-confident answers is about as accurate, and outside AQuA-RAT the choice of role is no better than always using the Verifier. We will report these baselines; more even selection is future work.
+Selection is weaker on MedQA and GPQA, calling on the least-confident answers is about as accurate, and outside AQuA-RAT the choice of role is no better than always using the Verifier. We will report these baselines; more even selection is future work.
 
 **2. RSI: an exploratory extension; the core method needs one round of SFT.**
 
