@@ -59,8 +59,11 @@ First, a correction: the advisor LoRA adapters were never applied (their paramet
 
 (Table 4's depths, 3 / 2 / 2 / 3, will be corrected.) Manager SFT: LoRA r 16, α 32, dropout 0.05; lr 1e-5; 10 epochs; batch 8; last epoch. FA-GRPO: reward 1 if correct after one forced call; no sampling, 4 questions × 3 advisors per step; KL 0.1 / 0.1 / 0.02; lr 5e-6; ≤ 64 steps; five acceptance checks. Decoding: greedy, ≤ 1,024 tokens, ≤ 3 calls. The appendix adds full prompts, split definitions and per-condition rules, marking what we could not recover.
 
-**Other suggestions**
+**Your suggestions**
 
-We will add a configuration table with one row per result (single-pass S1 and RSI S1 are the same adapter) and keep the qualification on the 91.7% oracle. MARGENT uses 40–81% fewer tokens than the untrained manager (2.2k–3.2k vs. 5.3k–11.8k per question, one run) at 1–5 points lower accuracy on three benchmarks; we will add offline cost and a common-budget accuracy–token curve. "Success" uses Dynamic's records but draws each target uniformly from all successful options instead of the shortest.
+1. *Configuration table.* We will add one, with a row per result. Single-pass S1 and RSI S1 are the same adapter run by two evaluation loops; the replays are listed separately.
+2. *The 91.7% oracle.* Agreed. We will always describe it as a macro-average over the measured pools and search depths.
+3. *Cost.* MARGENT uses 40–81% fewer tokens than the untrained manager (2.2k–3.2k vs. 5.3k–11.8k per question, one run), at 1–5 points lower accuracy on three benchmarks. We will add the offline collection and training cost and a common-budget accuracy–token curve.
+4. *"Success" in Table 12.* It trains on the same records as Dynamic, but each target is drawn uniformly from all successful options instead of being the shortest one.
 
 Thank you again; these experiments made the paper clearer and more accurate.
